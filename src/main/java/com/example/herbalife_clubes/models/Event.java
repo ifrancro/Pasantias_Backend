@@ -1,19 +1,18 @@
-package com.example.herbalife_clubes.models.PedidosApartado;
+package com.example.herbalife_clubes.models;
 
-import com.example.herbalife_clubes.models.Club;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "products")
+@Table(name = "events")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Product {
+public class Event {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -23,8 +22,6 @@ public class Product {
     private Club club;
 
     private String name;
+    private LocalDateTime eventDate;
     private String description;
-    private BigDecimal price; //tipo de dato que sirve para ser mas precisos con los numeros decimales
-    private String imageUrl;
-    private Boolean isAvailable;
 }

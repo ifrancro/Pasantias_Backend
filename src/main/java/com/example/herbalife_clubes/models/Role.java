@@ -1,4 +1,4 @@
-package com.example.herbalife_clubes.models.UsersModul;
+package com.example.herbalife_clubes.models;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

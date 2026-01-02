@@ -5,26 +5,25 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "attendances")
+@Table(name = "membership_achievements")
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Attendance {
+public class MembershipAchievement {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "membership_id", nullable = false)
+    @JoinColumn(name = "membership_id")
     private Membership membership;
 
-    private LocalDateTime checkInTime;
-    private LocalDate checkInDate;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "achievement_id")
+    private Achievement achievement;
 
-    private String consumptionNote;
-    private String status;
+    private LocalDateTime obtainedAt;
 }

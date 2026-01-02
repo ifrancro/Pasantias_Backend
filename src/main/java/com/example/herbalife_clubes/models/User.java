@@ -1,12 +1,12 @@
-package com.example.herbalife_clubes.models.UsersModul;
+package com.example.herbalife_clubes.models;
 
-import com.example.herbalife_clubes.models.ClubsModul.Club;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -35,7 +35,7 @@ public class User {
     private String password;
 
 
-    //DAtos nulleables (de momento)
+    //Datos nulleables (de momento)
     private String phone; //telefonos
     private LocalDate birthDate; //fecha de cumpleaños
     private String socialMedia; //red_social
