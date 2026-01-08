@@ -1,6 +1,7 @@
 package com.example.herbalife_clubes.exceptions;
 
 import com.example.herbalife_clubes.common.ApiResponse;
+import io.swagger.v3.oas.annotations.Hidden;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @ControllerAdvice
+@Hidden
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
