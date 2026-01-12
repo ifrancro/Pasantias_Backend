@@ -3,7 +3,7 @@
 ## 📋 Prerequisitos
 - Java 17+
 - Maven
-- MySQL 8.0+ (puerto 3306)
+- PostgreSQL 14+ (puerto 5432) o MySQL 8.0+ (puerto 3306)
 
 ## ⚙️ Configuración (5 minutos)
 
@@ -13,7 +13,14 @@ git clone <tu-repo-url>
 cd Pasantias_Backend
 ```
 
-### 2️⃣ Crear base de datos MySQL
+### 2️⃣ Crear base de datos PostgreSQL (recomendado) o MySQL
+
+**PostgreSQL:**
+```sql
+CREATE DATABASE HerbalifeClubesDB;
+```
+
+**MySQL:**
 ```sql
 CREATE DATABASE HerbalifeClubesDB;
 ```
@@ -35,11 +42,19 @@ JWT_SECRET=tu_clave_base64_aqui
 Para generar clave: usa un generador online de base64 (64 caracteres) o ejecuta el comando de PowerShell arriba.
 
 ### 4️⃣ Verificar `application.properties`
-Asegúrate que tenga:
+Asegúrate que tenga (PostgreSQL por defecto):
+```properties
+spring.datasource.url=jdbc:postgresql://localhost:5432/HerbalifeClubesDB
+spring.datasource.username=postgres
+spring.datasource.password=postgres
+```
+
+**Si usas MySQL localmente**, cambia a:
 ```properties
 spring.datasource.url=jdbc:mysql://localhost:3306/HerbalifeClubesDB
 spring.datasource.username=root
 spring.datasource.password=root
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
 ```
 
 ### 5️⃣ Ejecutar proyecto
