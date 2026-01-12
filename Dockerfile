@@ -18,7 +18,7 @@ EXPOSE 9090
 # Variables de entorno que Render debe configurar:
 # - JWT_SECRET (requerida)
 # - SERVER_PORT (opcional, Render puede asignar automáticamente)
-# - SPRING_DATASOURCE_URL (para la base de datos MySQL en Render)
+# - SPRING_DATASOURCE_URL (para la base de datos PostgreSQL en Render)
 # - SPRING_DATASOURCE_USERNAME
 # - SPRING_DATASOURCE_PASSWORD
 
