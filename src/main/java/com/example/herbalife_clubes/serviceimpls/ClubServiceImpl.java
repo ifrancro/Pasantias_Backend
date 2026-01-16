@@ -121,7 +121,8 @@ public class ClubServiceImpl implements ClubService {
 
     @Override
     public List<ClubDTO> getClubesActivos() {
-        List<Club> clubes = clubRepository.findByEstado("ACTIVO");
+        // Mostrar clubes con estado ACTIVO o APROBADO (visibles al público)
+        List<Club> clubes = clubRepository.findByEstadoIn(List.of("ACTIVO", "APROBADO"));
         return clubes.stream()
                 .map(ClubMapper::mapClubToClubDTO)
                 .collect(Collectors.toList());
@@ -129,8 +130,9 @@ public class ClubServiceImpl implements ClubService {
 
     @Override
     public ClubDTO getClubActivo(Integer clubId) {
-        Club club = clubRepository.findByIdAndEstado(clubId, "ACTIVO")
-                .orElseThrow(() -> new ResourceNotFoundException("Club activo no encontrado con id: " + clubId));
+        // Mostrar club si está ACTIVO o APROBADO (visible al público)
+        Club club = clubRepository.findByIdAndEstadoIn(clubId, List.of("ACTIVO", "APROBADO"))
+                .orElseThrow(() -> new ResourceNotFoundException("Club activo o aprobado no encontrado con id: " + clubId));
         return ClubMapper.mapClubToClubDTO(club);
     }
 }
