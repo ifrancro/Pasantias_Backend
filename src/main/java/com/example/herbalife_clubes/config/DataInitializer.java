@@ -52,6 +52,16 @@ public class DataInitializer implements CommandLineRunner {
             log.info("ℹ️  Rol ANFITRION ya existe");
         }
 
+        // Crear rol USUARIO_BASICO si no existe
+        if (rolRepository.findByNombre("USUARIO_BASICO").isEmpty()) {
+            Rol usuarioBasicoRol = new Rol();
+            usuarioBasicoRol.setNombre("USUARIO_BASICO");
+            rolRepository.save(usuarioBasicoRol);
+            log.info("✅ Rol USUARIO_BASICO creado");
+        } else {
+            log.info("ℹ️  Rol USUARIO_BASICO ya existe");
+        }
+
         log.info("✨ Inicialización de roles completada");
     }
 }

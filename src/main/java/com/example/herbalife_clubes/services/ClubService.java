@@ -14,5 +14,9 @@ public interface ClubService {
     ClubDTO rechazarClub(Integer clubId);
     ClubDTO activarClub(Integer clubId);
     ClubDTO desactivarClub(Integer clubId);
+    
+    // Métodos públicos para obtener solo clubes activos
+    List<ClubDTO> getClubesActivos();
+    ClubDTO getClubActivo(Integer clubId);
 }
 

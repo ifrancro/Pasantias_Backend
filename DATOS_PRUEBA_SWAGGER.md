@@ -28,11 +28,11 @@ Los roles típicos son:
 **Body:**
 ```json
 {
-  "nombre": "Carlos",
-  "apellido": "Ramírez",
+  "nombre": "Jairo",
+  "apellido": "Soliz",
   "email": "admin@herbalife.com",
   "password": "Admin123!",
-  "rolId": 1,
+  "rolId": 2,
   "telefono": "+57 300 123 4567",
   "fechaNacimiento": "1985-03-15",
   "redesSociales": "@admin_herbalife"

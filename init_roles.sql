@@ -14,6 +14,10 @@ INSERT INTO roles (nombre)
 SELECT 'ANFITRION' 
 WHERE NOT EXISTS (SELECT 1 FROM roles WHERE nombre = 'ANFITRION');
 
+INSERT INTO roles (nombre) 
+SELECT 'USUARIO_BASICO' 
+WHERE NOT EXISTS (SELECT 1 FROM roles WHERE nombre = 'USUARIO_BASICO');
+
 -- Verificar los roles creados
 SELECT * FROM roles ORDER BY id;
 

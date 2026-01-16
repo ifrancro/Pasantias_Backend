@@ -51,21 +51,15 @@ public class AuthServiceImpl implements AuthService {
             }
         }
 
-        // Asignar rol
-        if (request.getRolId() != null) {
-            Rol rol = rolRepository.findById(request.getRolId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Rol no encontrado con id: " + request.getRolId()));
-            usuario.setRol(rol);
-        } else {
-            // Rol por defecto (SOCIO)
-            Rol rolDefault = rolRepository.findByNombre("SOCIO")
-                    .orElseGet(() -> {
-                        Rol nuevoRol = new Rol();
-                        nuevoRol.setNombre("SOCIO");
-                        return rolRepository.save(nuevoRol);
-                    });
-            usuario.setRol(rolDefault);
-        }
+        // Asignar rol - Siempre asignar USUARIO_BASICO por defecto
+        // El rolId enviado por el cliente se IGNORA por seguridad (solo ADMIN puede asignar roles)
+        Rol rolDefault = rolRepository.findByNombre("USUARIO_BASICO")
+                .orElseGet(() -> {
+                    Rol nuevoRol = new Rol();
+                    nuevoRol.setNombre("USUARIO_BASICO");
+                    return rolRepository.save(nuevoRol);
+                });
+        usuario.setRol(rolDefault);
 
         usuario.setEstado("ACTIVO");
 

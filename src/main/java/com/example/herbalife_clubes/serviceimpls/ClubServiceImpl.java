@@ -118,5 +118,20 @@ public class ClubServiceImpl implements ClubService {
         Club updatedClub = clubRepository.save(club);
         return ClubMapper.mapClubToClubDTO(updatedClub);
     }
+
+    @Override
+    public List<ClubDTO> getClubesActivos() {
+        List<Club> clubes = clubRepository.findByEstado("ACTIVO");
+        return clubes.stream()
+                .map(ClubMapper::mapClubToClubDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public ClubDTO getClubActivo(Integer clubId) {
+        Club club = clubRepository.findByIdAndEstado(clubId, "ACTIVO")
+                .orElseThrow(() -> new ResourceNotFoundException("Club activo no encontrado con id: " + clubId));
+        return ClubMapper.mapClubToClubDTO(club);
+    }
 }
 
