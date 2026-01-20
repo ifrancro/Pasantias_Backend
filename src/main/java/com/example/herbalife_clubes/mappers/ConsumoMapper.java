@@ -12,11 +12,8 @@ public class ConsumoMapper {
         dto.setClubId(consumo.getClub() != null ? consumo.getClub().getId() : null);
         dto.setClubNombre(consumo.getClub() != null ? consumo.getClub().getNombreClub() : null);
         dto.setAsistenciaId(consumo.getAsistencia() != null ? consumo.getAsistencia().getId() : null);
-        dto.setProductoId(consumo.getProducto() != null ? consumo.getProducto().getId() : null);
-        dto.setProductoNombre(consumo.getProducto() != null ? consumo.getProducto().getNombre() : null);
+        dto.setPedidoId(consumo.getPedido() != null ? consumo.getPedido().getId() : null);
         dto.setDescripcion(consumo.getDescripcion());
-        dto.setCantidad(consumo.getCantidad());
-        dto.setPrecioRegistrado(consumo.getPrecioRegistrado());
         dto.setFechaHora(consumo.getFechaHora());
         dto.setCreatedAt(consumo.getCreatedAt());
         return dto;

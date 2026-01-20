@@ -8,48 +8,41 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "consumos")
+@Table(
+        name = "club_productos",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"club_id", "producto_id"})
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Consumo {
+public class ClubProducto {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "membresia_id", nullable = false)
-    private Membresia membresia;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "club_id", nullable = false)
     private Club club;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "asistencia_id")
-    private Asistencia asistencia;
+    @JoinColumn(name = "producto_id", nullable = false)
+    private Producto producto;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "pedido_id")
-    private Pedido pedido;
-
-    @Column(name = "descripcion", columnDefinition = "TEXT")
-    private String descripcion;
-
-    @Column(name = "fecha_hora")
-    private LocalDateTime fechaHora;
+    @Column(name = "disponible")
+    private Boolean disponible;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
-        if (fechaHora == null) {
-            fechaHora = LocalDateTime.now();
+        if (disponible == null) {
+            disponible = false;
         }
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
     }
 }
+
 

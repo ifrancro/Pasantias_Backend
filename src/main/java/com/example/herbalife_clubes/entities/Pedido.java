@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "pedidos")
@@ -25,40 +27,37 @@ public class Pedido {
     @JoinColumn(name = "club_id", nullable = false)
     private Club club;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "producto_id", nullable = false)
-    private Producto producto;
+    @Column(name = "horario_deseado", length = 255)
+    private String horarioDeseado;
 
-    @Column(name = "cantidad")
-    private Integer cantidad;
-
-    @Column(name = "horario_deseado")
-    private LocalDateTime horarioDeseado;
-
-    @Column(name = "tipo_consumo", length = 255)
-    private String tipoConsumo;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_consumo", nullable = false, length = 30)
+    private TipoConsumo tipoConsumo;
 
     @Column(name = "observaciones", columnDefinition = "TEXT")
     private String observaciones;
 
-    @Column(name = "estado", length = 255)
-    private String estado;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado", nullable = false, length = 30)
+    private EstadoPedido estado;
 
-    @Column(name = "fecha_creacion")
-    private LocalDateTime fechaCreacion;
+    @Column(name = "fecha_pedido")
+    private LocalDateTime fechaPedido;
 
-    @Column(name = "fecha_actualizacion")
-    private LocalDateTime fechaActualizacion;
+    @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PedidoItem> items = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {
-        fechaCreacion = LocalDateTime.now();
-        fechaActualizacion = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        fechaActualizacion = LocalDateTime.now();
+        if (fechaPedido == null) {
+            fechaPedido = LocalDateTime.now();
+        }
+        if (estado == null) {
+            estado = EstadoPedido.RECIBIDO;
+        }
+        if (tipoConsumo == null) {
+            tipoConsumo = TipoConsumo.EN_LUGAR;
+        }
     }
 }
 

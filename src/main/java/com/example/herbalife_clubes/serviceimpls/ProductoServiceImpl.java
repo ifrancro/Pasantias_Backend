@@ -2,10 +2,14 @@ package com.example.herbalife_clubes.serviceimpls;
 
 import com.example.herbalife_clubes.dtos.producto.ProductoDTO;
 import com.example.herbalife_clubes.entities.Club;
+import com.example.herbalife_clubes.entities.ClubProducto;
+import com.example.herbalife_clubes.entities.Hub;
 import com.example.herbalife_clubes.entities.Producto;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.ProductoMapper;
 import com.example.herbalife_clubes.repositories.ClubRepository;
+import com.example.herbalife_clubes.repositories.ClubProductoRepository;
+import com.example.herbalife_clubes.repositories.HubRepository;
 import com.example.herbalife_clubes.repositories.ProductoRepository;
 import com.example.herbalife_clubes.services.ProductoService;
 import lombok.AllArgsConstructor;
@@ -22,19 +26,37 @@ public class ProductoServiceImpl implements ProductoService {
     private ProductoRepository productoRepository;
     @Autowired
     private ClubRepository clubRepository;
+    @Autowired
+    private HubRepository hubRepository;
+    @Autowired
+    private ClubProductoRepository clubProductoRepository;
 
     @Override
     public ProductoDTO createProducto(ProductoDTO productoDTO, Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
-        
+        Hub hub = club.getHub();
+        if (hub == null) {
+            throw new IllegalArgumentException("El club no tiene HUB asociado");
+        }
+
         Producto producto = ProductoMapper.mapProductoDTOToProducto(productoDTO);
-        producto.setClub(club);
+        producto.setHub(hub);
         if (producto.getActivo() == null) {
             producto.setActivo(true);
         }
         
         Producto savedProducto = productoRepository.save(producto);
+
+        clubProductoRepository.findByClubIdAndProductoId(clubId, savedProducto.getId())
+                .orElseGet(() -> {
+                    ClubProducto cp = new ClubProducto();
+                    cp.setClub(club);
+                    cp.setProducto(savedProducto);
+                    cp.setDisponible(false);
+                    return clubProductoRepository.save(cp);
+                });
+
         return ProductoMapper.mapProductoToProductoDTO(savedProducto);
     }
 
@@ -45,7 +67,6 @@ public class ProductoServiceImpl implements ProductoService {
         
         producto.setNombre(productoDTO.getNombre());
         producto.setDescripcion(productoDTO.getDescripcion());
-        producto.setPrecioReferencial(productoDTO.getPrecioReferencial());
         producto.setActivo(productoDTO.getActivo());
         
         Producto updatedProducto = productoRepository.save(producto);
@@ -69,8 +90,8 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     public List<ProductoDTO> getProductosByClub(Integer clubId) {
-        List<Producto> productos = productoRepository.findByClubId(clubId);
-        return productos.stream()
+        return clubProductoRepository.findByClubIdAndDisponibleTrue(clubId).stream()
+                .map(ClubProducto::getProducto)
                 .map(ProductoMapper::mapProductoToProductoDTO)
                 .collect(Collectors.toList());
     }

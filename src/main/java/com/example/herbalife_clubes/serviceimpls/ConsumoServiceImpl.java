@@ -25,8 +25,6 @@ public class ConsumoServiceImpl implements ConsumoService {
     @Autowired
     private ClubRepository clubRepository;
     @Autowired
-    private ProductoRepository productoRepository;
-    @Autowired
     private AsistenciaRepository asistenciaRepository;
 
     @Override
@@ -43,18 +41,11 @@ public class ConsumoServiceImpl implements ConsumoService {
         consumo.setMembresia(membresia);
         consumo.setClub(club);
         consumo.setDescripcion(descripcion);
-        consumo.setCantidad(cantidad);
-        consumo.setPrecioRegistrado(precioReferencial);
-        
-        // Producto opcional
-        if (productoId != null) {
-            Producto producto = productoRepository.findById(productoId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
-            consumo.setProducto(producto);
-            // Si no se proporciona precio, usar el precio referencial del producto
-            if (consumo.getPrecioRegistrado() == null && producto.getPrecioReferencial() != null) {
-                consumo.setPrecioRegistrado(producto.getPrecioReferencial());
-            }
+        // Compatibilidad: antes existía productoId/cantidad/precioReferencial. Ahora NO se persisten.
+        // Si vienen, los agregamos a la descripción para no perder contexto.
+        if (productoId != null || cantidad != null || precioReferencial != null) {
+            String extra = " [compat productoId=" + productoId + ", cantidad=" + cantidad + ", ref=" + precioReferencial + "]";
+            consumo.setDescripcion((descripcion != null ? descripcion : "") + extra);
         }
         
         // Asistencia opcional

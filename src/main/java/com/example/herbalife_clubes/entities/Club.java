@@ -51,8 +51,7 @@ public class Club {
     @OneToMany(mappedBy = "club", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<FotoClub> fotos;
 
-    @OneToMany(mappedBy = "club", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Producto> productos;
+    // Productos disponibles por club se manejan en la tabla intermedia club_productos
 
     @OneToMany(mappedBy = "club", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Membresia> membresias;

@@ -4,7 +4,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -17,11 +16,8 @@ public class ConsumoDTO {
     private Integer clubId;
     private String clubNombre;
     private Integer asistenciaId;
-    private Integer productoId;
-    private String productoNombre;
+    private Integer pedidoId;
     private String descripcion;
-    private Integer cantidad;
-    private BigDecimal precioRegistrado;
     private LocalDateTime fechaHora;
     private LocalDateTime createdAt;
 }

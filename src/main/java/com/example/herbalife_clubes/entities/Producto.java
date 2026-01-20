@@ -5,7 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -19,17 +18,14 @@ public class Producto {
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "club_id", nullable = false)
-    private Club club;
+    @JoinColumn(name = "hub_id", nullable = false)
+    private Hub hub;
 
     @Column(name = "nombre", nullable = false, length = 255)
     private String nombre;
 
     @Column(name = "descripcion", columnDefinition = "TEXT")
     private String descripcion;
-
-    @Column(name = "precio_referencial", precision = 10, scale = 2)
-    private BigDecimal precioReferencial;
 
     @Column(name = "activo")
     private Boolean activo;

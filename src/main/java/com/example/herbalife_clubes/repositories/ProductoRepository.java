@@ -8,7 +8,7 @@ import java.util.List;
 
 @Repository
 public interface ProductoRepository extends JpaRepository<Producto, Integer> {
-    List<Producto> findByClubId(Integer clubId);
-    List<Producto> findByClubIdAndActivoTrue(Integer clubId);
+    List<Producto> findByHubId(Integer hubId);
+    List<Producto> findByHubIdAndActivoTrue(Integer hubId);
 }
 

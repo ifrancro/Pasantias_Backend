@@ -27,6 +27,8 @@ public class PedidoServiceImpl implements PedidoService {
     @Autowired
     private ProductoRepository productoRepository;
     @Autowired
+    private ClubProductoRepository clubProductoRepository;
+    @Autowired
     private NotificacionRepository notificacionRepository;
 
     @Override
@@ -38,14 +40,45 @@ public class PedidoServiceImpl implements PedidoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
+
+        // Validación HUB (club destino debe ser del mismo HUB que el club principal de la membresía)
+        if (membresia.getClub() == null || membresia.getClub().getHub() == null || club.getHub() == null) {
+            throw new IllegalArgumentException("No se puede validar HUB (club/membresía sin HUB)");
+        }
+        if (!membresia.getClub().getHub().getId().equals(club.getHub().getId())) {
+            throw new IllegalArgumentException("El club destino no pertenece al mismo HUB de la membresía");
+        }
+
+        // Producto debe pertenecer al HUB y estar disponible en el club
+        if (producto.getHub() == null || !producto.getHub().getId().equals(club.getHub().getId())) {
+            throw new IllegalArgumentException("El producto no pertenece al HUB del club");
+        }
+        ClubProducto cp = clubProductoRepository.findByClubIdAndProductoId(clubId, productoId)
+                .orElseThrow(() -> new IllegalArgumentException("El producto no está configurado para este club"));
+        if (cp.getDisponible() == null || !cp.getDisponible()) {
+            throw new IllegalArgumentException("El producto no está disponible en este club");
+        }
         
         Pedido pedido = PedidoMapper.mapPedidoDTOToPedido(pedidoDTO);
         pedido.setMembresia(membresia);
         pedido.setClub(club);
-        pedido.setProducto(producto);
-        if (pedido.getEstado() == null) {
-            pedido.setEstado("PENDIENTE");
+        // Compatibilidad: pedido viejo era 1 producto. Creamos 1 item.
+        PedidoItem item = new PedidoItem();
+        item.setPedido(pedido);
+        item.setProducto(producto);
+        item.setCantidad(pedidoDTO.getCantidad() != null ? pedidoDTO.getCantidad() : 1);
+        item.setNota(pedidoDTO.getObservaciones());
+        pedido.getItems().add(item);
+
+        // enums
+        pedido.setEstado(EstadoPedido.RECIBIDO);
+        try {
+            if (pedidoDTO.getTipoConsumo() != null) {
+                pedido.setTipoConsumo(TipoConsumo.valueOf(pedidoDTO.getTipoConsumo()));
+            }
+        } catch (Exception ignored) {
         }
+        pedido.setHorarioDeseado(pedidoDTO.getHorarioDeseado());
         
         Pedido savedPedido = pedidoRepository.save(pedido);
         
@@ -56,7 +89,7 @@ public class PedidoServiceImpl implements PedidoService {
             notificacion.setTitulo("Nuevo Pedido");
             notificacion.setMensaje("El socio " + membresia.getNumeroSocio() + " ha realizado un pedido de " + 
                     producto.getNombre() + " en tu club " + club.getNombreClub());
-            notificacion.setTipoSegmentacion("PEDIDO");
+            notificacion.setTipoSegmentacion("pedido");
             notificacion.setClub(club);
             notificacion.setUsuario(anfitrion);
             notificacion.setPedido(savedPedido);
@@ -93,7 +126,7 @@ public class PedidoServiceImpl implements PedidoService {
     public PedidoDTO actualizarEstado(Integer pedidoId, String estado) {
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado con id: " + pedidoId));
-        pedido.setEstado(estado);
+        pedido.setEstado(EstadoPedido.valueOf(estado));
         Pedido updatedPedido = pedidoRepository.save(pedido);
         return PedidoMapper.mapPedidoToPedidoDTO(updatedPedido);
     }
@@ -103,11 +136,11 @@ public class PedidoServiceImpl implements PedidoService {
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado con id: " + pedidoId));
         
-        if ("ENTREGADO".equalsIgnoreCase(pedido.getEstado()) || "CANCELADO".equalsIgnoreCase(pedido.getEstado())) {
-            throw new IllegalArgumentException("No se puede cancelar un pedido que ya está " + pedido.getEstado());
+        if (EstadoPedido.ENTREGADO.equals(pedido.getEstado()) || EstadoPedido.CANCELADO.equals(pedido.getEstado())) {
+            throw new IllegalArgumentException("No se puede cancelar un pedido que ya está " + pedido.getEstado().name());
         }
         
-        pedido.setEstado("CANCELADO");
+        pedido.setEstado(EstadoPedido.CANCELADO);
         Pedido updatedPedido = pedidoRepository.save(pedido);
         return PedidoMapper.mapPedidoToPedidoDTO(updatedPedido);
     }

@@ -11,26 +11,26 @@ public class PedidoMapper {
         dto.setMembresiaNumeroSocio(pedido.getMembresia() != null ? pedido.getMembresia().getNumeroSocio() : null);
         dto.setClubId(pedido.getClub() != null ? pedido.getClub().getId() : null);
         dto.setClubNombre(pedido.getClub() != null ? pedido.getClub().getNombreClub() : null);
-        dto.setProductoId(pedido.getProducto() != null ? pedido.getProducto().getId() : null);
-        dto.setProductoNombre(pedido.getProducto() != null ? pedido.getProducto().getNombre() : null);
-        dto.setCantidad(pedido.getCantidad());
+        // Compatibilidad: si el pedido tiene items, exponer el primero en productoId/cantidad
+        if (pedido.getItems() != null && !pedido.getItems().isEmpty()) {
+            var item = pedido.getItems().get(0);
+            dto.setProductoId(item.getProducto() != null ? item.getProducto().getId() : null);
+            dto.setProductoNombre(item.getProducto() != null ? item.getProducto().getNombre() : null);
+            dto.setCantidad(item.getCantidad());
+        }
         dto.setHorarioDeseado(pedido.getHorarioDeseado());
-        dto.setTipoConsumo(pedido.getTipoConsumo());
+        dto.setTipoConsumo(pedido.getTipoConsumo() != null ? pedido.getTipoConsumo().name() : null);
         dto.setObservaciones(pedido.getObservaciones());
-        dto.setEstado(pedido.getEstado());
-        dto.setFechaCreacion(pedido.getFechaCreacion());
-        dto.setFechaActualizacion(pedido.getFechaActualizacion());
+        dto.setEstado(pedido.getEstado() != null ? pedido.getEstado().name() : null);
+        dto.setFechaPedido(pedido.getFechaPedido());
         return dto;
     }
 
     public static Pedido mapPedidoDTOToPedido(PedidoDTO dto) {
         Pedido pedido = new Pedido();
         pedido.setId(dto.getId());
-        pedido.setCantidad(dto.getCantidad());
         pedido.setHorarioDeseado(dto.getHorarioDeseado());
-        pedido.setTipoConsumo(dto.getTipoConsumo());
         pedido.setObservaciones(dto.getObservaciones());
-        pedido.setEstado(dto.getEstado());
         return pedido;
     }
 }
