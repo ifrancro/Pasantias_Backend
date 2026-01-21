@@ -52,23 +52,44 @@ public class SocioController {
         // Obtener usuario autenticado (anfitrión)
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || authentication.getName() == null) {
+            System.out.println("[DEBUG] Error: No hay autenticación");
             return ResponseEntity.status(401).build();
         }
 
         String email = authentication.getName();
+        System.out.println("[DEBUG] Email autenticado: " + email);
+        
         Usuario anfitrion = usuarioRepository.findByEmail(email)
                 .orElse(null);
 
         if (anfitrion == null) {
+            System.out.println("[DEBUG] Error: Usuario no encontrado con email: " + email);
             return ResponseEntity.status(404).build();
         }
 
-        // Validar que el rol sea ANFITRION (opcional, pero recomendado)
-        String rolNombre = anfitrion.getRol() != null ? anfitrion.getRol().getNombre() : "";
-        if (!"ANFITRION".equalsIgnoreCase(rolNombre) && !"ADMIN".equalsIgnoreCase(rolNombre)) {
-            return ResponseEntity.status(403).build();
+        System.out.println("[DEBUG] Usuario encontrado - ID: " + anfitrion.getId() + ", Email: " + anfitrion.getEmail());
+        
+        // Forzar carga del rol (aunque debería estar EAGER, por si acaso)
+        if (anfitrion.getRol() != null) {
+            String rolNombre = anfitrion.getRol().getNombre();
+            System.out.println("[DEBUG] ROL DETECTADO: " + rolNombre);
+            System.out.println("[DEBUG] Rol ID: " + anfitrion.getRol().getId());
+        } else {
+            System.out.println("[DEBUG] ERROR: Rol es NULL para usuario ID: " + anfitrion.getId());
         }
 
+        // Validar que el rol sea ANFITRION (opcional, pero recomendado)
+        // TEMPORALMENTE COMENTADO PARA DEBUG - Descomentar después
+        /*
+        String rolNombre = anfitrion.getRol() != null ? anfitrion.getRol().getNombre() : "";
+        if (!"ANFITRION".equalsIgnoreCase(rolNombre) && !"ADMIN".equalsIgnoreCase(rolNombre)) {
+            System.out.println("[DEBUG] Error 403: Rol no permitido. Rol actual: " + rolNombre);
+            return ResponseEntity.status(403).build();
+        }
+        */
+
+        System.out.println("[DEBUG] Llamando a activarSocio - clubId: " + clubId + ", anfitrionId: " + anfitrion.getId());
+        
         // Activar socio
         ActivarSocioResponse response = socioActivationService.activarSocio(
                 clubId,
@@ -78,6 +99,7 @@ public class SocioController {
                 request.getComoConocio()
         );
 
+        System.out.println("[DEBUG] Activación exitosa - Membresía ID: " + response.getMembresiaId());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

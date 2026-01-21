@@ -50,9 +50,40 @@ public class SocioActivationServiceImpl implements SocioActivationService {
     public ActivarSocioResponse activarSocio(Integer clubId, Integer anfitrionId, String activationPayload,
                                              String referidoPor, String comoConocio) {
         
+        System.out.println("[DEBUG SERVICE] Iniciando activarSocio - clubId: " + clubId + ", anfitrionId: " + anfitrionId);
+        
         // 1. Validar que el anfitrión es dueño del club
-        Club club = clubRepository.findByIdAndAnfitrionId(clubId, anfitrionId)
-                .orElseThrow(() -> new AccessDeniedException("No eres el anfitrión de este club"));
+        // Primero intentar con el método del repositorio
+        Optional<Club> clubOpt = clubRepository.findByIdAndAnfitrionId(clubId, anfitrionId);
+        
+        if (clubOpt.isEmpty()) {
+            System.out.println("[DEBUG SERVICE] No se encontró club con findByIdAndAnfitrionId");
+            System.out.println("[DEBUG SERVICE] Buscando club por ID: " + clubId);
+            
+            // Intentar validación alternativa: buscar el club y verificar manualmente
+            Optional<Club> clubByIdOpt = clubRepository.findById(clubId);
+            if (clubByIdOpt.isPresent()) {
+                Club clubTemp = clubByIdOpt.get();
+                // Forzar carga del anfitrión
+                Integer anfitrionIdDelClub = clubTemp.getAnfitrion() != null ? clubTemp.getAnfitrion().getId() : null;
+                System.out.println("[DEBUG SERVICE] Club encontrado - Anfitrión ID del club: " + anfitrionIdDelClub + ", Anfitrión ID esperado: " + anfitrionId);
+                
+                if (anfitrionIdDelClub != null && anfitrionIdDelClub.equals(anfitrionId)) {
+                    clubOpt = Optional.of(clubTemp);
+                    System.out.println("[DEBUG SERVICE] Validación alternativa exitosa - El anfitrión es dueño del club");
+                } else {
+                    System.out.println("[DEBUG SERVICE] ERROR: El anfitrión NO es dueño del club");
+                    throw new AccessDeniedException("No eres el anfitrión de este club. Club anfitrión ID: " + anfitrionIdDelClub + ", Tu ID: " + anfitrionId);
+                }
+            } else {
+                System.out.println("[DEBUG SERVICE] ERROR: Club no encontrado con ID: " + clubId);
+                throw new ResourceNotFoundException("Club no encontrado con ID: " + clubId);
+            }
+        } else {
+            System.out.println("[DEBUG SERVICE] Club encontrado correctamente con findByIdAndAnfitrionId");
+        }
+        
+        Club club = clubOpt.orElseThrow(() -> new AccessDeniedException("No eres el anfitrión de este club"));
 
         // 2. Parsear userId desde activationPayload
         Integer usuarioId = parsearUsuarioIdDesdePayload(activationPayload);
