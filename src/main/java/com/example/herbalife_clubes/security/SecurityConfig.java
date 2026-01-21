@@ -29,6 +29,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/login",
                                 "/api/auth/register",
+                                "/api/auth/register-basico", // Público: registro de usuarios básicos
                                 "/api/public/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
@@ -37,6 +38,10 @@ public class SecurityConfig {
                                 "/webjars/**"
                         ).permitAll()
                         .requestMatchers("/api/auth/me").authenticated()
+                        // Endpoints de QR y activación - autenticados (validación de roles en controladores)
+                        .requestMatchers("/api/usuarios/me/qr-activacion").authenticated()
+                        .requestMatchers("/api/clubes/**/socios/activar").authenticated()
+                        .requestMatchers("/api/socios/me/qr").authenticated()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->

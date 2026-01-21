@@ -3,6 +3,8 @@ package com.example.herbalife_clubes.controllers.auth;
 import com.example.herbalife_clubes.dtos.auth.AuthenticationRequest;
 import com.example.herbalife_clubes.dtos.auth.AuthenticationResponse;
 import com.example.herbalife_clubes.dtos.auth.RegisterRequest;
+import com.example.herbalife_clubes.dtos.auth.RegisterBasicoRequest;
+import com.example.herbalife_clubes.dtos.auth.RegisterBasicoResponse;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.AuthServiceImpl;
@@ -24,6 +26,22 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<AuthenticationResponse> register(@RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.register(request));
+    }
+
+    /**
+     * Endpoint para registro de usuarios básicos.
+     * Crea un usuario con rol USUARIO_BASICO y devuelve el QR de activación.
+     * 
+     * FLUJO:
+     * 1. Usuario se registra -> se crea con rol USUARIO_BASICO
+     * 2. Se genera QR de activación: "ACTIVATE:{userId}"
+     * 3. El front genera la imagen QR con ese payload
+     * 4. Usuario muestra su QR de activación
+     * 5. Anfitrión escanea el QR y activa al usuario como socio
+     */
+    @PostMapping("/register-basico")
+    public ResponseEntity<RegisterBasicoResponse> registerBasico(@RequestBody RegisterBasicoRequest request) {
+        return ResponseEntity.ok(authService.registerBasico(request));
     }
 
     @PostMapping("/login")

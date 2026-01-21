@@ -11,5 +11,7 @@ import java.util.Optional;
 public interface MembresiaRepository extends JpaRepository<Membresia, Integer> {
     Optional<Membresia> findByUsuarioId(Integer usuarioId);
     List<Membresia> findByClubId(Integer clubId);
+    boolean existsByUsuarioId(Integer usuarioId);
+    Optional<Membresia> findByNumeroSocio(String numeroSocio);
 }
 

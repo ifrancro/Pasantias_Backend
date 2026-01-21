@@ -15,5 +15,6 @@ public interface ClubRepository extends JpaRepository<Club, Integer> {
     Optional<Club> findByIdAndEstado(Integer id, String estado);
     List<Club> findByEstadoIn(List<String> estados);
     Optional<Club> findByIdAndEstadoIn(Integer id, List<String> estados);
+    Optional<Club> findByIdAndAnfitrionId(Integer id, Integer anfitrionId);
 }
 
