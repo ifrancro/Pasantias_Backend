@@ -40,7 +40,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/me").authenticated()
                         // Endpoints de QR y activación - autenticados (validación de roles en controladores)
                         .requestMatchers("/api/usuarios/me/qr-activacion").authenticated()
-                        .requestMatchers("/api/clubes/**/socios/activar").authenticated()
+                        .requestMatchers("/api/clubes/*/socios/activar").authenticated() // Patrón corregido: un solo nivel para clubId
                         .requestMatchers("/api/socios/me/qr").authenticated()
                         .anyRequest().authenticated()
                 )
