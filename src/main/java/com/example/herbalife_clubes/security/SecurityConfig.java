@@ -10,6 +10,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.config.Customizer;
 
 @Configuration
 @EnableWebSecurity
@@ -23,7 +24,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-                .cors(cors -> cors.configure(http))
+                .cors(Customizer.withDefaults()) // Usa automáticamente el CorsConfig bean
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -42,6 +43,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/usuarios/me/qr-activacion").authenticated()
                         .requestMatchers("/api/clubes/*/socios/activar").authenticated() // Patrón corregido: un solo nivel para clubId
                         .requestMatchers("/api/socios/me/qr").authenticated()
+                        // Rutas de clubes (incluye productos) - autenticadas
+                        .requestMatchers("/api/clubes/**").authenticated()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
