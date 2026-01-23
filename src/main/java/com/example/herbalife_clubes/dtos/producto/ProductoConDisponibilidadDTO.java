@@ -1,0 +1,29 @@
+package com.example.herbalife_clubes.dtos.producto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
+
+/**
+ * DTO para productos que incluye información de disponibilidad en un club específico.
+ * Usado para el catálogo del Hub donde el anfitrión puede ver todos los productos
+ * y su estado de disponibilidad en su club.
+ */
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ProductoConDisponibilidadDTO {
+    private Integer id;
+    private Integer hubId;
+    private String hubNombre;
+    private String nombre;
+    private String descripcion;
+    private Boolean activo; // Estado global del producto
+    private Boolean disponible; // Estado local en el club (null si no existe relación)
+    private LocalDateTime createdAt;
+}
+

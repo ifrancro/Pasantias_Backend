@@ -57,5 +57,34 @@ public class ProductoController {
         ProductoDTO productoDTO = productoService.desactivarProducto(id);
         return ResponseEntity.ok(productoDTO);
     }
+
+    /**
+     * Obtiene el catálogo completo de productos de un Hub.
+     * Incluye información de disponibilidad en un club específico si se proporciona.
+     * 
+     * Endpoint: GET /api/productos/hub/{hubId}?clubId={clubId}
+     * 
+     * @param hubId ID del Hub (requerido)
+     * @param clubId ID del club (opcional) - si se proporciona, incluye info de disponibilidad
+     * @return Lista de productos con información de disponibilidad
+     */
+    /**
+     * Obtiene el catálogo completo de productos de un Hub.
+     * Incluye información de disponibilidad en un club específico si se proporciona.
+     * 
+     * Endpoint: GET /api/productos/hub/{hubId}?clubId={clubId}
+     * 
+     * @param hubId ID del Hub (requerido)
+     * @param clubId ID del club (opcional) - si se proporciona, incluye info de disponibilidad
+     * @return Lista de productos con información de disponibilidad
+     */
+    @GetMapping("/hub/{hubId}")
+    public ResponseEntity<List<com.example.herbalife_clubes.dtos.producto.ProductoConDisponibilidadDTO>> getProductosByHub(
+            @PathVariable Integer hubId,
+            @RequestParam(required = false) Integer clubId) {
+        List<com.example.herbalife_clubes.dtos.producto.ProductoConDisponibilidadDTO> productos = 
+                productoService.getProductosByHub(hubId, clubId);
+        return ResponseEntity.ok(productos);
+    }
 }
 

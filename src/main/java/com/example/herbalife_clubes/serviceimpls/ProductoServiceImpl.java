@@ -1,6 +1,7 @@
 package com.example.herbalife_clubes.serviceimpls;
 
 import com.example.herbalife_clubes.dtos.producto.ProductoDTO;
+import com.example.herbalife_clubes.dtos.producto.ProductoConDisponibilidadDTO;
 import com.example.herbalife_clubes.entities.Club;
 import com.example.herbalife_clubes.entities.ClubProducto;
 import com.example.herbalife_clubes.entities.Hub;
@@ -17,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -112,6 +114,78 @@ public class ProductoServiceImpl implements ProductoService {
         producto.setActivo(false);
         Producto updatedProducto = productoRepository.save(producto);
         return ProductoMapper.mapProductoToProductoDTO(updatedProducto);
+    }
+
+    @Override
+    public List<ProductoConDisponibilidadDTO> getProductosByHub(Integer hubId, Integer clubId) {
+        // Obtener todos los productos del Hub (sin filtrar por activo ni disponibilidad)
+        List<Producto> productos = productoRepository.findByHubId(hubId);
+        
+        return productos.stream()
+                .map(producto -> {
+                    // Buscar si existe relación en club_productos
+                    Boolean disponible = null;
+                    if (clubId != null) {
+                        Optional<ClubProducto> clubProductoOpt = 
+                                clubProductoRepository.findByClubIdAndProductoId(clubId, producto.getId());
+                        disponible = clubProductoOpt.map(ClubProducto::getDisponible).orElse(null);
+                    }
+                    
+                    return ProductoConDisponibilidadDTO.builder()
+                            .id(producto.getId())
+                            .hubId(producto.getHub() != null ? producto.getHub().getId() : null)
+                            .hubNombre(producto.getHub() != null ? producto.getHub().getNombre() : null)
+                            .nombre(producto.getNombre())
+                            .descripcion(producto.getDescripcion())
+                            .activo(producto.getActivo())
+                            .disponible(disponible) // null si no hay relación, true/false si existe
+                            .createdAt(producto.getCreatedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public ProductoConDisponibilidadDTO toggleDisponibilidadEnClub(Integer clubId, Integer productoId) {
+        // Validar que el club existe
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+        
+        // Validar que el producto existe
+        Producto producto = productoRepository.findById(productoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
+        
+        // Validar que el producto pertenece al mismo Hub que el club
+        if (!producto.getHub().getId().equals(club.getHub().getId())) {
+            throw new IllegalArgumentException("El producto no pertenece al mismo Hub que el club");
+        }
+        
+        // Buscar o crear la relación en club_productos
+        ClubProducto clubProducto = clubProductoRepository
+                .findByClubIdAndProductoId(clubId, productoId)
+                .orElseGet(() -> {
+                    ClubProducto nuevo = new ClubProducto();
+                    nuevo.setClub(club);
+                    nuevo.setProducto(producto);
+                    nuevo.setDisponible(false); // Por defecto false
+                    return nuevo;
+                });
+        
+        // Toggle del estado disponible (solo en club_productos, NO toca el activo global)
+        clubProducto.setDisponible(!clubProducto.getDisponible());
+        clubProducto = clubProductoRepository.save(clubProducto);
+        
+        // Construir y devolver el DTO
+        return ProductoConDisponibilidadDTO.builder()
+                .id(producto.getId())
+                .hubId(producto.getHub() != null ? producto.getHub().getId() : null)
+                .hubNombre(producto.getHub() != null ? producto.getHub().getNombre() : null)
+                .nombre(producto.getNombre())
+                .descripcion(producto.getDescripcion())
+                .activo(producto.getActivo()) // Estado global (no se modifica)
+                .disponible(clubProducto.getDisponible()) // Estado local en el club
+                .createdAt(producto.getCreatedAt())
+                .build();
     }
 }
 
