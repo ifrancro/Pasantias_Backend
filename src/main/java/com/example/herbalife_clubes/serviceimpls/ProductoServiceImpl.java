@@ -142,10 +142,13 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     public List<ProductoConDisponibilidadDTO> getProductosByHub(Integer hubId, Integer clubId) {
+        System.out.println("[DEBUG] getProductosByHub - hubId: " + hubId + ", clubId: " + clubId);
+        
         // Obtener todos los productos del Hub (sin filtrar por activo ni disponibilidad)
         List<Producto> productos = productoRepository.findByHubId(hubId);
+        System.out.println("[DEBUG] Total de productos encontrados en Hub " + hubId + ": " + productos.size());
         
-        return productos.stream()
+        List<ProductoConDisponibilidadDTO> resultado = productos.stream()
                 .map(producto -> {
                     // Buscar si existe relación en club_productos
                     Boolean disponible = null;
@@ -153,6 +156,11 @@ public class ProductoServiceImpl implements ProductoService {
                         Optional<ClubProducto> clubProductoOpt = 
                                 clubProductoRepository.findByClubIdAndProductoId(clubId, producto.getId());
                         disponible = clubProductoOpt.map(ClubProducto::getDisponible).orElse(null);
+                        System.out.println("[DEBUG] Producto ID: " + producto.getId() + ", Nombre: " + producto.getNombre() + 
+                                         ", Disponible: " + disponible + " (null = sin relación)");
+                    } else {
+                        System.out.println("[DEBUG] Producto ID: " + producto.getId() + ", Nombre: " + producto.getNombre() + 
+                                         ", Disponible: null (no clubId)");
                     }
                     
                     return ProductoConDisponibilidadDTO.builder()
@@ -167,6 +175,9 @@ public class ProductoServiceImpl implements ProductoService {
                             .build();
                 })
                 .collect(Collectors.toList());
+        
+        System.out.println("[DEBUG] Total de productos en respuesta: " + resultado.size());
+        return resultado;
     }
 
     @Override
