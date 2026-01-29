@@ -7,6 +7,18 @@ import java.util.List;
 
 public interface ProductoService {
     ProductoDTO createProducto(ProductoDTO productoDTO, Integer clubId);
+    
+    /**
+     * Crea un producto directamente desde un Hub.
+     * NO crea relaciones ClubProducto automáticamente.
+     * El producto aparecerá en el catálogo del hub y cada club podrá habilitarlo individualmente.
+     * 
+     * @param productoDTO DTO con los datos del producto
+     * @param hubId ID del Hub
+     * @return ProductoDTO creado
+     */
+    ProductoDTO createProductoFromHub(ProductoDTO productoDTO, Integer hubId);
+    
     ProductoDTO updateProducto(Integer productoId, ProductoDTO productoDTO);
     ProductoDTO getProducto(Integer productoId);
     List<ProductoDTO> getProductos();

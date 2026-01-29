@@ -16,10 +16,40 @@ public class ProductoController {
     @Autowired
     private ProductoService productoService;
 
+    /**
+     * Crea un producto.
+     * 
+     * FLUJO:
+     * 1. Si se proporciona hubId en el DTO: crea producto desde el hub (sin crear relaciones ClubProducto)
+     *    - El producto aparecerá disponible para todos los clubs del hub
+     *    - Cada club podrá habilitarlo individualmente usando el toggle
+     * 
+     * 2. Si se proporciona clubId como query param: mantiene comportamiento legacy
+     *    - Crea producto y relación ClubProducto automáticamente
+     * 
+     * @param productoDTO DTO con los datos del producto (puede incluir hubId)
+     * @param clubId ID del club (opcional, para compatibilidad con código legacy)
+     * @return ProductoDTO creado
+     */
     @PostMapping
     public ResponseEntity<ProductoDTO> createProducto(@RequestBody ProductoDTO productoDTO,
-                                                       @RequestParam Integer clubId) {
-        ProductoDTO savedProductoDTO = productoService.createProducto(productoDTO, clubId);
+                                                       @RequestParam(required = false) Integer clubId) {
+        ProductoDTO savedProductoDTO;
+        
+        // Si viene hubId en el DTO, crear desde hub (nuevo flujo)
+        if (productoDTO.getHubId() != null) {
+            savedProductoDTO = productoService.createProductoFromHub(productoDTO, productoDTO.getHubId());
+        } 
+        // Si viene clubId como query param, mantener comportamiento legacy
+        else if (clubId != null) {
+            savedProductoDTO = productoService.createProducto(productoDTO, clubId);
+        } 
+        // Si no viene ninguno, error
+        else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .build();
+        }
+        
         return new ResponseEntity<>(savedProductoDTO, HttpStatus.CREATED);
     }
 

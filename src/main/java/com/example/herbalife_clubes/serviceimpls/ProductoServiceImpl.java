@@ -50,6 +50,7 @@ public class ProductoServiceImpl implements ProductoService {
         
         Producto savedProducto = productoRepository.save(producto);
 
+        // Crear relación ClubProducto automáticamente (comportamiento legacy)
         clubProductoRepository.findByClubIdAndProductoId(clubId, savedProducto.getId())
                 .orElseGet(() -> {
                     ClubProducto cp = new ClubProducto();
@@ -58,6 +59,29 @@ public class ProductoServiceImpl implements ProductoService {
                     cp.setDisponible(false);
                     return clubProductoRepository.save(cp);
                 });
+
+        return ProductoMapper.mapProductoToProductoDTO(savedProducto);
+    }
+
+    @Override
+    public ProductoDTO createProductoFromHub(ProductoDTO productoDTO, Integer hubId) {
+        // Validar que el hub existe
+        Hub hub = hubRepository.findById(hubId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hub no encontrado con id: " + hubId));
+
+        // Crear producto desde el DTO
+        Producto producto = ProductoMapper.mapProductoDTOToProducto(productoDTO);
+        producto.setHub(hub);
+        
+        // Si no viene activo, por defecto true
+        if (producto.getActivo() == null) {
+            producto.setActivo(true);
+        }
+        
+        // Guardar producto (NO se crea relación ClubProducto automáticamente)
+        // Los clubs verán el producto en GET /api/productos/hub/{hubId}?clubId={clubId}
+        // y podrán habilitarlo usando el toggle
+        Producto savedProducto = productoRepository.save(producto);
 
         return ProductoMapper.mapProductoToProductoDTO(savedProducto);
     }
