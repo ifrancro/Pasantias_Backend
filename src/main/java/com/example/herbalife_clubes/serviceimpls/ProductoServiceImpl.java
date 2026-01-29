@@ -171,13 +171,47 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     public ProductoConDisponibilidadDTO toggleDisponibilidadEnClub(Integer clubId, Integer productoId) {
+        System.out.println("[DEBUG] toggleDisponibilidadEnClub - clubId: " + clubId + ", productoId: " + productoId);
+        
         // Validar que el club existe
         Club club = clubRepository.findById(clubId)
-                .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+                .orElseThrow(() -> {
+                    System.out.println("[ERROR] Club no encontrado con id: " + clubId);
+                    return new ResourceNotFoundException("Club no encontrado con id: " + clubId);
+                });
+        
+        System.out.println("[DEBUG] Club encontrado: " + club.getNombreClub());
         
         // Validar que el producto existe
-        Producto producto = productoRepository.findById(productoId)
-                .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
+        System.out.println("[DEBUG] Buscando producto con id: " + productoId);
+        System.out.println("[DEBUG] Tipo de productoId: " + productoId.getClass().getName());
+        
+        // Intentar buscar el producto
+        Optional<Producto> productoOpt = productoRepository.findById(productoId);
+        
+        if (productoOpt.isEmpty()) {
+            System.out.println("[ERROR] Producto no encontrado con id: " + productoId);
+            // Listar todos los productos del hub para debug
+            List<Producto> productosDelHub = productoRepository.findByHubId(club.getHub().getId());
+            System.out.println("[DEBUG] Total de productos en el Hub " + club.getHub().getId() + ": " + productosDelHub.size());
+            System.out.println("[DEBUG] Productos disponibles en el Hub:");
+            productosDelHub.forEach(p -> System.out.println("  - ID: " + p.getId() + " (tipo: " + p.getId().getClass().getName() + "), Nombre: " + p.getNombre()));
+            
+            // Verificar si hay algún producto con ID similar (por si hay problema de tipo)
+            productosDelHub.stream()
+                .filter(p -> p.getId().toString().equals(productoId.toString()))
+                .findFirst()
+                .ifPresentOrElse(
+                    p -> System.out.println("[DEBUG] ¡ENCONTRADO! Producto con ID como String coincide: " + p.getId()),
+                    () -> System.out.println("[DEBUG] No se encontró ningún producto con ID que coincida como String")
+                );
+            
+            throw new ResourceNotFoundException("Producto no encontrado con id: " + productoId + ". Verifica que el producto exista en el Hub " + club.getHub().getId());
+        }
+        
+        Producto producto = productoOpt.get();
+        
+        System.out.println("[DEBUG] Producto encontrado: " + producto.getNombre() + " (ID: " + producto.getId() + ")");
         
         // Validar que el producto pertenece al mismo Hub que el club
         if (!producto.getHub().getId().equals(club.getHub().getId())) {
