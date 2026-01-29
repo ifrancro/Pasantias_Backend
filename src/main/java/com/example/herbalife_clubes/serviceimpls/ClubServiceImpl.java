@@ -8,8 +8,12 @@ import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.ClubMapper;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.HubRepository;
+import com.example.herbalife_clubes.repositories.RolRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.services.ClubService;
+import com.example.herbalife_clubes.services.NotificacionService;
+import com.example.herbalife_clubes.dtos.notificacion.NotificacionDTO;
+import com.example.herbalife_clubes.entities.Rol;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,6 +30,10 @@ public class ClubServiceImpl implements ClubService {
     private HubRepository hubRepository;
     @Autowired
     private UsuarioRepository usuarioRepository;
+    @Autowired
+    private RolRepository rolRepository;
+    @Autowired
+    private NotificacionService notificacionService;
 
     @Override
     public ClubDTO createClub(ClubDTO clubDTO, Integer hubId, Integer anfitrionId) {
@@ -87,8 +95,28 @@ public class ClubServiceImpl implements ClubService {
     public ClubDTO aprobarClub(Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+        
+        // Cambiar el estado del club a APROBADO
         club.setEstado("APROBADO");
         Club updatedClub = clubRepository.save(club);
+        
+        // Cambiar el rol del usuario anfitrión a ANFITRION
+        Usuario anfitrion = club.getAnfitrion();
+        if (anfitrion != null) {
+            Rol rolAnfitrion = rolRepository.findByNombre("ANFITRION")
+                    .orElseThrow(() -> new ResourceNotFoundException("Rol ANFITRION no encontrado"));
+            anfitrion.setRol(rolAnfitrion);
+            usuarioRepository.save(anfitrion);
+            
+            // Enviar notificación de aprobación al anfitrión
+            NotificacionDTO notificacion = new NotificacionDTO();
+            notificacion.setTitulo("Solicitud de Club Aprobada");
+            notificacion.setMensaje("¡Felicitaciones! Tu solicitud para crear el club \"" + 
+                    club.getNombreClub() + "\" ha sido aprobada. Ahora eres anfitrión de club.");
+            notificacion.setTipoSegmentacion("USUARIO");
+            notificacionService.enviarNotificacion(notificacion, null, clubId, anfitrion.getId(), null);
+        }
+        
         return ClubMapper.mapClubToClubDTO(updatedClub);
     }
 
@@ -96,8 +124,22 @@ public class ClubServiceImpl implements ClubService {
     public ClubDTO rechazarClub(Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+        
+        // Cambiar el estado del club a RECHAZADO
         club.setEstado("RECHAZADO");
         Club updatedClub = clubRepository.save(club);
+        
+        // Enviar notificación de rechazo al usuario anfitrión
+        Usuario anfitrion = club.getAnfitrion();
+        if (anfitrion != null) {
+            NotificacionDTO notificacion = new NotificacionDTO();
+            notificacion.setTitulo("Solicitud de Club Rechazada");
+            notificacion.setMensaje("Lamentamos informarte que tu solicitud para crear el club \"" + 
+                    club.getNombreClub() + "\" ha sido rechazada. Por favor, contacta con el administrador para más información.");
+            notificacion.setTipoSegmentacion("USUARIO");
+            notificacionService.enviarNotificacion(notificacion, null, clubId, anfitrion.getId(), null);
+        }
+        
         return ClubMapper.mapClubToClubDTO(updatedClub);
     }
 

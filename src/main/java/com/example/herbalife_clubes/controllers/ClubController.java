@@ -24,6 +24,24 @@ public class ClubController {
         return new ResponseEntity<>(savedClubDTO, HttpStatus.CREATED);
     }
 
+    @PostMapping("/solicitud")
+    public ResponseEntity<ClubDTO> crearSolicitudClub(@RequestBody ClubDTO clubDTO) {
+        // Validar que el payload tenga los campos requeridos
+        if (clubDTO.getAnfitrionId() == null || clubDTO.getHubId() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        // Asegurar que el estado sea PENDIENTE
+        clubDTO.setEstado("PENDIENTE");
+        
+        ClubDTO savedClubDTO = clubService.createClub(
+            clubDTO, 
+            clubDTO.getHubId(), 
+            clubDTO.getAnfitrionId()
+        );
+        return new ResponseEntity<>(savedClubDTO, HttpStatus.CREATED);
+    }
+
     @GetMapping
     public ResponseEntity<List<ClubDTO>> getAllClubes(@RequestParam(required = false) Integer hubId) {
         List<ClubDTO> clubes;
