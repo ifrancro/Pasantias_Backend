@@ -18,5 +18,13 @@ public interface ClubService {
     // Métodos públicos para obtener solo clubes activos
     List<ClubDTO> getClubesActivos();
     ClubDTO getClubActivo(Integer clubId);
+    
+    /**
+     * Obtiene el club del anfitrión autenticado.
+     * Busca el club donde clubes.anfitrion_id == usuario_autenticado.id
+     * @param usuarioId ID del usuario autenticado
+     * @return ClubDTO del club del anfitrión
+     */
+    ClubDTO getClubByAnfitrion(Integer usuarioId);
 }
 

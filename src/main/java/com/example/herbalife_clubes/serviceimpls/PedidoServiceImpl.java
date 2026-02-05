@@ -34,12 +34,27 @@ public class PedidoServiceImpl implements PedidoService {
     @Override
     @Transactional
     public PedidoDTO createPedido(PedidoDTO pedidoDTO, Integer membresiaId, Integer clubId, Integer productoId) {
+        System.out.println("[PEDIDO] ===== INICIO CREAR PEDIDO =====");
+        System.out.println("[PEDIDO] Parámetros recibidos:");
+        System.out.println("[PEDIDO]   - membresiaId: " + membresiaId);
+        System.out.println("[PEDIDO]   - clubId: " + clubId);
+        System.out.println("[PEDIDO]   - productoId: " + productoId);
+        System.out.println("[PEDIDO]   - horarioDeseado: " + pedidoDTO.getHorarioDeseado());
+        System.out.println("[PEDIDO]   - tipoConsumo: " + pedidoDTO.getTipoConsumo());
+        System.out.println("[PEDIDO]   - cantidad: " + pedidoDTO.getCantidad());
+        System.out.println("[PEDIDO]   - observaciones: " + pedidoDTO.getObservaciones());
+        
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
+
+        System.out.println("[PEDIDO] Entidades encontradas:");
+        System.out.println("[PEDIDO]   - Membresía ID: " + membresia.getId() + ", Número Socio: " + membresia.getNumeroSocio());
+        System.out.println("[PEDIDO]   - Club ID: " + club.getId() + ", Nombre: " + club.getNombreClub());
+        System.out.println("[PEDIDO]   - Producto ID: " + producto.getId() + ", Nombre: " + producto.getNombre());
 
         // Validación HUB (club destino debe ser del mismo HUB que el club principal de la membresía)
         if (membresia.getClub() == null || membresia.getClub().getHub() == null || club.getHub() == null) {
@@ -80,7 +95,24 @@ public class PedidoServiceImpl implements PedidoService {
         }
         pedido.setHorarioDeseado(pedidoDTO.getHorarioDeseado());
         
+        System.out.println("[PEDIDO] ANTES DE GUARDAR:");
+        System.out.println("[PEDIDO]   - pedido.clubId: " + (pedido.getClub() != null ? pedido.getClub().getId() : "NULL"));
+        System.out.println("[PEDIDO]   - pedido.membresiaId: " + (pedido.getMembresia() != null ? pedido.getMembresia().getId() : "NULL"));
+        System.out.println("[PEDIDO]   - pedido.estado: " + pedido.getEstado());
+        System.out.println("[PEDIDO]   - pedido.fechaPedido: " + pedido.getFechaPedido());
+        System.out.println("[PEDIDO]   - items.size(): " + (pedido.getItems() != null ? pedido.getItems().size() : 0));
+        
         Pedido savedPedido = pedidoRepository.save(pedido);
+        
+        System.out.println("[PEDIDO] DESPUÉS DE GUARDAR:");
+        System.out.println("[PEDIDO]   - pedidoId: " + savedPedido.getId());
+        System.out.println("[PEDIDO]   - membresiaId: " + (savedPedido.getMembresia() != null ? savedPedido.getMembresia().getId() : "NULL"));
+        System.out.println("[PEDIDO]   - clubId: " + (savedPedido.getClub() != null ? savedPedido.getClub().getId() : "NULL"));
+        System.out.println("[PEDIDO]   - productoId: " + (savedPedido.getItems() != null && !savedPedido.getItems().isEmpty() 
+                ? savedPedido.getItems().get(0).getProducto().getId() : "NULL"));
+        System.out.println("[PEDIDO]   - estado: " + savedPedido.getEstado());
+        System.out.println("[PEDIDO]   - fechaPedido: " + savedPedido.getFechaPedido());
+        System.out.println("[PEDIDO] ===== FIN CREAR PEDIDO =====");
         
         // Crear notificación para el anfitrión del club
         Usuario anfitrion = club.getAnfitrion();
@@ -116,10 +148,46 @@ public class PedidoServiceImpl implements PedidoService {
 
     @Override
     public List<PedidoDTO> getPedidosByClub(Integer clubId) {
-        List<Pedido> pedidos = pedidoRepository.findByClubId(clubId);
-        return pedidos.stream()
+        System.out.println("[PEDIDO] ===== INICIO LISTAR PEDIDOS POR CLUB =====");
+        System.out.println("[PEDIDO] clubId recibido: " + clubId);
+        
+        // Obtener información del club para logging
+        Club club = clubRepository.findById(clubId).orElse(null);
+        if (club != null) {
+            System.out.println("[PEDIDO] Club encontrado:");
+            System.out.println("[PEDIDO]   - clubId: " + club.getId());
+            System.out.println("[PEDIDO]   - clubNombre: " + club.getNombreClub());
+            System.out.println("[PEDIDO]   - anfitrionId: " + (club.getAnfitrion() != null ? club.getAnfitrion().getId() : "NULL"));
+        } else {
+            System.out.println("[PEDIDO] WARNING: Club no encontrado con id: " + clubId);
+        }
+        
+        // Usar método con JOIN FETCH para evitar problemas de Lazy Loading
+        List<Pedido> pedidos = pedidoRepository.findByClubIdWithRelations(clubId);
+        
+        System.out.println("[PEDIDO] Pedidos encontrados: " + pedidos.size());
+        if (!pedidos.isEmpty()) {
+            System.out.println("[PEDIDO] Primeros 3 pedidos:");
+            pedidos.stream().limit(3).forEach(p -> {
+                System.out.println("[PEDIDO]   - Pedido ID: " + p.getId() + 
+                        ", Estado: " + p.getEstado() + 
+                        ", Fecha: " + p.getFechaPedido() +
+                        ", Club ID: " + (p.getClub() != null ? p.getClub().getId() : "NULL") +
+                        ", Membresía ID: " + (p.getMembresia() != null ? p.getMembresia().getId() : "NULL") +
+                        ", Items: " + (p.getItems() != null ? p.getItems().size() : 0));
+            });
+        } else {
+            System.out.println("[PEDIDO] LISTA VACÍA - No se encontraron pedidos para clubId: " + clubId);
+        }
+        
+        List<PedidoDTO> pedidosDTO = pedidos.stream()
                 .map(PedidoMapper::mapPedidoToPedidoDTO)
                 .collect(Collectors.toList());
+        
+        System.out.println("[PEDIDO] DTOs generados: " + pedidosDTO.size());
+        System.out.println("[PEDIDO] ===== FIN LISTAR PEDIDOS POR CLUB =====");
+        
+        return pedidosDTO;
     }
 
     @Override

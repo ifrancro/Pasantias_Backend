@@ -1,10 +1,14 @@
 package com.example.herbalife_clubes.controllers;
 
 import com.example.herbalife_clubes.dtos.club.ClubDTO;
+import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.services.ClubService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,6 +19,8 @@ import java.util.List;
 public class ClubController {
     @Autowired
     private ClubService clubService;
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
     @PostMapping
     public ResponseEntity<ClubDTO> createClub(@RequestBody ClubDTO clubDTO,
@@ -86,6 +92,34 @@ public class ClubController {
     @PatchMapping("{id}/desactivar")
     public ResponseEntity<ClubDTO> desactivarClub(@PathVariable Integer id) {
         ClubDTO clubDTO = clubService.desactivarClub(id);
+        return ResponseEntity.ok(clubDTO);
+    }
+
+    /**
+     * Obtiene el club del anfitrión autenticado.
+     * Endpoint: GET /api/clubes/mio
+     * 
+     * Busca el club donde clubes.anfitrion_id == usuario_autenticado.id
+     * 
+     * @return ClubDTO del club del anfitrión autenticado
+     */
+    @GetMapping("/mio")
+    public ResponseEntity<ClubDTO> getMiClub() {
+        // Obtener usuario autenticado
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String email = authentication.getName();
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElse(null);
+
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        ClubDTO clubDTO = clubService.getClubByAnfitrion(usuario.getId());
         return ResponseEntity.ok(clubDTO);
     }
 }

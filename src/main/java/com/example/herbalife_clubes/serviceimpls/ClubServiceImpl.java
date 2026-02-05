@@ -177,5 +177,17 @@ public class ClubServiceImpl implements ClubService {
                 .orElseThrow(() -> new ResourceNotFoundException("Club activo o aprobado no encontrado con id: " + clubId));
         return ClubMapper.mapClubToClubDTO(club);
     }
+
+    @Override
+    public ClubDTO getClubByAnfitrion(Integer usuarioId) {
+        List<Club> clubes = clubRepository.findByAnfitrionId(usuarioId);
+        if (clubes.isEmpty()) {
+            throw new ResourceNotFoundException("No se encontró ningún club para el anfitrión con id: " + usuarioId);
+        }
+        // Si hay múltiples clubes, devolver el primero (o el más reciente)
+        // En el futuro se podría mejorar para devolver el más reciente o activo
+        Club club = clubes.get(0);
+        return ClubMapper.mapClubToClubDTO(club);
+    }
 }
 
