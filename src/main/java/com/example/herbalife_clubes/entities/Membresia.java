@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -47,6 +48,15 @@ public class Membresia {
     @Column(name = "estado", length = 255)
     private String estado;
 
+    @Column(name = "racha_actual")
+    private Integer rachaActual;
+
+    @Column(name = "racha_maxima")
+    private Integer rachaMaxima;
+
+    @Column(name = "ultima_asistencia_dia")
+    private LocalDate ultimaAsistenciaDia;
+
     @PrePersist
     protected void onCreate() {
         if (fechaRegistro == null) {
@@ -54,6 +64,12 @@ public class Membresia {
         }
         if (puntosAcumulados == null) {
             puntosAcumulados = 0;
+        }
+        if (rachaActual == null) {
+            rachaActual = 0;
+        }
+        if (rachaMaxima == null) {
+            rachaMaxima = 0;
         }
     }
 }

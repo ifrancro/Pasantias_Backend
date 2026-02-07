@@ -44,6 +44,15 @@ public class Pedido {
     @Column(name = "fecha_pedido")
     private LocalDateTime fechaPedido;
 
+    // Campos para compatibilidad con estructura de BD existente
+    // Estos campos se llenan automáticamente desde el primer item
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "producto_id", nullable = false)
+    private Producto producto;
+
+    @Column(name = "cantidad", nullable = true)
+    private Integer cantidad;
+
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PedidoItem> items = new ArrayList<>();
 
@@ -57,6 +66,16 @@ public class Pedido {
         }
         if (tipoConsumo == null) {
             tipoConsumo = TipoConsumo.EN_LUGAR;
+        }
+        // Poblar producto_id y cantidad desde el primer item para compatibilidad con BD
+        if (items != null && !items.isEmpty()) {
+            PedidoItem firstItem = items.get(0);
+            if (firstItem.getProducto() != null) {
+                this.producto = firstItem.getProducto();
+            }
+            if (firstItem.getCantidad() != null) {
+                this.cantidad = firstItem.getCantidad();
+            }
         }
     }
 }

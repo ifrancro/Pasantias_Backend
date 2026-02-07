@@ -14,6 +14,11 @@ public class AsistenciaMapper {
         dto.setFechaHora(asistencia.getFechaHora());
         dto.setFechaDia(asistencia.getFechaDia());
         dto.setEstado(asistencia.getEstado());
+        // Incluir información de racha desde la membresía
+        if (asistencia.getMembresia() != null) {
+            dto.setRachaActual(asistencia.getMembresia().getRachaActual());
+            dto.setRachaMaxima(asistencia.getMembresia().getRachaMaxima());
+        }
         return dto;
     }
 }

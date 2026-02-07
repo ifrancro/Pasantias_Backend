@@ -20,6 +20,9 @@ public class MembresiaMapper {
         dto.setComoConocio(membresia.getComoConocio());
         dto.setFechaRegistro(membresia.getFechaRegistro());
         dto.setEstado(membresia.getEstado());
+        dto.setRachaActual(membresia.getRachaActual());
+        dto.setRachaMaxima(membresia.getRachaMaxima());
+        dto.setUltimaAsistenciaDia(membresia.getUltimaAsistenciaDia());
         return dto;
     }
 

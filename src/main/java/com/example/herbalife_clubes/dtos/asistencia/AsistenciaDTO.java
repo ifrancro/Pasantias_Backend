@@ -19,5 +19,7 @@ public class AsistenciaDTO {
     private LocalDateTime fechaHora;
     private LocalDate fechaDia;
     private String estado;
+    private Integer rachaActual;
+    private Integer rachaMaxima;
 }
 

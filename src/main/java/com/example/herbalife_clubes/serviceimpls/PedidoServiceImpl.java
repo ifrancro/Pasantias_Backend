@@ -56,18 +56,17 @@ public class PedidoServiceImpl implements PedidoService {
         System.out.println("[PEDIDO]   - Club ID: " + club.getId() + ", Nombre: " + club.getNombreClub());
         System.out.println("[PEDIDO]   - Producto ID: " + producto.getId() + ", Nombre: " + producto.getNombre());
 
-        // Validación HUB (club destino debe ser del mismo HUB que el club principal de la membresía)
-        if (membresia.getClub() == null || membresia.getClub().getHub() == null || club.getHub() == null) {
-            throw new IllegalArgumentException("No se puede validar HUB (club/membresía sin HUB)");
-        }
-        if (!membresia.getClub().getHub().getId().equals(club.getHub().getId())) {
-            throw new IllegalArgumentException("El club destino no pertenece al mismo HUB de la membresía");
+        // Validar que el club destino esté activo
+        if (club.getEstado() == null || (!club.getEstado().equals("APROBADO") && !club.getEstado().equals("ACTIVO"))) {
+            throw new IllegalArgumentException("El club destino no está activo. Estado actual: " + club.getEstado());
         }
 
-        // Producto debe pertenecer al HUB y estar disponible en el club
-        if (producto.getHub() == null || !producto.getHub().getId().equals(club.getHub().getId())) {
-            throw new IllegalArgumentException("El producto no pertenece al HUB del club");
+        // Validar que el socio esté activo
+        if (membresia.getEstado() == null || !membresia.getEstado().equals("ACTIVA")) {
+            throw new IllegalArgumentException("La membresía no está activa. Estado actual: " + membresia.getEstado());
         }
+
+        // Producto debe estar disponible en el club (validación de disponibilidad por club)
         ClubProducto cp = clubProductoRepository.findByClubIdAndProductoId(clubId, productoId)
                 .orElseThrow(() -> new IllegalArgumentException("El producto no está configurado para este club"));
         if (cp.getDisponible() == null || !cp.getDisponible()) {
@@ -77,6 +76,7 @@ public class PedidoServiceImpl implements PedidoService {
         Pedido pedido = PedidoMapper.mapPedidoDTOToPedido(pedidoDTO);
         pedido.setMembresia(membresia);
         pedido.setClub(club);
+        
         // Compatibilidad: pedido viejo era 1 producto. Creamos 1 item.
         PedidoItem item = new PedidoItem();
         item.setPedido(pedido);
@@ -84,6 +84,11 @@ public class PedidoServiceImpl implements PedidoService {
         item.setCantidad(pedidoDTO.getCantidad() != null ? pedidoDTO.getCantidad() : 1);
         item.setNota(pedidoDTO.getObservaciones());
         pedido.getItems().add(item);
+        
+        // Asignar producto y cantidad directamente al pedido para compatibilidad con BD
+        // (la BD tiene producto_id y cantidad en la tabla pedidos)
+        pedido.setProducto(producto);
+        pedido.setCantidad(pedidoDTO.getCantidad() != null ? pedidoDTO.getCantidad() : 1);
 
         // enums
         pedido.setEstado(EstadoPedido.RECIBIDO);

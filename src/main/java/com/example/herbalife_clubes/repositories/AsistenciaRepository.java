@@ -11,6 +11,7 @@ import java.util.Optional;
 @Repository
 public interface AsistenciaRepository extends JpaRepository<Asistencia, Integer> {
     Optional<Asistencia> findByMembresiaIdAndClubIdAndFechaDia(Integer membresiaId, Integer clubId, LocalDate fechaDia);
+    Optional<Asistencia> findByMembresiaIdAndFechaDia(Integer membresiaId, LocalDate fechaDia);
     List<Asistencia> findByMembresiaId(Integer membresiaId);
     List<Asistencia> findByClubId(Integer clubId);
 }
