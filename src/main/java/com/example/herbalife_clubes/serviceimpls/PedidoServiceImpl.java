@@ -57,21 +57,36 @@ public class PedidoServiceImpl implements PedidoService {
         System.out.println("[PEDIDO]   - Producto ID: " + producto.getId() + ", Nombre: " + producto.getNombre());
 
         // Validar que el club destino esté activo
+        System.out.println("[PEDIDO] Validando estado del club...");
+        System.out.println("[PEDIDO]   - Club estado: " + club.getEstado());
         if (club.getEstado() == null || (!club.getEstado().equals("APROBADO") && !club.getEstado().equals("ACTIVO"))) {
+            System.out.println("[PEDIDO] ERROR: Club no está activo. Estado: " + club.getEstado());
             throw new IllegalArgumentException("El club destino no está activo. Estado actual: " + club.getEstado());
         }
+        System.out.println("[PEDIDO] ✓ Club válido");
 
         // Validar que el socio esté activo
+        System.out.println("[PEDIDO] Validando estado de la membresía...");
+        System.out.println("[PEDIDO]   - Membresía estado: " + membresia.getEstado());
         if (membresia.getEstado() == null || !membresia.getEstado().equals("ACTIVA")) {
+            System.out.println("[PEDIDO] ERROR: Membresía no está activa. Estado: " + membresia.getEstado());
             throw new IllegalArgumentException("La membresía no está activa. Estado actual: " + membresia.getEstado());
         }
+        System.out.println("[PEDIDO] ✓ Membresía válida");
 
         // Producto debe estar disponible en el club (validación de disponibilidad por club)
+        System.out.println("[PEDIDO] Validando disponibilidad del producto en el club...");
         ClubProducto cp = clubProductoRepository.findByClubIdAndProductoId(clubId, productoId)
-                .orElseThrow(() -> new IllegalArgumentException("El producto no está configurado para este club"));
+                .orElseThrow(() -> {
+                    System.out.println("[PEDIDO] ERROR: Producto no está configurado para este club");
+                    return new IllegalArgumentException("El producto no está configurado para este club");
+                });
+        System.out.println("[PEDIDO]   - ClubProducto encontrado, disponible: " + cp.getDisponible());
         if (cp.getDisponible() == null || !cp.getDisponible()) {
+            System.out.println("[PEDIDO] ERROR: Producto no está disponible. Disponible: " + cp.getDisponible());
             throw new IllegalArgumentException("El producto no está disponible en este club");
         }
+        System.out.println("[PEDIDO] ✓ Producto disponible");
         
         Pedido pedido = PedidoMapper.mapPedidoDTOToPedido(pedidoDTO);
         pedido.setMembresia(membresia);
