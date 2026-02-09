@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -25,5 +26,8 @@ public class PedidoDTO {
     private String observaciones;
     private String estado; // RECIBIDO | PREPARANDO | LISTO | ENTREGADO | CANCELADO
     private LocalDateTime fechaPedido;
+    
+    // Lista de items del pedido (pedido_items)
+    private List<PedidoItemDTO> items;
 }
 

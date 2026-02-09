@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PedidoItemDTO {
     private Integer productoId;
+    private String productoNombre; // Nombre del producto para facilitar visualización
     private Integer cantidad;
     private String nota; // Nota específica del item (opcional)
 }

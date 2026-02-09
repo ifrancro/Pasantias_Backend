@@ -1,7 +1,13 @@
 package com.example.herbalife_clubes.mappers;
 
 import com.example.herbalife_clubes.dtos.pedido.PedidoDTO;
+import com.example.herbalife_clubes.dtos.pedido.PedidoItemDTO;
 import com.example.herbalife_clubes.entities.Pedido;
+import com.example.herbalife_clubes.entities.PedidoItem;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class PedidoMapper {
     public static PedidoDTO mapPedidoToPedidoDTO(Pedido pedido) {
@@ -11,6 +17,23 @@ public class PedidoMapper {
         dto.setMembresiaNumeroSocio(pedido.getMembresia() != null ? pedido.getMembresia().getNumeroSocio() : null);
         dto.setClubId(pedido.getClub() != null ? pedido.getClub().getId() : null);
         dto.setClubNombre(pedido.getClub() != null ? pedido.getClub().getNombreClub() : null);
+        
+        // Mapear todos los items del pedido
+        List<PedidoItemDTO> itemsDTO = new ArrayList<>();
+        if (pedido.getItems() != null && !pedido.getItems().isEmpty()) {
+            itemsDTO = pedido.getItems().stream()
+                    .map(item -> {
+                        PedidoItemDTO itemDTO = new PedidoItemDTO();
+                        itemDTO.setProductoId(item.getProducto() != null ? item.getProducto().getId() : null);
+                        itemDTO.setProductoNombre(item.getProducto() != null ? item.getProducto().getNombre() : null);
+                        itemDTO.setCantidad(item.getCantidad());
+                        itemDTO.setNota(item.getNota());
+                        return itemDTO;
+                    })
+                    .collect(Collectors.toList());
+        }
+        dto.setItems(itemsDTO);
+        
         // Compatibilidad: si el pedido tiene items, exponer el primero en productoId/cantidad
         if (pedido.getItems() != null && !pedido.getItems().isEmpty()) {
             var item = pedido.getItems().get(0);

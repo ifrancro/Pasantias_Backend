@@ -283,7 +283,8 @@ public class PedidoServiceImpl implements PedidoService {
 
     @Override
     public List<PedidoDTO> getPedidosBySocio(Integer membresiaId) {
-        List<Pedido> pedidos = pedidoRepository.findByMembresiaId(membresiaId);
+        // Usar método con JOIN FETCH para cargar items y productos
+        List<Pedido> pedidos = pedidoRepository.findByMembresiaIdWithRelations(membresiaId);
         return pedidos.stream()
                 .map(PedidoMapper::mapPedidoToPedidoDTO)
                 .collect(Collectors.toList());

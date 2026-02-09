@@ -27,5 +27,19 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
            "WHERE p.club.id = :clubId " +
            "ORDER BY p.fechaPedido DESC")
     List<Pedido> findByClubIdWithRelations(@Param("clubId") Integer clubId);
+    
+    /**
+     * Obtiene todos los pedidos de un socio con todas las relaciones cargadas (JOIN FETCH)
+     * para evitar problemas de Lazy Loading.
+     * Carga: Club, Membresia, Items, Producto (de cada item)
+     */
+    @Query("SELECT DISTINCT p FROM Pedido p " +
+           "LEFT JOIN FETCH p.club c " +
+           "LEFT JOIN FETCH p.membresia m " +
+           "LEFT JOIN FETCH p.items i " +
+           "LEFT JOIN FETCH i.producto " +
+           "WHERE p.membresia.id = :membresiaId " +
+           "ORDER BY p.fechaPedido DESC")
+    List<Pedido> findByMembresiaIdWithRelations(@Param("membresiaId") Integer membresiaId);
 }
 
