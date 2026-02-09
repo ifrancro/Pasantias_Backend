@@ -1,6 +1,8 @@
 package com.example.herbalife_clubes.serviceimpls;
 
 import com.example.herbalife_clubes.dtos.pedido.PedidoDTO;
+import com.example.herbalife_clubes.dtos.pedido.PedidoConItemsDTO;
+import com.example.herbalife_clubes.dtos.pedido.PedidoItemDTO;
 import com.example.herbalife_clubes.entities.*;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.PedidoMapper;
@@ -141,6 +143,127 @@ public class PedidoServiceImpl implements PedidoService {
             notificacion.setTitulo("Nuevo Pedido");
             notificacion.setMensaje("El socio " + membresia.getNumeroSocio() + " ha realizado un pedido de " + 
                     producto.getNombre() + " en tu club " + club.getNombreClub());
+            notificacion.setTipoSegmentacion("pedido");
+            notificacion.setClub(club);
+            notificacion.setUsuario(anfitrion);
+            notificacion.setPedido(savedPedido);
+            notificacionRepository.save(notificacion);
+        }
+        
+        return PedidoMapper.mapPedidoToPedidoDTO(savedPedido);
+    }
+
+    @Override
+    @Transactional
+    public PedidoDTO createPedidoConItems(PedidoConItemsDTO pedidoDTO, Integer membresiaId, Integer clubId) {
+        System.out.println("[PEDIDO] ===== INICIO CREAR PEDIDO CON MÚLTIPLES ITEMS =====");
+        System.out.println("[PEDIDO] Parámetros recibidos:");
+        System.out.println("[PEDIDO]   - membresiaId: " + membresiaId);
+        System.out.println("[PEDIDO]   - clubId: " + clubId);
+        System.out.println("[PEDIDO]   - horarioDeseado: " + pedidoDTO.getHorarioDeseado());
+        System.out.println("[PEDIDO]   - tipoConsumo: " + pedidoDTO.getTipoConsumo());
+        System.out.println("[PEDIDO]   - observaciones: " + pedidoDTO.getObservaciones());
+        System.out.println("[PEDIDO]   - items: " + (pedidoDTO.getItems() != null ? pedidoDTO.getItems().size() : 0));
+        
+        // Validar que hay items
+        if (pedidoDTO.getItems() == null || pedidoDTO.getItems().isEmpty()) {
+            throw new IllegalArgumentException("El pedido debe tener al menos un item");
+        }
+        
+        Membresia membresia = membresiaRepository.findById(membresiaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+
+        System.out.println("[PEDIDO] Entidades encontradas:");
+        System.out.println("[PEDIDO]   - Membresía ID: " + membresia.getId() + ", Número Socio: " + membresia.getNumeroSocio());
+        System.out.println("[PEDIDO]   - Club ID: " + club.getId() + ", Nombre: " + club.getNombreClub());
+
+        // Validar que el club destino esté activo
+        if (club.getEstado() == null || (!club.getEstado().equals("APROBADO") && !club.getEstado().equals("ACTIVO"))) {
+            throw new IllegalArgumentException("El club destino no está activo. Estado actual: " + club.getEstado());
+        }
+
+        // Validar que el socio esté activo
+        if (membresia.getEstado() == null || !membresia.getEstado().equals("ACTIVA")) {
+            throw new IllegalArgumentException("La membresía no está activa. Estado actual: " + membresia.getEstado());
+        }
+        
+        // Crear el pedido
+        Pedido pedido = new Pedido();
+        pedido.setMembresia(membresia);
+        pedido.setClub(club);
+        pedido.setHorarioDeseado(pedidoDTO.getHorarioDeseado());
+        pedido.setObservaciones(pedidoDTO.getObservaciones());
+        pedido.setEstado(EstadoPedido.RECIBIDO);
+        pedido.setFechaPedido(LocalDateTime.now());
+        
+        try {
+            if (pedidoDTO.getTipoConsumo() != null) {
+                pedido.setTipoConsumo(TipoConsumo.valueOf(pedidoDTO.getTipoConsumo()));
+            } else {
+                pedido.setTipoConsumo(TipoConsumo.EN_LUGAR);
+            }
+        } catch (Exception e) {
+            pedido.setTipoConsumo(TipoConsumo.EN_LUGAR);
+        }
+        
+        // Validar y crear items
+        Producto primerProducto = null;
+        int cantidadTotal = 0;
+        
+        for (PedidoItemDTO itemDTO : pedidoDTO.getItems()) {
+            Producto producto = productoRepository.findById(itemDTO.getProductoId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + itemDTO.getProductoId()));
+            
+            // Validar disponibilidad del producto en el club
+            ClubProducto cp = clubProductoRepository.findByClubIdAndProductoId(clubId, itemDTO.getProductoId())
+                    .orElseThrow(() -> new IllegalArgumentException("El producto " + producto.getNombre() + " no está configurado para este club"));
+            
+            if (cp.getDisponible() == null || !cp.getDisponible()) {
+                throw new IllegalArgumentException("El producto " + producto.getNombre() + " no está disponible en este club");
+            }
+            
+            // Crear item
+            PedidoItem item = new PedidoItem();
+            item.setPedido(pedido);
+            item.setProducto(producto);
+            item.setCantidad(itemDTO.getCantidad() != null ? itemDTO.getCantidad() : 1);
+            item.setNota(itemDTO.getNota());
+            pedido.getItems().add(item);
+            
+            // Guardar referencia al primer producto para compatibilidad con BD
+            if (primerProducto == null) {
+                primerProducto = producto;
+            }
+            cantidadTotal += (itemDTO.getCantidad() != null ? itemDTO.getCantidad() : 1);
+        }
+        
+        // Asignar producto y cantidad del primer item para compatibilidad con BD
+        if (primerProducto != null) {
+            pedido.setProducto(primerProducto);
+            pedido.setCantidad(cantidadTotal);
+        }
+        
+        System.out.println("[PEDIDO] ANTES DE GUARDAR:");
+        System.out.println("[PEDIDO]   - items.size(): " + pedido.getItems().size());
+        System.out.println("[PEDIDO]   - cantidadTotal: " + cantidadTotal);
+        
+        Pedido savedPedido = pedidoRepository.save(pedido);
+        
+        System.out.println("[PEDIDO] DESPUÉS DE GUARDAR:");
+        System.out.println("[PEDIDO]   - pedidoId: " + savedPedido.getId());
+        System.out.println("[PEDIDO]   - items.size(): " + (savedPedido.getItems() != null ? savedPedido.getItems().size() : 0));
+        System.out.println("[PEDIDO] ===== FIN CREAR PEDIDO CON MÚLTIPLES ITEMS =====");
+        
+        // Crear notificación para el anfitrión del club
+        Usuario anfitrion = club.getAnfitrion();
+        if (anfitrion != null) {
+            Notificacion notificacion = new Notificacion();
+            notificacion.setTitulo("Nuevo Pedido");
+            StringBuilder mensaje = new StringBuilder("El socio " + membresia.getNumeroSocio() + " ha realizado un pedido con " + 
+                    savedPedido.getItems().size() + " producto(s) en tu club " + club.getNombreClub());
+            notificacion.setMensaje(mensaje.toString());
             notificacion.setTipoSegmentacion("pedido");
             notificacion.setClub(club);
             notificacion.setUsuario(anfitrion);
