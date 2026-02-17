@@ -96,8 +96,8 @@ public class ClubServiceImpl implements ClubService {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
         
-        // Cambiar el estado del club a APROBADO
-        club.setEstado("APROBADO");
+        // Cambiar el estado del club a ACTIVO para que se habilite directamente
+        club.setEstado("ACTIVO");
         Club updatedClub = clubRepository.save(club);
         
         // Cambiar el rol del usuario anfitrión a ANFITRION
