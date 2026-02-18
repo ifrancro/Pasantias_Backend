@@ -81,6 +81,11 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         
         // Actualizar última asistencia
         membresia.setUltimaAsistenciaDia(fechaDia);
+        
+        // Incrementar puntos acumulados (1 punto por asistencia)
+        Integer puntosActuales = membresia.getPuntosAcumulados() != null ? membresia.getPuntosAcumulados() : 0;
+        membresia.setPuntosAcumulados(puntosActuales + 1);
+        
         membresiaRepository.save(membresia);
         
         // Crear la asistencia
