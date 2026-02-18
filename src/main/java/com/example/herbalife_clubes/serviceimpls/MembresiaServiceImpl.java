@@ -7,6 +7,7 @@ import com.example.herbalife_clubes.entities.NivelSocio;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.MembresiaMapper;
+import com.example.herbalife_clubes.repositories.AsistenciaRepository;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.MembresiaRepository;
 import com.example.herbalife_clubes.repositories.NivelSocioRepository;
@@ -31,6 +32,8 @@ public class MembresiaServiceImpl implements MembresiaService {
     private ClubRepository clubRepository;
     @Autowired
     private NivelSocioRepository nivelSocioRepository;
+    @Autowired
+    private AsistenciaRepository asistenciaRepository;
 
     @Override
     public MembresiaDTO createMembresia(MembresiaDTO membresiaDTO, Integer usuarioId, Integer clubId, Integer nivelId) {
@@ -118,6 +121,20 @@ public class MembresiaServiceImpl implements MembresiaService {
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
         membresia.setPuntosAcumulados(puntos);
+        Membresia updatedMembresia = membresiaRepository.save(membresia);
+        return MembresiaMapper.mapMembresiaToMembresiaDTO(updatedMembresia);
+    }
+
+    @Override
+    public MembresiaDTO recalcularPuntosPorAsistencias(Integer membresiaId) {
+        Membresia membresia = membresiaRepository.findById(membresiaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
+        
+        // Contar todas las asistencias del socio
+        int totalAsistencias = asistenciaRepository.findByMembresiaId(membresiaId).size();
+        
+        // Actualizar puntos acumulados (1 punto por asistencia)
+        membresia.setPuntosAcumulados(totalAsistencias);
         Membresia updatedMembresia = membresiaRepository.save(membresia);
         return MembresiaMapper.mapMembresiaToMembresiaDTO(updatedMembresia);
     }

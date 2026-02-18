@@ -82,10 +82,6 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         // Actualizar última asistencia
         membresia.setUltimaAsistenciaDia(fechaDia);
         
-        // Incrementar puntos acumulados (1 punto por asistencia)
-        Integer puntosActuales = membresia.getPuntosAcumulados() != null ? membresia.getPuntosAcumulados() : 0;
-        membresia.setPuntosAcumulados(puntosActuales + 1);
-        
         membresiaRepository.save(membresia);
         
         // Crear la asistencia
@@ -97,10 +93,31 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         
         Asistencia savedAsistencia = asistenciaRepository.save(asistencia);
         
+        // Recalcular puntos acumulados basándose en el conteo total de asistencias
+        // Esto garantiza que los puntos siempre estén sincronizados con las asistencias
+        recalcularPuntosAcumulados(membresiaId);
+        
         // Gamificación opcional: otorgar logros por racha
         otorgarLogrosPorRacha(membresia);
         
         return AsistenciaMapper.mapAsistenciaToAsistenciaDTO(savedAsistencia);
+    }
+    
+    /**
+     * Recalcula los puntos acumulados basándose en el conteo total de asistencias
+     * 1 punto por cada asistencia registrada
+     */
+    private void recalcularPuntosAcumulados(Integer membresiaId) {
+        Membresia membresia = membresiaRepository.findById(membresiaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
+        
+        // Contar todas las asistencias del socio
+        List<Asistencia> asistencias = asistenciaRepository.findByMembresiaId(membresiaId);
+        Integer totalAsistencias = asistencias.size();
+        
+        // Actualizar puntos acumulados (1 punto por asistencia)
+        membresia.setPuntosAcumulados(totalAsistencias);
+        membresiaRepository.save(membresia);
     }
     
     /**

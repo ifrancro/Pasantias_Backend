@@ -60,5 +60,11 @@ public class MembresiaController {
         MembresiaDTO membresiaDTO = membresiaService.actualizarPuntos(id, puntos);
         return ResponseEntity.ok(membresiaDTO);
     }
+
+    @PatchMapping("{id}/recalcular-puntos")
+    public ResponseEntity<MembresiaDTO> recalcularPuntosPorAsistencias(@PathVariable Integer id) {
+        MembresiaDTO membresiaDTO = membresiaService.recalcularPuntosPorAsistencias(id);
+        return ResponseEntity.ok(membresiaDTO);
+    }
 }
 

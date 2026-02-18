@@ -12,5 +12,6 @@ public interface MembresiaService {
     MembresiaDTO cambiarEstado(Integer membresiaId, String estado);
     MembresiaDTO cambiarNivel(Integer membresiaId, Integer nivelId);
     MembresiaDTO actualizarPuntos(Integer membresiaId, Integer puntos);
+    MembresiaDTO recalcularPuntosPorAsistencias(Integer membresiaId);
 }
 
