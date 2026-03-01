@@ -27,12 +27,12 @@ public class Pedido {
     @JoinColumn(name = "club_id", nullable = false)
     private Club club;
 
-    @Column(name = "horario_deseado", length = 255)
-    private String horarioDeseado;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_consumo", nullable = false, length = 30)
     private TipoConsumo tipoConsumo;
+
+    @Column(name = "tiempo_estimado_minutos")
+    private Integer tiempoEstimadoMinutos;
 
     @Column(name = "observaciones", columnDefinition = "TEXT")
     private String observaciones;

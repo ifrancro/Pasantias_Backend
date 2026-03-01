@@ -13,5 +13,6 @@ public interface MembresiaRepository extends JpaRepository<Membresia, Integer> {
     List<Membresia> findByClubId(Integer clubId);
     boolean existsByUsuarioId(Integer usuarioId);
     Optional<Membresia> findByNumeroSocio(String numeroSocio);
+    List<Membresia> findByReferidoPorMembresiaId(Integer referidoPorMembresiaId);
 }
 

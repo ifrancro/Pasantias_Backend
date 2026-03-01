@@ -1,10 +1,15 @@
 package com.example.herbalife_clubes.controllers;
 
+import com.example.herbalife_clubes.dtos.membresia.ArbolReferidosDTO;
 import com.example.herbalife_clubes.dtos.membresia.MembresiaDTO;
+import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.services.MembresiaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,13 +20,17 @@ import java.util.List;
 public class MembresiaController {
     @Autowired
     private MembresiaService membresiaService;
+    
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
     @PostMapping
     public ResponseEntity<MembresiaDTO> createMembresia(@RequestBody MembresiaDTO membresiaDTO,
                                                          @RequestParam Integer usuarioId,
                                                          @RequestParam Integer clubId,
-                                                         @RequestParam(required = false) Integer nivelId) {
-        MembresiaDTO savedMembresiaDTO = membresiaService.createMembresia(membresiaDTO, usuarioId, clubId, nivelId);
+                                                         @RequestParam(required = false) Integer nivelId,
+                                                         @RequestParam(required = false) Integer referidoPorMembresiaId) {
+        MembresiaDTO savedMembresiaDTO = membresiaService.createMembresia(membresiaDTO, usuarioId, clubId, nivelId, referidoPorMembresiaId);
         return new ResponseEntity<>(savedMembresiaDTO, HttpStatus.CREATED);
     }
 
@@ -65,6 +74,41 @@ public class MembresiaController {
     public ResponseEntity<MembresiaDTO> recalcularPuntosPorAsistencias(@PathVariable Integer id) {
         MembresiaDTO membresiaDTO = membresiaService.recalcularPuntosPorAsistencias(id);
         return ResponseEntity.ok(membresiaDTO);
+    }
+
+    /**
+     * Obtiene el árbol de referidos de una membresía de forma recursiva.
+     * Solo accesible para usuarios con rol ADMIN.
+     * 
+     * @param id ID de la membresía raíz
+     * @return Árbol de referidos con estructura recursiva
+     */
+    @GetMapping("{id}/arbol-referidos")
+    public ResponseEntity<ArbolReferidosDTO> getArbolReferidos(@PathVariable Integer id) {
+        // Validar autenticación
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Obtener usuario autenticado
+        String email = authentication.getName();
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElse(null);
+
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Validar que el rol sea ADMIN
+        String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
+        if (!"ADMIN".equalsIgnoreCase(rolNombre)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        // Obtener árbol de referidos
+        ArbolReferidosDTO arbol = membresiaService.getArbolReferidos(id);
+        return ResponseEntity.ok(arbol);
     }
 }
 

@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.serviceimpls;
 
+import com.example.herbalife_clubes.dtos.membresia.ArbolReferidosDTO;
 import com.example.herbalife_clubes.dtos.membresia.MembresiaDTO;
 import com.example.herbalife_clubes.entities.Club;
 import com.example.herbalife_clubes.entities.Membresia;
@@ -36,7 +37,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     private AsistenciaRepository asistenciaRepository;
 
     @Override
-    public MembresiaDTO createMembresia(MembresiaDTO membresiaDTO, Integer usuarioId, Integer clubId, Integer nivelId) {
+    public MembresiaDTO createMembresia(MembresiaDTO membresiaDTO, Integer usuarioId, Integer clubId, Integer nivelId, Integer referidoPorMembresiaId) {
         // Validar que el usuario no tenga ya una membresía
         if (membresiaRepository.findByUsuarioId(usuarioId).isPresent()) {
             throw new IllegalArgumentException("El usuario ya tiene una membresía activa");
@@ -55,6 +56,13 @@ public class MembresiaServiceImpl implements MembresiaService {
             NivelSocio nivel = nivelSocioRepository.findById(nivelId)
                     .orElseThrow(() -> new ResourceNotFoundException("Nivel socio no encontrado con id: " + nivelId));
             membresia.setNivel(nivel);
+        }
+        
+        // Establecer referido por membresía si se proporciona
+        if (referidoPorMembresiaId != null) {
+            Membresia referidoPorMembresia = membresiaRepository.findById(referidoPorMembresiaId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Membresía referente no encontrada con id: " + referidoPorMembresiaId));
+            membresia.setReferidoPorMembresia(referidoPorMembresia);
         }
         
         // Generar número de socio único si no se proporciona
@@ -137,6 +145,45 @@ public class MembresiaServiceImpl implements MembresiaService {
         membresia.setPuntosAcumulados(totalAsistencias);
         Membresia updatedMembresia = membresiaRepository.save(membresia);
         return MembresiaMapper.mapMembresiaToMembresiaDTO(updatedMembresia);
+    }
+
+    @Override
+    public ArbolReferidosDTO getArbolReferidos(Integer membresiaId) {
+        Membresia membresia = membresiaRepository.findById(membresiaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
+        
+        return construirArbolRecursivo(membresia);
+    }
+
+    /**
+     * Construye el árbol de referidos de forma recursiva
+     * @param membresia Membresía raíz del árbol
+     * @return DTO con la estructura del árbol
+     */
+    private ArbolReferidosDTO construirArbolRecursivo(Membresia membresia) {
+        // Obtener nombre completo del usuario
+        String nombreCompleto = membresia.getUsuario() != null ?
+                membresia.getUsuario().getNombre() + " " + membresia.getUsuario().getApellido() : "N/A";
+        
+        // Crear DTO para esta membresía
+        ArbolReferidosDTO nodo = new ArbolReferidosDTO(
+                membresia.getId(),
+                membresia.getNumeroSocio(),
+                nombreCompleto,
+                membresia.getPuntosAcumulados(),
+                membresia.getEstado()
+        );
+        
+        // Obtener todos los referidos directos de esta membresía
+        List<Membresia> referidosDirectos = membresiaRepository.findByReferidoPorMembresiaId(membresia.getId());
+        
+        // Construir recursivamente el árbol para cada referido
+        for (Membresia referido : referidosDirectos) {
+            ArbolReferidosDTO nodoReferido = construirArbolRecursivo(referido);
+            nodo.agregarReferido(nodoReferido);
+        }
+        
+        return nodo;
     }
 }
 

@@ -1,7 +1,7 @@
 package com.example.herbalife_clubes.entities;
 
 public enum TipoConsumo {
-    PARA_LLEVAR,
+    PARA_RECOGER,
     EN_LUGAR
 }
 

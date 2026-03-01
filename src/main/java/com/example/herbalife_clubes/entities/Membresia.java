@@ -36,8 +36,9 @@ public class Membresia {
     @Column(name = "puntos_acumulados")
     private Integer puntosAcumulados;
 
-    @Column(name = "referido_por", length = 255)
-    private String referidoPor;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "referido_por_membresia_id", nullable = true)
+    private Membresia referidoPorMembresia;
 
     @Column(name = "como_conocio", length = 255)
     private String comoConocio;

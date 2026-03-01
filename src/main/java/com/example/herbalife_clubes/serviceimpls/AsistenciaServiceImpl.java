@@ -6,6 +6,7 @@ import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.AsistenciaMapper;
 import com.example.herbalife_clubes.repositories.*;
 import com.example.herbalife_clubes.services.AsistenciaService;
+import com.example.herbalife_clubes.services.MembresiaLogroService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,8 @@ public class AsistenciaServiceImpl implements AsistenciaService {
     private MembresiaLogroRepository membresiaLogroRepository;
     @Autowired
     private LogroRepository logroRepository;
+    @Autowired
+    private MembresiaLogroService membresiaLogroService;
 
     @Override
     @Transactional
@@ -97,8 +100,15 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         // Esto garantiza que los puntos siempre estén sincronizados con las asistencias
         recalcularPuntosAcumulados(membresiaId);
         
-        // Gamificación opcional: otorgar logros por racha
+        // Recargar membresía para obtener datos actualizados (puntos, racha, etc.)
+        membresia = membresiaRepository.findById(membresiaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
+        
+        // Gamificación: otorgar logros por racha
         otorgarLogrosPorRacha(membresia);
+        
+        // Gamificación: evaluar logros por asistencias (basado en puntos_acumulados)
+        evaluarLogrosPorAsistencias(membresiaId);
         
         return AsistenciaMapper.mapAsistenciaToAsistenciaDTO(savedAsistencia);
     }
@@ -118,6 +128,13 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         // Actualizar puntos acumulados (1 punto por asistencia)
         membresia.setPuntosAcumulados(totalAsistencias);
         membresiaRepository.save(membresia);
+    }
+    
+    /**
+     * Evalúa y otorga logros por asistencias basándose en puntos_acumulados
+     */
+    private void evaluarLogrosPorAsistencias(Integer membresiaId) {
+        membresiaLogroService.evaluarLogrosAutomaticamente(membresiaId);
     }
     
     /**

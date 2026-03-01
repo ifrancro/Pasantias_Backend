@@ -12,7 +12,7 @@ public interface PedidoService {
     PedidoDTO getPedido(Integer pedidoId);
     List<PedidoDTO> getPedidosBySocio(Integer membresiaId);
     List<PedidoDTO> getPedidosByClub(Integer clubId);
-    PedidoDTO actualizarEstado(Integer pedidoId, String estado);
+    PedidoDTO actualizarEstado(Integer pedidoId, String estado, Integer tiempoEstimadoMinutos);
     PedidoDTO cancelarPedido(Integer pedidoId);
 }
 

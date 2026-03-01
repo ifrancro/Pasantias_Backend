@@ -45,33 +45,15 @@ public class MembresiaLogroServiceImpl implements MembresiaLogroService {
             
             boolean cumpleRequisito = false;
             
-            // Evaluar según el tipo de requisito
+            // Evaluar logros por asistencias
+            // tipo_requisito ahora es INT y representa la cantidad de asistencias requeridas
             if (logro.getTipoRequisito() != null) {
-                switch (logro.getTipoRequisito().toUpperCase()) {
-                    case "VISITAS":
-                        // Contar asistencias
-                        int visitas = asistenciaRepository.findByMembresiaId(membresiaId).size();
-                        // Aquí podrías tener un campo en Logro que indique el número requerido
-                        // Por ahora, si tiene más de 5 visitas, le damos el logro
-                        if (visitas >= 5) {
-                            cumpleRequisito = true;
-                        }
-                        break;
-                    case "CONSUMOS":
-                        // Contar consumos
-                        int consumos = consumoRepository.findByMembresiaId(membresiaId).size();
-                        if (consumos >= 10) {
-                            cumpleRequisito = true;
-                        }
-                        break;
-                    case "PUNTOS":
-                        // Verificar puntos acumulados
-                        if (membresia.getPuntosAcumulados() != null && membresia.getPuntosAcumulados() >= 100) {
-                            cumpleRequisito = true;
-                        }
-                        break;
-                    default:
-                        break;
+                // Usar puntos_acumulados que ya es el conteo total de asistencias
+                Integer puntosAcumulados = membresia.getPuntosAcumulados() != null ? membresia.getPuntosAcumulados() : 0;
+                Integer umbralRequerido = logro.getTipoRequisito();
+                
+                if (puntosAcumulados >= umbralRequerido) {
+                    cumpleRequisito = true;
                 }
             }
             

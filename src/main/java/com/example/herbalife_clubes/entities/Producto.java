@@ -21,11 +21,27 @@ public class Producto {
     @JoinColumn(name = "hub_id", nullable = false)
     private Hub hub;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "club_creador_id", nullable = true)
+    private Club clubCreador;
+
     @Column(name = "nombre", nullable = false, length = 255)
     private String nombre;
 
     @Column(name = "descripcion", columnDefinition = "TEXT")
     private String descripcion;
+
+    @Column(name = "ingredientes", columnDefinition = "TEXT")
+    private String ingredientes;
+
+    @Column(name = "puntos_valor")
+    private Integer puntosValor;
+
+    @Column(name = "tipo", length = 50)
+    private String tipo;
+
+    @Column(name = "estado_aprobacion", length = 50)
+    private String estadoAprobacion;
 
     @Column(name = "activo")
     private Boolean activo;
@@ -37,6 +53,9 @@ public class Producto {
     protected void onCreate() {
         if (activo == null) {
             activo = true;
+        }
+        if (puntosValor == null) {
+            puntosValor = 0;
         }
         createdAt = LocalDateTime.now();
     }

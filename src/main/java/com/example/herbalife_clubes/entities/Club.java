@@ -45,6 +45,9 @@ public class Club {
     @Column(name = "estado", length = 255)
     private String estado;
 
+    @Column(name = "prefijo_socio", length = 255)
+    private String prefijoSocio;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

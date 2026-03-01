@@ -20,7 +20,8 @@ public class MembresiaDTO {
     private String nivelNombre;
     private String numeroSocio;
     private Integer puntosAcumulados;
-    private String referidoPor;
+    private Integer referidoPorMembresiaId;
+    private String referidoPorMembresiaNombre; // Nombre del socio que refirió
     private String comoConocio;
     private LocalDateTime fechaRegistro;
     private String estado;

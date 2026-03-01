@@ -41,8 +41,10 @@ public class PedidoMapper {
             dto.setProductoNombre(item.getProducto() != null ? item.getProducto().getNombre() : null);
             dto.setCantidad(item.getCantidad());
         }
-        dto.setHorarioDeseado(pedido.getHorarioDeseado());
+        // horarioDeseado fue eliminado - mantener null para compatibilidad
+        dto.setHorarioDeseado(null);
         dto.setTipoConsumo(pedido.getTipoConsumo() != null ? pedido.getTipoConsumo().name() : null);
+        dto.setTiempoEstimadoMinutos(pedido.getTiempoEstimadoMinutos());
         dto.setObservaciones(pedido.getObservaciones());
         dto.setEstado(pedido.getEstado() != null ? pedido.getEstado().name() : null);
         dto.setFechaPedido(pedido.getFechaPedido());
@@ -52,7 +54,8 @@ public class PedidoMapper {
     public static Pedido mapPedidoDTOToPedido(PedidoDTO dto) {
         Pedido pedido = new Pedido();
         pedido.setId(dto.getId());
-        pedido.setHorarioDeseado(dto.getHorarioDeseado());
+        // horarioDeseado fue eliminado - ahora se usa tiempoEstimadoMinutos
+        pedido.setTiempoEstimadoMinutos(dto.getTiempoEstimadoMinutos());
         pedido.setObservaciones(dto.getObservaciones());
         return pedido;
     }

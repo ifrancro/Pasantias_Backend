@@ -16,7 +16,9 @@ public class MembresiaMapper {
         dto.setNivelNombre(membresia.getNivel() != null ? membresia.getNivel().getNombre() : null);
         dto.setNumeroSocio(membresia.getNumeroSocio());
         dto.setPuntosAcumulados(membresia.getPuntosAcumulados());
-        dto.setReferidoPor(membresia.getReferidoPor());
+        dto.setReferidoPorMembresiaId(membresia.getReferidoPorMembresia() != null ? membresia.getReferidoPorMembresia().getId() : null);
+        dto.setReferidoPorMembresiaNombre(membresia.getReferidoPorMembresia() != null && membresia.getReferidoPorMembresia().getUsuario() != null ?
+                membresia.getReferidoPorMembresia().getUsuario().getNombre() + " " + membresia.getReferidoPorMembresia().getUsuario().getApellido() : null);
         dto.setComoConocio(membresia.getComoConocio());
         dto.setFechaRegistro(membresia.getFechaRegistro());
         dto.setEstado(membresia.getEstado());
@@ -31,7 +33,7 @@ public class MembresiaMapper {
         membresia.setId(dto.getId());
         membresia.setNumeroSocio(dto.getNumeroSocio());
         membresia.setPuntosAcumulados(dto.getPuntosAcumulados());
-        membresia.setReferidoPor(dto.getReferidoPor());
+        // referidoPorMembresia se establece en el servicio, no desde el DTO
         membresia.setComoConocio(dto.getComoConocio());
         membresia.setEstado(dto.getEstado());
         return membresia;

@@ -6,10 +6,20 @@ import com.example.herbalife_clubes.dtos.producto.ProductoConDisponibilidadDTO;
 import java.util.List;
 
 public interface ProductoService {
-    ProductoDTO createProducto(ProductoDTO productoDTO, Integer clubId);
+    /**
+     * Crea un producto según el rol del usuario:
+     * - ADMIN: Producto GLOBAL (club_creador_id = null, estado = APROBADO)
+     * - ANFITRION: Producto LOCAL (club_creador_id = club del anfitrión, estado = PENDIENTE)
+     * 
+     * @param productoDTO DTO con los datos del producto
+     * @param usuarioId ID del usuario autenticado
+     * @param hubId ID del Hub (requerido)
+     * @return ProductoDTO creado
+     */
+    ProductoDTO createProducto(ProductoDTO productoDTO, Integer usuarioId, Integer hubId);
     
     /**
-     * Crea un producto directamente desde un Hub.
+     * Crea un producto directamente desde un Hub (método legacy - mantener para compatibilidad).
      * NO crea relaciones ClubProducto automáticamente.
      * El producto aparecerá en el catálogo del hub y cada club podrá habilitarlo individualmente.
      * 
@@ -19,10 +29,22 @@ public interface ProductoService {
      */
     ProductoDTO createProductoFromHub(ProductoDTO productoDTO, Integer hubId);
     
+    /**
+     * Cambia el estado de aprobación de un producto (solo ADMIN).
+     * 
+     * @param productoId ID del producto
+     * @param estadoAprobacion Nuevo estado (APROBADO | RECHAZADO)
+     * @return ProductoDTO actualizado
+     */
+    ProductoDTO cambiarEstadoAprobacion(Integer productoId, String estadoAprobacion);
+    
     ProductoDTO updateProducto(Integer productoId, ProductoDTO productoDTO);
     ProductoDTO getProducto(Integer productoId);
+    ProductoDTO getProductoPublico(Integer productoId); // Sin ingredientes y sin PENDIENTE
     List<ProductoDTO> getProductos();
+    List<ProductoDTO> getProductosPublicos(); // Sin ingredientes y sin PENDIENTE
     List<ProductoDTO> getProductosByClub(Integer clubId);
+    List<ProductoDTO> getProductosByClubPublico(Integer clubId); // Sin ingredientes y sin PENDIENTE
     ProductoDTO activarProducto(Integer productoId);
     ProductoDTO desactivarProducto(Integer productoId);
     

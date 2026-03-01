@@ -1,10 +1,14 @@
 package com.example.herbalife_clubes.controllers;
 
 import com.example.herbalife_clubes.dtos.producto.ProductoDTO;
+import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.services.ProductoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,58 +19,101 @@ import java.util.List;
 public class ProductoController {
     @Autowired
     private ProductoService productoService;
+    
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
     /**
-     * Crea un producto.
+     * Crea un producto según el rol del usuario autenticado.
      * 
      * FLUJO:
-     * 1. Si se proporciona hubId en el DTO: crea producto desde el hub (sin crear relaciones ClubProducto)
-     *    - El producto aparecerá disponible para todos los clubs del hub
-     *    - Cada club podrá habilitarlo individualmente usando el toggle
+     * - ADMIN: Crea producto GLOBAL (club_creador_id = null, estado = APROBADO)
+     * - ANFITRION: Crea producto LOCAL (club_creador_id = club del anfitrión, estado = PENDIENTE)
      * 
-     * 2. Si se proporciona clubId como query param: mantiene comportamiento legacy
-     *    - Crea producto y relación ClubProducto automáticamente
-     * 
-     * @param productoDTO DTO con los datos del producto (puede incluir hubId)
-     * @param clubId ID del club (opcional, para compatibilidad con código legacy)
+     * @param productoDTO DTO con los datos del producto (debe incluir hubId)
      * @return ProductoDTO creado
      */
     @PostMapping
-    public ResponseEntity<ProductoDTO> createProducto(@RequestBody ProductoDTO productoDTO,
-                                                       @RequestParam(required = false) Integer clubId) {
-        ProductoDTO savedProductoDTO;
-        
-        // Si viene hubId en el DTO, crear desde hub (nuevo flujo)
-        if (productoDTO.getHubId() != null) {
-            savedProductoDTO = productoService.createProductoFromHub(productoDTO, productoDTO.getHubId());
-        } 
-        // Si viene clubId como query param, mantener comportamiento legacy
-        else if (clubId != null) {
-            savedProductoDTO = productoService.createProducto(productoDTO, clubId);
-        } 
-        // Si no viene ninguno, error
-        else {
+    public ResponseEntity<ProductoDTO> createProducto(@RequestBody ProductoDTO productoDTO) {
+        // Validar autenticación
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Obtener usuario autenticado
+        String email = authentication.getName();
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElse(null);
+
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Validar que se proporcionó hubId
+        if (productoDTO.getHubId() == null) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .build();
         }
+
+        // Crear producto según el rol
+        ProductoDTO savedProductoDTO = productoService.createProducto(
+                productoDTO, 
+                usuario.getId(), 
+                productoDTO.getHubId()
+        );
         
         return new ResponseEntity<>(savedProductoDTO, HttpStatus.CREATED);
     }
 
     @GetMapping
     public ResponseEntity<List<ProductoDTO>> getProductos(@RequestParam(required = false) Integer clubId) {
+        // Detectar si es usuario autenticado y su rol
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean esAdminOAnfitrion = false;
+        
+        if (authentication != null && authentication.getName() != null) {
+            Usuario usuario = usuarioRepository.findByEmail(authentication.getName()).orElse(null);
+            if (usuario != null && usuario.getRol() != null) {
+                String rolNombre = usuario.getRol().getNombre();
+                esAdminOAnfitrion = "ADMIN".equalsIgnoreCase(rolNombre) || "ANFITRION".equalsIgnoreCase(rolNombre);
+            }
+        }
+        
         List<ProductoDTO> productos;
         if (clubId != null) {
-            productos = productoService.getProductosByClub(clubId);
+            // Si es admin/anfitrión, devolver todos (con ingredientes y PENDIENTE)
+            // Si es socio o público, devolver versión pública (sin ingredientes, sin PENDIENTE)
+            productos = esAdminOAnfitrion 
+                    ? productoService.getProductosByClub(clubId)
+                    : productoService.getProductosByClubPublico(clubId);
         } else {
-            productos = productoService.getProductos();
+            productos = esAdminOAnfitrion 
+                    ? productoService.getProductos()
+                    : productoService.getProductosPublicos();
         }
         return ResponseEntity.ok(productos);
     }
 
     @GetMapping("{id}")
     public ResponseEntity<ProductoDTO> getProducto(@PathVariable Integer id) {
-        ProductoDTO productoDTO = productoService.getProducto(id);
+        // Detectar si es usuario autenticado y su rol
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean esAdminOAnfitrion = false;
+        
+        if (authentication != null && authentication.getName() != null) {
+            Usuario usuario = usuarioRepository.findByEmail(authentication.getName()).orElse(null);
+            if (usuario != null && usuario.getRol() != null) {
+                String rolNombre = usuario.getRol().getNombre();
+                esAdminOAnfitrion = "ADMIN".equalsIgnoreCase(rolNombre) || "ANFITRION".equalsIgnoreCase(rolNombre);
+            }
+        }
+        
+        // Si es admin/anfitrión, devolver completo (con ingredientes)
+        // Si es socio o público, devolver versión pública (sin ingredientes, sin PENDIENTE)
+        ProductoDTO productoDTO = esAdminOAnfitrion 
+                ? productoService.getProducto(id)
+                : productoService.getProductoPublico(id);
         return ResponseEntity.ok(productoDTO);
     }
 
@@ -85,6 +132,44 @@ public class ProductoController {
     @PatchMapping("{id}/desactivar")
     public ResponseEntity<ProductoDTO> desactivarProducto(@PathVariable Integer id) {
         ProductoDTO productoDTO = productoService.desactivarProducto(id);
+        return ResponseEntity.ok(productoDTO);
+    }
+
+    /**
+     * Cambia el estado de aprobación de un producto (solo ADMIN).
+     * 
+     * @param id ID del producto
+     * @param estadoAprobacion Nuevo estado (APROBADO | RECHAZADO)
+     * @return ProductoDTO actualizado
+     */
+    @PatchMapping("{id}/estado-aprobacion")
+    public ResponseEntity<ProductoDTO> cambiarEstadoAprobacion(
+            @PathVariable Integer id,
+            @RequestParam String estadoAprobacion) {
+        
+        // Validar autenticación
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Obtener usuario autenticado
+        String email = authentication.getName();
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElse(null);
+
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Validar que el rol sea ADMIN
+        String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
+        if (!"ADMIN".equalsIgnoreCase(rolNombre)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        // Cambiar estado de aprobación
+        ProductoDTO productoDTO = productoService.cambiarEstadoAprobacion(id, estadoAprobacion);
         return ResponseEntity.ok(productoDTO);
     }
 

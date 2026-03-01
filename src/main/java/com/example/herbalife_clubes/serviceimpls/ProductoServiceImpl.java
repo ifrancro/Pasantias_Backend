@@ -6,12 +6,14 @@ import com.example.herbalife_clubes.entities.Club;
 import com.example.herbalife_clubes.entities.ClubProducto;
 import com.example.herbalife_clubes.entities.Hub;
 import com.example.herbalife_clubes.entities.Producto;
+import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.ProductoMapper;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.HubRepository;
 import com.example.herbalife_clubes.repositories.ProductoRepository;
+import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.services.ProductoService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,9 +34,65 @@ public class ProductoServiceImpl implements ProductoService {
     private HubRepository hubRepository;
     @Autowired
     private ClubProductoRepository clubProductoRepository;
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
     @Override
-    public ProductoDTO createProducto(ProductoDTO productoDTO, Integer clubId) {
+    public ProductoDTO createProducto(ProductoDTO productoDTO, Integer usuarioId, Integer hubId) {
+        // Obtener usuario para determinar su rol
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + usuarioId));
+        
+        String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
+        
+        // Validar que el hub existe
+        Hub hub = hubRepository.findById(hubId)
+                .orElseThrow(() -> new ResourceNotFoundException("Hub no encontrado con id: " + hubId));
+        
+        // Crear producto desde el DTO
+        Producto producto = ProductoMapper.mapProductoDTOToProducto(productoDTO);
+        producto.setHub(hub);
+        
+        // Lógica según el rol
+        if ("ADMIN".equalsIgnoreCase(rolNombre)) {
+            // ADMIN: Producto GLOBAL (club_creador_id = null, estado = APROBADO)
+            producto.setClubCreador(null);
+            producto.setTipo("GLOBAL");
+            producto.setEstadoAprobacion("APROBADO");
+        } else if ("ANFITRION".equalsIgnoreCase(rolNombre)) {
+            // ANFITRION: Producto LOCAL (club_creador_id = club del anfitrión, estado = PENDIENTE)
+            // Obtener el club del anfitrión
+            List<Club> clubes = clubRepository.findByAnfitrionId(usuarioId);
+            if (clubes.isEmpty()) {
+                throw new IllegalArgumentException("El anfitrión no tiene un club asociado");
+            }
+            Club clubAnfitrion = clubes.get(0); // Tomar el primero
+            producto.setClubCreador(clubAnfitrion);
+            producto.setTipo("LOCAL");
+            producto.setEstadoAprobacion("PENDIENTE");
+        } else {
+            throw new IllegalArgumentException("Solo usuarios ADMIN o ANFITRION pueden crear productos");
+        }
+        
+        // Valores por defecto
+        if (producto.getActivo() == null) {
+            producto.setActivo(true);
+        }
+        if (producto.getPuntosValor() == null) {
+            producto.setPuntosValor(0);
+        }
+        
+        // Guardar producto
+        Producto savedProducto = productoRepository.save(producto);
+        return ProductoMapper.mapProductoToProductoDTO(savedProducto);
+    }
+
+    /**
+     * Método legacy - mantener para compatibilidad
+     * @deprecated Usar createProducto en su lugar
+     */
+    @Deprecated
+    public ProductoDTO createProductoLegacy(ProductoDTO productoDTO, Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
         Hub hub = club.getHub();
@@ -103,14 +161,40 @@ public class ProductoServiceImpl implements ProductoService {
     public ProductoDTO getProducto(Integer productoId) {
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
-        return ProductoMapper.mapProductoToProductoDTO(producto);
+        return ProductoMapper.mapProductoToProductoDTO(producto, true);
+    }
+
+    @Override
+    public ProductoDTO getProductoPublico(Integer productoId) {
+        Producto producto = productoRepository.findById(productoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
+        
+        // No devolver productos PENDIENTE
+        if ("PENDIENTE".equalsIgnoreCase(producto.getEstadoAprobacion())) {
+            throw new ResourceNotFoundException("Producto no encontrado con id: " + productoId);
+        }
+        
+        // No incluir ingredientes en respuesta pública
+        return ProductoMapper.mapProductoToProductoDTO(producto, false);
     }
 
     @Override
     public List<ProductoDTO> getProductos() {
         List<Producto> productos = productoRepository.findAll();
         return productos.stream()
-                .map(ProductoMapper::mapProductoToProductoDTO)
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductoDTO> getProductosPublicos() {
+        // Filtrar productos PENDIENTE y no incluir ingredientes
+        List<Producto> productos = productoRepository.findAll().stream()
+                .filter(p -> !"PENDIENTE".equalsIgnoreCase(p.getEstadoAprobacion()))
+                .collect(Collectors.toList());
+        
+        return productos.stream()
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, false))
                 .collect(Collectors.toList());
     }
 
@@ -118,8 +202,34 @@ public class ProductoServiceImpl implements ProductoService {
     public List<ProductoDTO> getProductosByClub(Integer clubId) {
         return clubProductoRepository.findByClubIdAndDisponibleTrue(clubId).stream()
                 .map(ClubProducto::getProducto)
-                .map(ProductoMapper::mapProductoToProductoDTO)
+                .filter(p -> !"PENDIENTE".equalsIgnoreCase(p.getEstadoAprobacion())) // Filtrar PENDIENTE
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductoDTO> getProductosByClubPublico(Integer clubId) {
+        // Versión pública: sin ingredientes y sin PENDIENTE
+        return clubProductoRepository.findByClubIdAndDisponibleTrue(clubId).stream()
+                .map(ClubProducto::getProducto)
+                .filter(p -> !"PENDIENTE".equalsIgnoreCase(p.getEstadoAprobacion())) // Filtrar PENDIENTE
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, false)) // Sin ingredientes
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public ProductoDTO cambiarEstadoAprobacion(Integer productoId, String estadoAprobacion) {
+        // Validar que el estado sea válido
+        if (!"APROBADO".equalsIgnoreCase(estadoAprobacion) && !"RECHAZADO".equalsIgnoreCase(estadoAprobacion)) {
+            throw new IllegalArgumentException("El estado de aprobación debe ser APROBADO o RECHAZADO");
+        }
+        
+        Producto producto = productoRepository.findById(productoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
+        
+        producto.setEstadoAprobacion(estadoAprobacion.toUpperCase());
+        Producto updatedProducto = productoRepository.save(producto);
+        return ProductoMapper.mapProductoToProductoDTO(updatedProducto, true);
     }
 
     @Override

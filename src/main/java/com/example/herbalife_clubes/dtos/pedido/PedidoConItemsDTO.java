@@ -10,8 +10,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PedidoConItemsDTO {
-    private String horarioDeseado;
-    private String tipoConsumo; // PARA_LLEVAR | EN_LUGAR
+    private String horarioDeseado; // @deprecated - usar tiempoEstimadoMinutos
+    private String tipoConsumo; // PARA_RECOGER | EN_LUGAR
+    private Integer tiempoEstimadoMinutos; // Tiempo estimado de preparación en minutos
     private String observaciones;
     private List<PedidoItemDTO> items; // Lista de items del pedido
 }

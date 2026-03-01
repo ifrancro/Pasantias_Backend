@@ -109,13 +109,25 @@ public class PedidoServiceImpl implements PedidoService {
 
         // enums
         pedido.setEstado(EstadoPedido.RECIBIDO);
-        try {
-            if (pedidoDTO.getTipoConsumo() != null) {
-                pedido.setTipoConsumo(TipoConsumo.valueOf(pedidoDTO.getTipoConsumo()));
+        
+        // Validar y establecer tipo_consumo (solo acepta PARA_RECOGER o EN_LUGAR)
+        if (pedidoDTO.getTipoConsumo() != null) {
+            try {
+                TipoConsumo tipoConsumo = TipoConsumo.valueOf(pedidoDTO.getTipoConsumo().toUpperCase());
+                // Validar que sea uno de los valores permitidos
+                if (tipoConsumo != TipoConsumo.PARA_RECOGER && tipoConsumo != TipoConsumo.EN_LUGAR) {
+                    throw new IllegalArgumentException("tipo_consumo debe ser 'PARA_RECOGER' o 'EN_LUGAR'");
+                }
+                pedido.setTipoConsumo(tipoConsumo);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("tipo_consumo debe ser 'PARA_RECOGER' o 'EN_LUGAR'. Valor recibido: " + pedidoDTO.getTipoConsumo());
             }
-        } catch (Exception ignored) {
+        } else {
+            // Valor por defecto si no se proporciona
+            pedido.setTipoConsumo(TipoConsumo.EN_LUGAR);
         }
-        pedido.setHorarioDeseado(pedidoDTO.getHorarioDeseado());
+        
+        // tiempoEstimadoMinutos se establece cuando el estado cambia a PREPARANDO
         
         System.out.println("[PEDIDO] ANTES DE GUARDAR:");
         System.out.println("[PEDIDO]   - pedido.clubId: " + (pedido.getClub() != null ? pedido.getClub().getId() : "NULL"));
@@ -193,20 +205,29 @@ public class PedidoServiceImpl implements PedidoService {
         Pedido pedido = new Pedido();
         pedido.setMembresia(membresia);
         pedido.setClub(club);
-        pedido.setHorarioDeseado(pedidoDTO.getHorarioDeseado());
+        // horarioDeseado fue eliminado - ahora se usa tiempoEstimadoMinutos
         pedido.setObservaciones(pedidoDTO.getObservaciones());
         pedido.setEstado(EstadoPedido.RECIBIDO);
         pedido.setFechaPedido(LocalDateTime.now());
         
-        try {
-            if (pedidoDTO.getTipoConsumo() != null) {
-                pedido.setTipoConsumo(TipoConsumo.valueOf(pedidoDTO.getTipoConsumo()));
-            } else {
-                pedido.setTipoConsumo(TipoConsumo.EN_LUGAR);
+        // Validar y establecer tipo_consumo (solo acepta PARA_RECOGER o EN_LUGAR)
+        if (pedidoDTO.getTipoConsumo() != null) {
+            try {
+                TipoConsumo tipoConsumo = TipoConsumo.valueOf(pedidoDTO.getTipoConsumo().toUpperCase());
+                // Validar que sea uno de los valores permitidos
+                if (tipoConsumo != TipoConsumo.PARA_RECOGER && tipoConsumo != TipoConsumo.EN_LUGAR) {
+                    throw new IllegalArgumentException("tipo_consumo debe ser 'PARA_RECOGER' o 'EN_LUGAR'");
+                }
+                pedido.setTipoConsumo(tipoConsumo);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("tipo_consumo debe ser 'PARA_RECOGER' o 'EN_LUGAR'. Valor recibido: " + pedidoDTO.getTipoConsumo());
             }
-        } catch (Exception e) {
+        } else {
+            // Valor por defecto si no se proporciona
             pedido.setTipoConsumo(TipoConsumo.EN_LUGAR);
         }
+        
+        // tiempoEstimadoMinutos se establece cuando el estado cambia a PREPARANDO
         
         // Validar y crear items
         Producto primerProducto = null;
@@ -335,10 +356,31 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     @Override
-    public PedidoDTO actualizarEstado(Integer pedidoId, String estado) {
+    public PedidoDTO actualizarEstado(Integer pedidoId, String estado, Integer tiempoEstimadoMinutos) {
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado con id: " + pedidoId));
-        pedido.setEstado(EstadoPedido.valueOf(estado));
+        
+        EstadoPedido nuevoEstado;
+        try {
+            nuevoEstado = EstadoPedido.valueOf(estado.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Estado inválido: " + estado);
+        }
+        
+        // Si el estado es PREPARANDO, tiempo_estimado_minutos es obligatorio
+        if (EstadoPedido.PREPARANDO.equals(nuevoEstado)) {
+            if (tiempoEstimadoMinutos == null || tiempoEstimadoMinutos <= 0) {
+                throw new IllegalArgumentException("El campo tiempo_estimado_minutos es obligatorio cuando el estado es PREPARANDO");
+            }
+            pedido.setTiempoEstimadoMinutos(tiempoEstimadoMinutos);
+        } else {
+            // Para otros estados, se puede actualizar opcionalmente
+            if (tiempoEstimadoMinutos != null && tiempoEstimadoMinutos > 0) {
+                pedido.setTiempoEstimadoMinutos(tiempoEstimadoMinutos);
+            }
+        }
+        
+        pedido.setEstado(nuevoEstado);
         Pedido updatedPedido = pedidoRepository.save(pedido);
         return PedidoMapper.mapPedidoToPedidoDTO(updatedPedido);
     }

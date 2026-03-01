@@ -52,9 +52,21 @@ public class PedidoController {
         return ResponseEntity.ok(pedidos);
     }
 
+    /**
+     * Actualiza el estado de un pedido.
+     * Si el estado es 'PREPARANDO', el campo tiempo_estimado_minutos es obligatorio.
+     * 
+     * @param id ID del pedido
+     * @param estado Nuevo estado (RECIBIDO | PREPARANDO | LISTO | ENTREGADO | CANCELADO)
+     * @param tiempoEstimadoMinutos Tiempo estimado en minutos (obligatorio si estado es PREPARANDO)
+     * @return PedidoDTO actualizado
+     */
     @PatchMapping("{id}/estado")
-    public ResponseEntity<PedidoDTO> actualizarEstado(@PathVariable Integer id, @RequestParam String estado) {
-        PedidoDTO pedidoDTO = pedidoService.actualizarEstado(id, estado);
+    public ResponseEntity<PedidoDTO> actualizarEstado(
+            @PathVariable Integer id, 
+            @RequestParam String estado,
+            @RequestParam(required = false) Integer tiempoEstimadoMinutos) {
+        PedidoDTO pedidoDTO = pedidoService.actualizarEstado(id, estado, tiempoEstimadoMinutos);
         return ResponseEntity.ok(pedidoDTO);
     }
 
