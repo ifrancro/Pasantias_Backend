@@ -107,7 +107,30 @@ public class SocioActivationServiceImpl implements SocioActivationService {
         Membresia membresia = new Membresia();
         membresia.setUsuario(usuario);
         membresia.setClub(club);
-        membresia.setReferidoPor(referidoPor);
+
+        // Manejo del referido con la nueva relación ManyToOne (árbol multinivel)
+        // El parámetro `referidoPor` ahora se interpreta como identificador de la membresía referente
+        // Puede ser el ID numérico de la membresía o el numeroSocio
+        if (referidoPor != null && !referidoPor.isBlank()) {
+            Optional<Membresia> membresiaReferenteOpt = Optional.empty();
+
+            // 1) Intentar parsear como ID numérico de la membresía
+            try {
+                Integer referidoId = Integer.parseInt(referidoPor.trim());
+                membresiaReferenteOpt = membresiaRepository.findById(referidoId);
+            } catch (NumberFormatException ignored) {
+                // No es un ID numérico, continuamos probando con numeroSocio
+            }
+
+            // 2) Si no se encontró por ID, intentar por numeroSocio
+            if (membresiaReferenteOpt.isEmpty()) {
+                membresiaReferenteOpt = membresiaRepository.findByNumeroSocio(referidoPor.trim());
+            }
+
+            // 3) Si se encontró, asociar la membresía referente
+            membresiaReferenteOpt.ifPresent(membresia::setReferidoPorMembresia);
+        }
+
         membresia.setComoConocio(comoConocio);
         membresia.setEstado("ACTIVA");
         // puntosAcumulados y fechaRegistro se establecen en @PrePersist
