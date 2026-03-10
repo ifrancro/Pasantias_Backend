@@ -276,6 +276,33 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    public List<ProductoDTO> getProductosPendientes() {
+        return productoRepository.findByEstadoAprobacion("PENDIENTE").stream()
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductoDTO> getProductosAprobados(Integer clubId) {
+        List<Producto> productos = clubId != null
+                ? productoRepository.findByEstadoAprobacionAndClubCreadorId("APROBADO", clubId)
+                : productoRepository.findByEstadoAprobacion("APROBADO");
+        return productos.stream()
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductoDTO> getProductosRechazados(Integer clubId) {
+        List<Producto> productos = clubId != null
+                ? productoRepository.findByEstadoAprobacionAndClubCreadorId("RECHAZADO", clubId)
+                : productoRepository.findByEstadoAprobacion("RECHAZADO");
+        return productos.stream()
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<ProductoConDisponibilidadDTO> getProductosByHub(Integer hubId, Integer clubId) {
         System.out.println("[DEBUG] getProductosByHub - hubId: " + hubId + ", clubId: " + clubId);
         

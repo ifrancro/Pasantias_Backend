@@ -13,5 +13,6 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer> {
     List<Producto> findByClubCreadorId(Integer clubCreadorId);
     List<Producto> findByEstadoAprobacion(String estadoAprobacion);
     List<Producto> findByEstadoAprobacionNot(String estadoAprobacion); // Para excluir PENDIENTE
+    List<Producto> findByEstadoAprobacionAndClubCreadorId(String estadoAprobacion, Integer clubCreadorId);
 }
 

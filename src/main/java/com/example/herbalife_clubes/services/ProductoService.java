@@ -54,6 +54,12 @@ public interface ProductoService {
      * Productos de un club filtrados por tipo, versión pública (sin ingredientes, sin PENDIENTE).
      */
     List<ProductoDTO> getProductosByClubPublicoAndTipo(Integer clubId, String tipo);
+    /** Solo productos con estado_aprobacion = PENDIENTE (bandeja Admin). DTO completo: ingredientes, clubCreadorNombre, imagenUrl. */
+    List<ProductoDTO> getProductosPendientes();
+    /** Productos aprobados. Si clubId no null, solo los creados por ese club. DTO completo para Admin. */
+    List<ProductoDTO> getProductosAprobados(Integer clubId);
+    /** Productos rechazados. Si clubId no null, solo los creados por ese club. DTO completo para Admin. */
+    List<ProductoDTO> getProductosRechazados(Integer clubId);
     ProductoDTO activarProducto(Integer productoId);
     ProductoDTO desactivarProducto(Integer productoId);
     

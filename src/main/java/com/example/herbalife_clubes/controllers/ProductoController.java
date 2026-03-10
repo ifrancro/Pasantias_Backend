@@ -67,9 +67,10 @@ public class ProductoController {
     }
 
     /**
-     * Lista productos. Con clubId: productos del club (disponibles en el club).
-     * Con clubId y tipo (GLOBAL|LOCAL): filtrados por tipo para agrupar en front.
-     * Cada ítem incluye tipo y estadoAprobacion.
+     * Lista productos.
+     * - Sin clubId (Admin/Anfitrión): todos los productos. Admin: DTO completo (clubCreadorNombre, ingredientes, imagenUrl).
+     * - Con clubId: menú del club (productos con disponible=true en ese club). El Admin puede usar clubId para supervisar el menú de cualquier club.
+     * - Con clubId y tipo (GLOBAL|LOCAL): filtrados por tipo. Cada ítem incluye tipo y estadoAprobacion.
      */
     @GetMapping
     public ResponseEntity<List<ProductoDTO>> getProductos(
@@ -104,6 +105,70 @@ public class ProductoController {
                     : productoService.getProductosPublicos();
         }
         return ResponseEntity.ok(productos);
+    }
+
+    /**
+     * Bandeja de entrada del Admin: solo productos con estado_aprobacion = PENDIENTE.
+     * DTO incluye clubCreadorNombre, ingredientes, imagenUrl.
+     * Solo ADMIN.
+     */
+    @GetMapping("/pendientes")
+    public ResponseEntity<List<ProductoDTO>> getProductosPendientes() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Usuario usuario = usuarioRepository.findByEmail(authentication.getName()).orElse(null);
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
+        if (!"ADMIN".equalsIgnoreCase(rolNombre)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(productoService.getProductosPendientes());
+    }
+
+    /**
+     * Historial: productos aprobados. Opcional clubId para filtrar por club creador.
+     * DTO completo (clubCreadorNombre, ingredientes, imagenUrl). Solo ADMIN.
+     */
+    @GetMapping("/aprobados")
+    public ResponseEntity<List<ProductoDTO>> getProductosAprobados(@RequestParam(required = false) Integer clubId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Usuario usuario = usuarioRepository.findByEmail(authentication.getName()).orElse(null);
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
+        if (!"ADMIN".equalsIgnoreCase(rolNombre)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(productoService.getProductosAprobados(clubId));
+    }
+
+    /**
+     * Historial: productos rechazados. Opcional clubId para filtrar por club creador.
+     * DTO completo (clubCreadorNombre, ingredientes, imagenUrl). Solo ADMIN.
+     */
+    @GetMapping("/rechazados")
+    public ResponseEntity<List<ProductoDTO>> getProductosRechazados(@RequestParam(required = false) Integer clubId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Usuario usuario = usuarioRepository.findByEmail(authentication.getName()).orElse(null);
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
+        if (!"ADMIN".equalsIgnoreCase(rolNombre)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        return ResponseEntity.ok(productoService.getProductosRechazados(clubId));
     }
 
     @GetMapping("{id}")
