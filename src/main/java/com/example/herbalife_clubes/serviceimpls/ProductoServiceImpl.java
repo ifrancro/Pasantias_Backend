@@ -53,6 +53,7 @@ public class ProductoServiceImpl implements ProductoService {
         Producto producto = ProductoMapper.mapProductoDTOToProducto(productoDTO);
         producto.setHub(hub);
         
+        Club clubAnfitrion = null;
         // Lógica según el rol
         if ("ADMIN".equalsIgnoreCase(rolNombre)) {
             // ADMIN: Producto GLOBAL (club_creador_id = null, estado = APROBADO)
@@ -61,12 +62,11 @@ public class ProductoServiceImpl implements ProductoService {
             producto.setEstadoAprobacion("APROBADO");
         } else if ("ANFITRION".equalsIgnoreCase(rolNombre)) {
             // ANFITRION: Producto LOCAL (club_creador_id = club del anfitrión, estado = PENDIENTE)
-            // Obtener el club del anfitrión
             List<Club> clubes = clubRepository.findByAnfitrionId(usuarioId);
             if (clubes.isEmpty()) {
                 throw new IllegalArgumentException("El anfitrión no tiene un club asociado");
             }
-            Club clubAnfitrion = clubes.get(0); // Tomar el primero
+            clubAnfitrion = clubes.get(0);
             producto.setClubCreador(clubAnfitrion);
             producto.setTipo("LOCAL");
             producto.setEstadoAprobacion("PENDIENTE");
@@ -84,6 +84,19 @@ public class ProductoServiceImpl implements ProductoService {
         
         // Guardar producto
         Producto savedProducto = productoRepository.save(producto);
+
+        // Producto LOCAL: crear entrada en club_productos con disponible=true para que anfitrión y socios lo vean
+        if (clubAnfitrion != null) {
+            clubProductoRepository.findByClubIdAndProductoId(clubAnfitrion.getId(), savedProducto.getId())
+                    .orElseGet(() -> {
+                        ClubProducto cp = new ClubProducto();
+                        cp.setClub(clubAnfitrion);
+                        cp.setProducto(savedProducto);
+                        cp.setDisponible(true);
+                        return clubProductoRepository.save(cp);
+                    });
+        }
+
         return ProductoMapper.mapProductoToProductoDTO(savedProducto);
     }
 
@@ -199,21 +212,48 @@ public class ProductoServiceImpl implements ProductoService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Incluye producto si no existe fila en club_productos o si existe y disponible=true (respeta toggle).
+     */
+    private List<Producto> filtrarPorDisponibilidadEnClub(List<Producto> productos, Integer clubId) {
+        return productos.stream()
+                .filter(p -> {
+                    Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, p.getId());
+                    return cp.isEmpty() || Boolean.TRUE.equals(cp.get().getDisponible());
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Productos del menú del club: GLOBALES (hub, APROBADO) + LOCALES (club_creador_id=clubId, APROBADO).
+     * No exige fila en club_productos; si existe, se respeta disponible (toggle).
+     */
+    private List<Producto> obtenerProductosMenuClub(Integer clubId) {
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+        Integer hubId = club.getHub() != null ? club.getHub().getId() : null;
+        if (hubId == null) {
+            throw new ResourceNotFoundException("El club no tiene Hub asociado");
+        }
+        List<Producto> globales = productoRepository.findByHubIdAndTipoAndEstadoAprobacion(hubId, "GLOBAL", "APROBADO");
+        List<Producto> locales = productoRepository.findByClubCreadorIdAndTipoAndEstadoAprobacion(clubId, "LOCAL", "APROBADO");
+        List<Producto> todos = new java.util.ArrayList<>(globales);
+        todos.addAll(locales);
+        return filtrarPorDisponibilidadEnClub(todos, clubId);
+    }
+
     @Override
     public List<ProductoDTO> getProductosByClub(Integer clubId) {
-        return clubProductoRepository.findByClubIdAndDisponibleTrue(clubId).stream()
-                .map(ClubProducto::getProducto)
-                .filter(p -> !"PENDIENTE".equalsIgnoreCase(p.getEstadoAprobacion())) // Filtrar PENDIENTE
+        List<Producto> productos = obtenerProductosMenuClub(clubId);
+        return productos.stream()
                 .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<ProductoDTO> getProductosByClubPublico(Integer clubId) {
-        // Vista socio: solo productos con registro en club_productos (disponible=true) y estado_aprobacion=APROBADO.
-        // Aplica por igual a globales y locales.
-        return clubProductoRepository.findByClubIdAndDisponibleTrueAndProductoAprobado(clubId).stream()
-                .map(ClubProducto::getProducto)
+        List<Producto> productos = obtenerProductosMenuClub(clubId);
+        return productos.stream()
                 .map(p -> ProductoMapper.mapProductoToProductoDTO(p, false)) // Sin ingredientes
                 .collect(Collectors.toList());
     }
@@ -223,9 +263,10 @@ public class ProductoServiceImpl implements ProductoService {
         if (tipo == null || tipo.isBlank()) {
             return getProductosByClub(clubId);
         }
-        return clubProductoRepository.findByClubIdAndDisponibleTrueAndProducto_Tipo(clubId, tipo.toUpperCase()).stream()
-                .map(ClubProducto::getProducto)
-                .filter(p -> !"PENDIENTE".equalsIgnoreCase(p.getEstadoAprobacion()))
+        List<Producto> productos = obtenerProductosMenuClub(clubId).stream()
+                .filter(p -> tipo.equalsIgnoreCase(p.getTipo()))
+                .collect(Collectors.toList());
+        return productos.stream()
                 .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
                 .collect(Collectors.toList());
     }
@@ -235,9 +276,10 @@ public class ProductoServiceImpl implements ProductoService {
         if (tipo == null || tipo.isBlank()) {
             return getProductosByClubPublico(clubId);
         }
-        // Vista socio: mismo criterio (disponible=true, APROBADO) más filtro por tipo.
-        return clubProductoRepository.findByClubIdAndDisponibleTrueAndProductoAprobadoAndProductoTipo(clubId, tipo.toUpperCase()).stream()
-                .map(ClubProducto::getProducto)
+        List<Producto> productos = obtenerProductosMenuClub(clubId).stream()
+                .filter(p -> tipo.equalsIgnoreCase(p.getTipo()))
+                .collect(Collectors.toList());
+        return productos.stream()
                 .map(p -> ProductoMapper.mapProductoToProductoDTO(p, false))
                 .collect(Collectors.toList());
     }
