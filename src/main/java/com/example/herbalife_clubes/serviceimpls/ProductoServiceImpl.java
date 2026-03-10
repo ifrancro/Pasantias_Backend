@@ -209,11 +209,35 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     public List<ProductoDTO> getProductosByClubPublico(Integer clubId) {
-        // Versión pública: sin ingredientes y sin PENDIENTE
-        return clubProductoRepository.findByClubIdAndDisponibleTrue(clubId).stream()
+        // Vista socio: solo productos con registro en club_productos (disponible=true) y estado_aprobacion=APROBADO.
+        // Aplica por igual a globales y locales.
+        return clubProductoRepository.findByClubIdAndDisponibleTrueAndProductoAprobado(clubId).stream()
                 .map(ClubProducto::getProducto)
-                .filter(p -> !"PENDIENTE".equalsIgnoreCase(p.getEstadoAprobacion())) // Filtrar PENDIENTE
                 .map(p -> ProductoMapper.mapProductoToProductoDTO(p, false)) // Sin ingredientes
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductoDTO> getProductosByClubAndTipo(Integer clubId, String tipo) {
+        if (tipo == null || tipo.isBlank()) {
+            return getProductosByClub(clubId);
+        }
+        return clubProductoRepository.findByClubIdAndDisponibleTrueAndProducto_Tipo(clubId, tipo.toUpperCase()).stream()
+                .map(ClubProducto::getProducto)
+                .filter(p -> !"PENDIENTE".equalsIgnoreCase(p.getEstadoAprobacion()))
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductoDTO> getProductosByClubPublicoAndTipo(Integer clubId, String tipo) {
+        if (tipo == null || tipo.isBlank()) {
+            return getProductosByClubPublico(clubId);
+        }
+        // Vista socio: mismo criterio (disponible=true, APROBADO) más filtro por tipo.
+        return clubProductoRepository.findByClubIdAndDisponibleTrueAndProductoAprobadoAndProductoTipo(clubId, tipo.toUpperCase()).stream()
+                .map(ClubProducto::getProducto)
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, false))
                 .collect(Collectors.toList());
     }
 
@@ -279,6 +303,8 @@ public class ProductoServiceImpl implements ProductoService {
                             .hubNombre(producto.getHub() != null ? producto.getHub().getNombre() : null)
                             .nombre(producto.getNombre())
                             .descripcion(producto.getDescripcion())
+                            .tipo(producto.getTipo())
+                            .estadoAprobacion(producto.getEstadoAprobacion())
                             .activo(producto.getActivo())
                             .disponible(disponible) // null si no hay relación, true/false si existe
                             .createdAt(producto.getCreatedAt())
@@ -361,6 +387,8 @@ public class ProductoServiceImpl implements ProductoService {
                 .hubNombre(producto.getHub() != null ? producto.getHub().getNombre() : null)
                 .nombre(producto.getNombre())
                 .descripcion(producto.getDescripcion())
+                .tipo(producto.getTipo())
+                .estadoAprobacion(producto.getEstadoAprobacion())
                 .activo(producto.getActivo()) // Estado global (no se modifica)
                 .disponible(clubProducto.getDisponible()) // Estado local en el club
                 .createdAt(producto.getCreatedAt())

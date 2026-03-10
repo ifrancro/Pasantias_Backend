@@ -45,6 +45,15 @@ public interface ProductoService {
     List<ProductoDTO> getProductosPublicos(); // Sin ingredientes y sin PENDIENTE
     List<ProductoDTO> getProductosByClub(Integer clubId);
     List<ProductoDTO> getProductosByClubPublico(Integer clubId); // Sin ingredientes y sin PENDIENTE
+    /**
+     * Productos de un club filtrados por tipo (GLOBAL o LOCAL).
+     * Para admin/anfitrión: incluye ingredientes y PENDIENTE.
+     */
+    List<ProductoDTO> getProductosByClubAndTipo(Integer clubId, String tipo);
+    /**
+     * Productos de un club filtrados por tipo, versión pública (sin ingredientes, sin PENDIENTE).
+     */
+    List<ProductoDTO> getProductosByClubPublicoAndTipo(Integer clubId, String tipo);
     ProductoDTO activarProducto(Integer productoId);
     ProductoDTO desactivarProducto(Integer productoId);
     

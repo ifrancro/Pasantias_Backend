@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
  * DTO para productos que incluye información de disponibilidad en un club específico.
  * Usado para el catálogo del Hub donde el anfitrión puede ver todos los productos
  * y su estado de disponibilidad en su club.
+ * Incluye tipo (GLOBAL/LOCAL) y estadoAprobacion para filtrado y agrupación en front.
  */
 @Data
 @Builder
@@ -22,8 +23,10 @@ public class ProductoConDisponibilidadDTO {
     private String hubNombre;
     private String nombre;
     private String descripcion;
-    private Boolean activo; // Estado global del producto
-    private Boolean disponible; // Estado local en el club (null si no existe relación)
+    private String tipo;           // GLOBAL | LOCAL
+    private String estadoAprobacion; // APROBADO | PENDIENTE | RECHAZADO
+    private Boolean activo;        // Estado global del producto
+    private Boolean disponible;    // Estado local en el club (null si no existe relación)
     private LocalDateTime createdAt;
 }
 

@@ -66,12 +66,19 @@ public class ProductoController {
         return new ResponseEntity<>(savedProductoDTO, HttpStatus.CREATED);
     }
 
+    /**
+     * Lista productos. Con clubId: productos del club (disponibles en el club).
+     * Con clubId y tipo (GLOBAL|LOCAL): filtrados por tipo para agrupar en front.
+     * Cada ítem incluye tipo y estadoAprobacion.
+     */
     @GetMapping
-    public ResponseEntity<List<ProductoDTO>> getProductos(@RequestParam(required = false) Integer clubId) {
+    public ResponseEntity<List<ProductoDTO>> getProductos(
+            @RequestParam(required = false) Integer clubId,
+            @RequestParam(required = false) String tipo) {
         // Detectar si es usuario autenticado y su rol
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         boolean esAdminOAnfitrion = false;
-        
+
         if (authentication != null && authentication.getName() != null) {
             Usuario usuario = usuarioRepository.findByEmail(authentication.getName()).orElse(null);
             if (usuario != null && usuario.getRol() != null) {
@@ -79,16 +86,20 @@ public class ProductoController {
                 esAdminOAnfitrion = "ADMIN".equalsIgnoreCase(rolNombre) || "ANFITRION".equalsIgnoreCase(rolNombre);
             }
         }
-        
+
         List<ProductoDTO> productos;
         if (clubId != null) {
-            // Si es admin/anfitrión, devolver todos (con ingredientes y PENDIENTE)
-            // Si es socio o público, devolver versión pública (sin ingredientes, sin PENDIENTE)
-            productos = esAdminOAnfitrion 
-                    ? productoService.getProductosByClub(clubId)
-                    : productoService.getProductosByClubPublico(clubId);
+            if (tipo != null && !tipo.isBlank()) {
+                productos = esAdminOAnfitrion
+                        ? productoService.getProductosByClubAndTipo(clubId, tipo)
+                        : productoService.getProductosByClubPublicoAndTipo(clubId, tipo);
+            } else {
+                productos = esAdminOAnfitrion
+                        ? productoService.getProductosByClub(clubId)
+                        : productoService.getProductosByClubPublico(clubId);
+            }
         } else {
-            productos = esAdminOAnfitrion 
+            productos = esAdminOAnfitrion
                     ? productoService.getProductos()
                     : productoService.getProductosPublicos();
         }
