@@ -151,6 +151,7 @@ public class ProductoServiceImpl implements ProductoService {
         
         producto.setNombre(productoDTO.getNombre());
         producto.setDescripcion(productoDTO.getDescripcion());
+        producto.setImagenUrl(productoDTO.getImagenUrl());
         producto.setActivo(productoDTO.getActivo());
         
         Producto updatedProducto = productoRepository.save(producto);

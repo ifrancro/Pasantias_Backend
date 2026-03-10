@@ -25,6 +25,7 @@ public class ProductoMapper {
         dto.setClubCreadorNombre(producto.getClubCreador() != null ? producto.getClubCreador().getNombreClub() : null);
         dto.setNombre(producto.getNombre());
         dto.setDescripcion(producto.getDescripcion());
+        dto.setImagenUrl(producto.getImagenUrl());
         if (incluirIngredientes) {
             dto.setIngredientes(producto.getIngredientes());
         }
@@ -41,6 +42,7 @@ public class ProductoMapper {
         producto.setId(dto.getId());
         producto.setNombre(dto.getNombre());
         producto.setDescripcion(dto.getDescripcion());
+        producto.setImagenUrl(dto.getImagenUrl());
         producto.setIngredientes(dto.getIngredientes());
         producto.setPuntosValor(dto.getPuntosValor());
         producto.setTipo(dto.getTipo());

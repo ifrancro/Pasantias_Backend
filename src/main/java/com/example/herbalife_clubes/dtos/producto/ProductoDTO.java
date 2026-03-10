@@ -17,6 +17,7 @@ public class ProductoDTO {
     private String clubCreadorNombre;
     private String nombre;
     private String descripcion;
+    private String imagenUrl;
     private String ingredientes; // Privado - no se devuelve en endpoints públicos
     private Integer puntosValor;
     private String tipo; // GLOBAL | LOCAL
