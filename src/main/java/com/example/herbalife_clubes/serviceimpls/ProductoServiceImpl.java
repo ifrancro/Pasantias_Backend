@@ -87,10 +87,11 @@ public class ProductoServiceImpl implements ProductoService {
 
         // Producto LOCAL: crear entrada en club_productos con disponible=true para que anfitrión y socios lo vean
         if (clubAnfitrion != null) {
-            clubProductoRepository.findByClubIdAndProductoId(clubAnfitrion.getId(), savedProducto.getId())
+            final Club club = clubAnfitrion;
+            clubProductoRepository.findByClubIdAndProductoId(club.getId(), savedProducto.getId())
                     .orElseGet(() -> {
                         ClubProducto cp = new ClubProducto();
-                        cp.setClub(clubAnfitrion);
+                        cp.setClub(club);
                         cp.setProducto(savedProducto);
                         cp.setDisponible(true);
                         return clubProductoRepository.save(cp);
