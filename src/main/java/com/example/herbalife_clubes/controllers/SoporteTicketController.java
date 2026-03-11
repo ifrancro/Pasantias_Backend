@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.controllers;
 
+import com.example.herbalife_clubes.dtos.soporteticket.ResponderTicketRequest;
 import com.example.herbalife_clubes.dtos.soporteticket.SoporteTicketDTO;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
@@ -86,12 +87,17 @@ public class SoporteTicketController {
 
     /**
      * Responder ticket. Solo ADMIN.
+     * Body: { "respuesta": "texto de la respuesta" }
      */
     @PatchMapping("{id}/responder")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<SoporteTicketDTO> responderTicket(@PathVariable Integer id,
-                                                             @RequestParam String respuestaAdmin) {
-        SoporteTicketDTO ticketDTO = ticketService.responderTicket(id, respuestaAdmin);
+                                                             @RequestBody(required = false) ResponderTicketRequest body) {
+        if (body == null || body.getRespuesta() == null || body.getRespuesta().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        String textoRespuesta = body.getRespuesta().trim();
+        SoporteTicketDTO ticketDTO = ticketService.responderTicket(id, textoRespuesta);
         return ResponseEntity.ok(ticketDTO);
     }
 
