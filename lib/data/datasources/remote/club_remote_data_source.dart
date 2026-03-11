@@ -23,7 +23,8 @@ class FotoClub {
 
 class Club {
   final int id;
-  final int hubId;
+  /// ID del Hub al que pertenece el club. Null si el backend no lo envía (evita crash al parsear).
+  final int? hubId;
   final String hubNombre;
   final int anfitrionId;
   final String anfitrionNombre;
@@ -57,7 +58,7 @@ class Club {
       if (latValue is String) return double.tryParse(latValue) ?? 0.0;
       return 0.0;
     }
-    
+
     double parseLng() {
       final lngValue = json['lng'];
       if (lngValue == null) return 0.0;
@@ -65,10 +66,15 @@ class Club {
       if (lngValue is String) return double.tryParse(lngValue) ?? 0.0;
       return 0.0;
     }
-    
+
+    final dynamic hubIdValue = json['hubId'];
+    final int? hubId = hubIdValue == null
+        ? null
+        : (hubIdValue is int ? hubIdValue : int.tryParse(hubIdValue.toString()));
+
     return Club(
       id: json['id'] as int,
-      hubId: json['hubId'] as int,
+      hubId: hubId,
       hubNombre: json['hubNombre']?.toString() ?? '',
       anfitrionId: json['anfitrionId'] as int,
       anfitrionNombre: json['anfitrionNombre']?.toString() ?? '',

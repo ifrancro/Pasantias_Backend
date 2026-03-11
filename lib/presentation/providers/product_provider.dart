@@ -60,9 +60,13 @@ class ProductProvider extends ChangeNotifier {
         name: original.name,
         description: original.description,
         price: original.price,
+        puntosValor: original.puntosValor,
         category: original.category,
         imageUrl: original.imageUrl,
         hubId: original.hubId,
+        clubCreadorId: original.clubCreadorId,
+        tipo: original.tipo,
+        estadoAprobacion: original.estadoAprobacion,
         active: original.active,
         available: !original.available, // Toggle
       );

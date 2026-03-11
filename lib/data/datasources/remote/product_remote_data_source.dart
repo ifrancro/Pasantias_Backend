@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../domain/entities/product.dart';
@@ -6,15 +8,18 @@ abstract class ProductRemoteDataSource {
   Future<List<Product>> getProducts({required int hubId, required int clubId});
   Future<List<Product>> getAvailableProductsByClub(int clubId); // Para socios: solo productos disponibles
   Future<void> createProduct(Product product, int clubId);
+  /// Sube una imagen y devuelve la URL para usar en imagenUrl del producto.
+  Future<String> uploadProductImage(File imageFile);
   /// Enviar propuesta de producto del Club al Administrador para aprobación.
   /// Requiere hubId (obligatorio según backend).
-  /// No se envía clubId ni estado; el backend los infiere del token del anfitrión.
+  /// imagenUrl opcional (URL de la foto subida).
   Future<void> createProductProposal({
     required int hubId,
     required String nombre,
     required String descripcion,
     required String ingredientes,
     required int puntosValor,
+    String? imagenUrl,
   });
   Future<void> updateProduct(Product product);
   Future<void> deleteProduct(String id);
@@ -77,9 +82,11 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
            final dynamic hubIdValue = json['hubId'];
            final int? parsedHubId = hubIdValue is int ? hubIdValue : (hubIdValue != null ? int.tryParse(hubIdValue.toString()) : null);
            
-           // Manejar disponible: null significa que no hay relación, debe ser false por defecto
+           // Backend envía "disponible" (boolean) para anfitrión; null = sin relación → false (no oculta el ítem)
            final dynamic disponibleValue = json['disponible'];
-           final bool available = disponibleValue == true || disponibleValue == 1;
+           final bool available = disponibleValue == true ||
+               disponibleValue == 1 ||
+               disponibleValue == 'true';
            
            // Obtener inteligentemente el clubCreadorId y parsearlo a int
            final dynamic rawClubCreadorId = json['clubCreadorId'] ?? json['club_creador_id'] ?? json['clubId'] ?? json['club_id'];
@@ -87,14 +94,19 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
                 ? (rawClubCreadorId is int ? rawClubCreadorId : int.tryParse(rawClubCreadorId.toString())) 
                 : null;
            
+           final int puntosValor = json['puntosValor'] is int
+               ? json['puntosValor'] as int
+               : (int.tryParse(json['puntosValor']?.toString() ?? '0') ?? 0);
+           final String imageUrl = json['imagenUrl']?.toString() ?? json['image_url']?.toString() ?? '';
+
            return Product(
              id: productId,
              name: json['nombre']?.toString() ?? 'Sin nombre',
              description: json['descripcion']?.toString() ?? '',
              price: 0.0, // Backend no envía precio aún
-             puntosValor: json['puntosValor'] ?? 0,
-             category: 'General', 
-             imageUrl: '', 
+             puntosValor: puntosValor,
+             category: 'General',
+             imageUrl: imageUrl,
              hubId: parsedHubId,
              clubCreadorId: parsedClubCreadorId,
              tipo: json['tipo']?.toString().toUpperCase() ?? defaultTipo,
@@ -173,21 +185,31 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
 
            // Obtener inteligentemente el clubCreadorId y parsearlo a int
            final dynamic rawClubCreadorId = json['clubCreadorId'] ?? json['club_creador_id'] ?? json['clubId'] ?? json['club_id'];
-           final int? parsedClubCreadorId = rawClubCreadorId != null 
-                ? (rawClubCreadorId is int ? rawClubCreadorId : int.tryParse(rawClubCreadorId.toString())) 
+           final int? parsedClubCreadorId = rawClubCreadorId != null
+                ? (rawClubCreadorId is int ? rawClubCreadorId : int.tryParse(rawClubCreadorId.toString()))
                 : null;
+
+           final int puntosValor = json['puntosValor'] is int
+               ? json['puntosValor'] as int
+               : (int.tryParse(json['puntosValor']?.toString() ?? '0') ?? 0);
+           final String imageUrl = json['imagenUrl']?.toString() ?? json['image_url']?.toString() ?? '';
+           final String tipo = json['tipo']?.toString().toUpperCase() ?? 'GLOBAL';
+           final String estadoAprobacion = json['estadoAprobacion']?.toString().toUpperCase() ?? 'APROBADO';
 
            return Product(
              id: productId,
              name: json['nombre']?.toString() ?? 'Sin nombre',
              description: json['descripcion']?.toString() ?? '',
-             price: 0.0, // Backend no envía precio aún
-             category: 'General', 
-             imageUrl: '', 
+             price: 0.0,
+             puntosValor: puntosValor,
+             category: 'General',
+             imageUrl: imageUrl,
              hubId: hubId,
              clubCreadorId: parsedClubCreadorId,
+             tipo: tipo,
+             estadoAprobacion: estadoAprobacion,
              active: json['activo'] == true || json['activo'] == 1,
-             available: isAvailable, 
+             available: isAvailable,
            );
         }).toList();
       } else if (response.statusCode == 401) {
@@ -296,22 +318,56 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
   }
 
   @override
+  Future<String> uploadProductImage(File imageFile) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          imageFile.path,
+          filename: imageFile.path.split(RegExp(r'[/\\]')).last,
+        ),
+      });
+      final response = await _client.post(
+        '/productos/subir-imagen',
+        data: formData,
+        options: Options(
+          contentType: 'multipart/form-data',
+          headers: {'Accept': 'application/json'},
+        ),
+      );
+      if (response.statusCode == 200 && response.data is Map) {
+        final path = response.data['imagenUrl']?.toString() ?? '';
+        if (path.isEmpty) throw Exception('No se recibió URL de imagen');
+        final baseUri = Uri.parse(_client.options.baseUrl);
+        final fullUrl = '${baseUri.origin}$path';
+        return fullUrl;
+      }
+      throw Exception('Error al subir la imagen: ${response.statusCode}');
+    } on DioException catch (e) {
+      throw Exception('Error de red al subir imagen: ${e.message}');
+    }
+  }
+
+  @override
   Future<void> createProductProposal({
     required int hubId,
     required String nombre,
     required String descripcion,
     required String ingredientes,
     required int puntosValor,
+    String? imagenUrl,
   }) async {
     try {
-      final data = {
-        'hubId': hubId, // Campo obligatorio que faltaba
+      final data = <String, dynamic>{
+        'hubId': hubId,
         'nombre': nombre,
         'descripcion': descripcion,
         'ingredientes': ingredientes,
         'puntosValor': puntosValor,
-        'activo': true, // Incluido por si el DTO lo requiere
+        'activo': true,
       };
+      if (imagenUrl != null && imagenUrl.isNotEmpty) {
+        data['imagenUrl'] = imagenUrl;
+      }
 
       debugPrint('[DEBUG PRODUCTOS] Enviando propuesta de producto: $data');
       debugPrint('[DEBUG PRODUCTOS] Endpoint: POST /api/productos');

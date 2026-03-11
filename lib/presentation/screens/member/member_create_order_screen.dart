@@ -71,9 +71,9 @@ class _MemberCreateOrderScreenState extends State<MemberCreateOrderScreen> {
         final clubDataSource = Provider.of<ClubRemoteDataSource>(context, listen: false);
         final club = await clubDataSource.getClubById(membership.clubId);
         
-        if (club != null) {
+        if (club != null && club.hubId != null) {
           // Cargar todos los clubes del mismo HUB
-          await _loadClubesByHub(club.hubId);
+          await _loadClubesByHub(club.hubId!);
           
           // Establecer el club seleccionado por defecto como el club de la membresía
           setState(() {

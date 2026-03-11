@@ -6,6 +6,7 @@ import '../../../providers/product_provider.dart';
 import '../../../providers/user_provider.dart';
 import '../../../../data/datasources/remote/club_remote_data_source.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../../../widgets/product_image.dart';
 
 class HostProductListScreen extends StatefulWidget {
   const HostProductListScreen({super.key});
@@ -49,16 +50,16 @@ class _HostProductListScreenState extends State<HostProductListScreen> {
         if (club != null) {
           _clubId = club.id;
           _hubId = club.hubId;
-          if (mounted) {
-            // New Logic: Load all Hub products
-             Provider.of<ProductProvider>(context, listen: false).loadProducts(hubId: _hubId!, clubId: _clubId!);
+          // Solo cargar productos si el club tiene Hub asignado (el backend los filtra por hub)
+          if (mounted && _clubId != null && _hubId != null) {
+            await Provider.of<ProductProvider>(context, listen: false).loadProducts(hubId: _hubId!, clubId: _clubId!);
           }
         }
       } catch (e) {
-        print('Error cargando club: $e');
+        debugPrint('Error cargando club o productos: $e');
       }
     }
-    
+
     if (mounted) {
       setState(() {
         _isLoadingClub = false;
@@ -96,11 +97,22 @@ class _HostProductListScreenState extends State<HostProductListScreen> {
             )
           ],
         ),
-        body: _isLoadingClub 
+        body: _isLoadingClub
             ? const Center(child: CircularProgressIndicator())
-            : _clubId == null 
+            : _clubId == null
                 ? const Center(child: Text('No se encontró tu Club.'))
-                : Consumer<ProductProvider>(
+                : _hubId == null
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24.0),
+                          child: Text(
+                            'Tu club no tiene un Hub asignado. No se pueden cargar los productos. Contacta al administrador.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                      )
+                    : Consumer<ProductProvider>(
                     builder: (context, provider, child) {
                       if (provider.isLoading) {
                         return const Center(child: CircularProgressIndicator());
@@ -267,24 +279,10 @@ class _HostProductListScreenState extends State<HostProductListScreen> {
   }
 
   Widget _buildProductImage(Product product) {
-    if (product.imageUrl.isNotEmpty) {
-      return Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          image: DecorationImage(image: NetworkImage(product.imageUrl), fit: BoxFit.cover),
-        ),
-      );
-    }
-    return Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(LucideIcons.soup, color: Colors.grey),
+    return ProductImage(
+      imageUrl: product.imageUrl.isEmpty ? null : product.imageUrl,
+      width: 50,
+      height: 50,
     );
   }
 
