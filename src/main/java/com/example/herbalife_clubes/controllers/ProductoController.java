@@ -10,8 +10,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/productos")
@@ -92,11 +98,11 @@ public class ProductoController {
         if (clubId != null) {
             if (tipo != null && !tipo.isBlank()) {
                 productos = esAdminOAnfitrion
-                        ? productoService.getProductosByClubAndTipo(clubId, tipo)
+                        ? productoService.getProductosByClubAndTipoParaAnfitrion(clubId, tipo)
                         : productoService.getProductosByClubPublicoAndTipo(clubId, tipo);
             } else {
                 productos = esAdminOAnfitrion
-                        ? productoService.getProductosByClub(clubId)
+                        ? productoService.getProductosByClubParaAnfitrion(clubId)
                         : productoService.getProductosByClubPublico(clubId);
             }
         } else {
@@ -276,6 +282,63 @@ public class ProductoController {
         List<com.example.herbalife_clubes.dtos.producto.ProductoConDisponibilidadDTO> productos = 
                 productoService.getProductosByHub(hubId, clubId);
         return ResponseEntity.ok(productos);
+    }
+
+    /**
+     * Sube una imagen para un producto. Guarda el archivo en el servidor y devuelve la URL pública.
+     * El cliente debe enviar el campo "file" (multipart/form-data).
+     *
+     * @param file imagen (jpeg, png, webp)
+     * @return JSON con "imagenUrl" para usar en el DTO del producto
+     */
+    @PostMapping("/subir-imagen")
+    public ResponseEntity<java.util.Map<String, String>> subirImagenProducto(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || (!contentType.startsWith("image/"))) {
+            return ResponseEntity.badRequest().build();
+        }
+        String extension = "jpg";
+        if (contentType.contains("png")) extension = "png";
+        else if (contentType.contains("webp")) extension = "webp";
+        else if (contentType.contains("jpeg")) extension = "jpg";
+
+        try {
+            String filename = "producto-" + UUID.randomUUID() + "." + extension;
+            Path uploadDir = Paths.get("uploads", "productos");
+            Files.createDirectories(uploadDir);
+            Path target = uploadDir.resolve(filename);
+            Files.copy(file.getInputStream(), target, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+            // Ruta relativa que el cliente puede combinar con su baseUrl: /api/productos/imagenes/{filename}
+            String imagenUrl = "/api/productos/imagenes/" + filename;
+            return ResponseEntity.ok(java.util.Map.of("imagenUrl", imagenUrl));
+        } catch (IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Sirve una imagen de producto subida (GET /api/productos/imagenes/{filename}).
+     */
+    @GetMapping("/imagenes/{filename:.+}")
+    public ResponseEntity<org.springframework.core.io.Resource> servirImagenProducto(@PathVariable String filename) {
+        try {
+            Path path = Paths.get("uploads", "productos").resolve(filename);
+            if (!Files.exists(path) || !Files.isReadable(path)) {
+                return ResponseEntity.notFound().build();
+            }
+            org.springframework.core.io.Resource resource = new org.springframework.core.io.FileSystemResource(path.toFile());
+            String contentType = Files.probeContentType(path);
+            if (contentType == null) contentType = "image/jpeg";
+            return ResponseEntity.ok()
+                    .contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+                    .body(resource);
+        } catch (IOException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }
 

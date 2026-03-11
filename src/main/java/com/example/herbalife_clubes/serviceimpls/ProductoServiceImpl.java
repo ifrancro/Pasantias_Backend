@@ -227,9 +227,9 @@ public class ProductoServiceImpl implements ProductoService {
 
     /**
      * Productos del menú del club: GLOBALES (hub, APROBADO) + LOCALES (club_creador_id=clubId, APROBADO).
-     * No exige fila en club_productos; si existe, se respeta disponible (toggle).
+     * Sin filtrar por disponibilidad (para uso interno cuando se rellena el DTO.disponible).
      */
-    private List<Producto> obtenerProductosMenuClub(Integer clubId) {
+    private List<Producto> obtenerProductosMenuClubSinFiltrarDisponibilidad(Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
         Integer hubId = club.getHub() != null ? club.getHub().getId() : null;
@@ -240,7 +240,14 @@ public class ProductoServiceImpl implements ProductoService {
         List<Producto> locales = productoRepository.findByClubCreadorIdAndTipoAndEstadoAprobacion(clubId, "LOCAL", "APROBADO");
         List<Producto> todos = new java.util.ArrayList<>(globales);
         todos.addAll(locales);
-        return filtrarPorDisponibilidadEnClub(todos, clubId);
+        return todos;
+    }
+
+    /**
+     * Productos del menú del club filtrando por disponibilidad (para socios y vista pública).
+     */
+    private List<Producto> obtenerProductosMenuClub(Integer clubId) {
+        return filtrarPorDisponibilidadEnClub(obtenerProductosMenuClubSinFiltrarDisponibilidad(clubId), clubId);
     }
 
     @Override
@@ -248,6 +255,19 @@ public class ProductoServiceImpl implements ProductoService {
         List<Producto> productos = obtenerProductosMenuClub(clubId);
         return productos.stream()
                 .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductoDTO> getProductosByClubParaAnfitrion(Integer clubId) {
+        List<Producto> productos = obtenerProductosMenuClubSinFiltrarDisponibilidad(clubId);
+        return productos.stream()
+                .map(p -> {
+                    ProductoDTO dto = ProductoMapper.mapProductoToProductoDTO(p, true);
+                    Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, p.getId());
+                    dto.setDisponible(cp.map(ClubProducto::getDisponible).orElse(null));
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 
@@ -269,6 +289,24 @@ public class ProductoServiceImpl implements ProductoService {
                 .collect(Collectors.toList());
         return productos.stream()
                 .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<ProductoDTO> getProductosByClubAndTipoParaAnfitrion(Integer clubId, String tipo) {
+        if (tipo == null || tipo.isBlank()) {
+            return getProductosByClubParaAnfitrion(clubId);
+        }
+        List<Producto> productos = obtenerProductosMenuClubSinFiltrarDisponibilidad(clubId).stream()
+                .filter(p -> tipo.equalsIgnoreCase(p.getTipo()))
+                .collect(Collectors.toList());
+        return productos.stream()
+                .map(p -> {
+                    ProductoDTO dto = ProductoMapper.mapProductoToProductoDTO(p, true);
+                    Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, p.getId());
+                    dto.setDisponible(cp.map(ClubProducto::getDisponible).orElse(null));
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 

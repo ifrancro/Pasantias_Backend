@@ -44,12 +44,21 @@ public interface ProductoService {
     List<ProductoDTO> getProductos();
     List<ProductoDTO> getProductosPublicos(); // Sin ingredientes y sin PENDIENTE
     List<ProductoDTO> getProductosByClub(Integer clubId);
+    /**
+     * Para anfitrión/admin: todos los productos del club (incl. disponible=false) con el campo disponible rellenado.
+     * Así el host puede ver y cambiar el toggle sin que los productos desaparezcan.
+     */
+    List<ProductoDTO> getProductosByClubParaAnfitrion(Integer clubId);
     List<ProductoDTO> getProductosByClubPublico(Integer clubId); // Sin ingredientes y sin PENDIENTE
     /**
      * Productos de un club filtrados por tipo (GLOBAL o LOCAL).
      * Para admin/anfitrión: incluye ingredientes y PENDIENTE.
      */
     List<ProductoDTO> getProductosByClubAndTipo(Integer clubId, String tipo);
+    /**
+     * Para anfitrión/admin: todos los productos del club del tipo dado, con disponible rellenado.
+     */
+    List<ProductoDTO> getProductosByClubAndTipoParaAnfitrion(Integer clubId, String tipo);
     /**
      * Productos de un club filtrados por tipo, versión pública (sin ingredientes, sin PENDIENTE).
      */

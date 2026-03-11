@@ -23,6 +23,8 @@ public class ProductoDTO {
     private String tipo; // GLOBAL | LOCAL
     private String estadoAprobacion; // APROBADO | PENDIENTE | RECHAZADO
     private Boolean activo;
+    /** Disponible en el club (tabla club_productos). Solo se rellena cuando se lista por club para anfitrión/admin. */
+    private Boolean disponible;
     private LocalDateTime createdAt;
 }
 
