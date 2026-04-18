@@ -22,42 +22,29 @@ public class MembresiaLogroServiceImpl implements MembresiaLogroService {
     @Autowired
     private LogroRepository logroRepository;
     @Autowired
-    private AsistenciaRepository asistenciaRepository;
-    @Autowired
-    private ConsumoRepository consumoRepository;
+    private LogroMetricaCalculator logroMetricaCalculator;
 
     @Override
     @Transactional
     public void evaluarLogrosAutomaticamente(Integer membresiaId) {
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
-        
-        List<Logro> logros = logroRepository.findAll();
-        
+
+        List<Logro> logros = logroRepository.findAllWithRequisitos();
+
         for (Logro logro : logros) {
-            // Verificar si el logro ya fue obtenido
             Optional<MembresiaLogro> logroExistente = membresiaLogroRepository
                     .findByMembresiaIdAndLogroId(membresiaId, logro.getId());
-            
+
             if (logroExistente.isPresent()) {
-                continue; // Ya tiene este logro
+                continue;
             }
-            
-            boolean cumpleRequisito = false;
-            
-            // Evaluar logros por asistencias
-            // tipo_requisito ahora es INT y representa la cantidad de asistencias requeridas
-            if (logro.getTipoRequisito() != null) {
-                // Usar puntos_acumulados que ya es el conteo total de asistencias
-                Integer puntosAcumulados = membresia.getPuntosAcumulados() != null ? membresia.getPuntosAcumulados() : 0;
-                Integer umbralRequerido = logro.getTipoRequisito();
-                
-                if (puntosAcumulados >= umbralRequerido) {
-                    cumpleRequisito = true;
-                }
+
+            if (!logroMetricaCalculator.aplicaAMembresia(logro, membresia)) {
+                continue;
             }
-            
-            if (cumpleRequisito) {
+
+            if (logroMetricaCalculator.cumpleTodosRequisitos(membresia, logro)) {
                 MembresiaLogro membresiaLogro = new MembresiaLogro();
                 membresiaLogro.setMembresia(membresia);
                 membresiaLogro.setLogro(logro);
@@ -71,4 +58,3 @@ public class MembresiaLogroServiceImpl implements MembresiaLogroService {
         return membresiaLogroRepository.findByMembresiaId(membresiaId);
     }
 }
-

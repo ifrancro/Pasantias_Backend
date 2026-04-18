@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
@@ -26,10 +25,6 @@ public class AsistenciaServiceImpl implements AsistenciaService {
     private MembresiaRepository membresiaRepository;
     @Autowired
     private ClubRepository clubRepository;
-    @Autowired
-    private MembresiaLogroRepository membresiaLogroRepository;
-    @Autowired
-    private LogroRepository logroRepository;
     @Autowired
     private MembresiaLogroService membresiaLogroService;
 
@@ -104,10 +99,7 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
         
-        // Gamificación: otorgar logros por racha
-        otorgarLogrosPorRacha(membresia);
-        
-        // Gamificación: evaluar logros por asistencias (basado en puntos_acumulados)
+        // Gamificación: evaluar retos compuestos (asistencias, consumos, referidos, racha, etc.)
         evaluarLogrosPorAsistencias(membresiaId);
         
         return AsistenciaMapper.mapAsistenciaToAsistenciaDTO(savedAsistencia);
@@ -137,42 +129,6 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         membresiaLogroService.evaluarLogrosAutomaticamente(membresiaId);
     }
     
-    /**
-     * Otorga logros cuando la racha alcanza umbrales específicos (3, 7, 14 días)
-     */
-    private void otorgarLogrosPorRacha(Membresia membresia) {
-        if (membresia.getRachaActual() == null) {
-            return;
-        }
-        
-        Integer rachaActual = membresia.getRachaActual();
-        Integer[] umbrales = {3, 7, 14};
-        
-        for (Integer umbral : umbrales) {
-            if (rachaActual.equals(umbral)) {
-                // Buscar logro por tipo de requisito
-                String tipoRequisito = "RACHA_" + umbral;
-                List<Logro> logros = logroRepository.findAll().stream()
-                        .filter(l -> tipoRequisito.equals(l.getTipoRequisito()))
-                        .collect(Collectors.toList());
-                
-                for (Logro logro : logros) {
-                    // Verificar si el socio ya tiene este logro
-                    Optional<MembresiaLogro> logroExistente = membresiaLogroRepository
-                            .findByMembresiaIdAndLogroId(membresia.getId(), logro.getId());
-                    
-                    if (logroExistente.isEmpty()) {
-                        // Otorgar logro
-                        MembresiaLogro membresiaLogro = new MembresiaLogro();
-                        membresiaLogro.setMembresia(membresia);
-                        membresiaLogro.setLogro(logro);
-                        membresiaLogroRepository.save(membresiaLogro);
-                    }
-                }
-            }
-        }
-    }
-
     @Override
     public List<AsistenciaDTO> listarAsistenciasBySocio(Integer membresiaId) {
         List<Asistencia> asistencias = asistenciaRepository.findByMembresiaId(membresiaId);

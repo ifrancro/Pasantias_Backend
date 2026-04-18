@@ -6,6 +6,7 @@ import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.ConsumoMapper;
 import com.example.herbalife_clubes.repositories.*;
 import com.example.herbalife_clubes.services.ConsumoService;
+import com.example.herbalife_clubes.services.MembresiaLogroService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,8 @@ public class ConsumoServiceImpl implements ConsumoService {
     private ClubRepository clubRepository;
     @Autowired
     private AsistenciaRepository asistenciaRepository;
+    @Autowired
+    private MembresiaLogroService membresiaLogroService;
 
     @Override
     @Transactional
@@ -56,6 +59,7 @@ public class ConsumoServiceImpl implements ConsumoService {
         }
         
         Consumo savedConsumo = consumoRepository.save(consumo);
+        membresiaLogroService.evaluarLogrosAutomaticamente(membresiaId);
         return ConsumoMapper.mapConsumoToConsumoDTO(savedConsumo);
     }
 

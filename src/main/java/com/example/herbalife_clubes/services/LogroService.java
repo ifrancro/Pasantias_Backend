@@ -1,6 +1,7 @@
 package com.example.herbalife_clubes.services;
 
 import com.example.herbalife_clubes.dtos.logro.LogroDTO;
+import com.example.herbalife_clubes.dtos.logro.LogroProgresoDTO;
 
 import java.util.List;
 
@@ -30,5 +31,11 @@ public interface LogroService {
      * @return LogroDTO actualizado
      */
     LogroDTO cambiarEstadoAprobacion(Integer logroId, String estadoAprobacion);
+
+    /**
+     * Progreso del socio (por membresía) en retos compuestos vigentes y aprobados.
+     * @param membresiaId id de la tabla membresias (socio en su club)
+     */
+    List<LogroProgresoDTO> getProgresoSocio(Integer membresiaId);
 }
 

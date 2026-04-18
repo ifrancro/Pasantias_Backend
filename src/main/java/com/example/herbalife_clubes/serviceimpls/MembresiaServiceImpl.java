@@ -13,6 +13,7 @@ import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.MembresiaRepository;
 import com.example.herbalife_clubes.repositories.NivelSocioRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
+import com.example.herbalife_clubes.services.MembresiaLogroService;
 import com.example.herbalife_clubes.services.MembresiaService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +36,8 @@ public class MembresiaServiceImpl implements MembresiaService {
     private NivelSocioRepository nivelSocioRepository;
     @Autowired
     private AsistenciaRepository asistenciaRepository;
+    @Autowired
+    private MembresiaLogroService membresiaLogroService;
 
     @Override
     public MembresiaDTO createMembresia(MembresiaDTO membresiaDTO, Integer usuarioId, Integer clubId, Integer nivelId, Integer referidoPorMembresiaId) {
@@ -79,6 +82,10 @@ public class MembresiaServiceImpl implements MembresiaService {
         }
         
         Membresia savedMembresia = membresiaRepository.save(membresia);
+        membresiaLogroService.evaluarLogrosAutomaticamente(savedMembresia.getId());
+        if (referidoPorMembresiaId != null) {
+            membresiaLogroService.evaluarLogrosAutomaticamente(referidoPorMembresiaId);
+        }
         return MembresiaMapper.mapMembresiaToMembresiaDTO(savedMembresia);
     }
 

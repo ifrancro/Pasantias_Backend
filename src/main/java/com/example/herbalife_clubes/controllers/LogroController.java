@@ -1,6 +1,7 @@
 package com.example.herbalife_clubes.controllers;
 
 import com.example.herbalife_clubes.dtos.logro.LogroDTO;
+import com.example.herbalife_clubes.dtos.logro.LogroProgresoDTO;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.services.LogroService;
@@ -64,6 +65,15 @@ public class LogroController {
     public ResponseEntity<List<LogroDTO>> getLogros() {
         List<LogroDTO> logros = logroService.getLogros();
         return ResponseEntity.ok(logros);
+    }
+
+    /**
+     * Progreso del socio en retos compuestos (por membresía).
+     * El path variable es el id de {@code membresias} (socio en su club), no el id de usuario.
+     */
+    @GetMapping("/socio/{membresiaId}/progreso")
+    public ResponseEntity<List<LogroProgresoDTO>> getProgresoSocio(@PathVariable Integer membresiaId) {
+        return ResponseEntity.ok(logroService.getProgresoSocio(membresiaId));
     }
 
     @GetMapping("{id}")

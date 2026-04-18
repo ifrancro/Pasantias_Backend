@@ -5,6 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -16,12 +18,9 @@ public class LogroDTO {
     private String nombre;
     private String descripcion;
     private String iconoUrl;
-    private Integer tipoRequisito;
-    private String tipoMetrica; // CONSUMO | ASISTENCIA | REFERIDOS
-    private Integer metaCantidad;
     private Integer puntosRecompensa;
     private LocalDate fechaInicio;
     private LocalDate fechaFin;
-    private String estadoAprobacion; // PENDIENTE | APROBADO | RECHAZADO
+    private String estadoAprobacion;
+    private List<RequisitoLogroDTO> requisitos = new ArrayList<>();
 }
-

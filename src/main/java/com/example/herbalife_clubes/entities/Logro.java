@@ -6,6 +6,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "logros")
@@ -30,15 +32,6 @@ public class Logro {
     @Column(name = "icono_url", length = 255)
     private String iconoUrl;
 
-    @Column(name = "tipo_requisito")
-    private Integer tipoRequisito;
-
-    @Column(name = "tipo_metrica", length = 50)
-    private String tipoMetrica;
-
-    @Column(name = "meta_cantidad")
-    private Integer metaCantidad;
-
     @Column(name = "puntos_recompensa")
     private Integer puntosRecompensa;
 
@@ -50,5 +43,7 @@ public class Logro {
 
     @Column(name = "estado_aprobacion", length = 50)
     private String estadoAprobacion;
-}
 
+    @OneToMany(mappedBy = "logro", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RequisitoLogro> requisitos = new ArrayList<>();
+}
