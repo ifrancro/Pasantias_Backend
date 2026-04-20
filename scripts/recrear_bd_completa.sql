@@ -133,8 +133,7 @@ CREATE TABLE IF NOT EXISTS pedido_items (
   pedido_id INTEGER NOT NULL,
   producto_id INTEGER NOT NULL,
   cantidad INTEGER NOT NULL,
-  nota TEXT,
-  CONSTRAINT uk_pedido_items_pedido_producto UNIQUE (pedido_id, producto_id)
+  nota TEXT
 );
 
 CREATE TABLE IF NOT EXISTS asistencias (
