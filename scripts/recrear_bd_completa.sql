@@ -117,7 +117,7 @@ CREATE TABLE IF NOT EXISTS membresias (
 
 CREATE TABLE IF NOT EXISTS pedidos (
   id SERIAL PRIMARY KEY,
-  membresia_id INTEGER NOT NULL,
+  membresia_id INTEGER,
   club_id INTEGER NOT NULL,
   tipo_consumo VARCHAR(30) NOT NULL,
   tiempo_estimado_minutos INTEGER,

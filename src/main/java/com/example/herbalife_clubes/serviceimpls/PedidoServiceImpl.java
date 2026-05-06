@@ -3,6 +3,7 @@ package com.example.herbalife_clubes.serviceimpls;
 import com.example.herbalife_clubes.dtos.pedido.PedidoDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoConItemsDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoItemDTO;
+import com.example.herbalife_clubes.dtos.pedido.PedidoMostradorRequestDTO;
 import com.example.herbalife_clubes.entities.*;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.PedidoMapper;
@@ -10,11 +11,16 @@ import com.example.herbalife_clubes.repositories.*;
 import com.example.herbalife_clubes.services.PedidoService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,6 +38,8 @@ public class PedidoServiceImpl implements PedidoService {
     private ClubProductoRepository clubProductoRepository;
     @Autowired
     private NotificacionRepository notificacionRepository;
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
     @Override
     @Transactional
@@ -293,6 +301,131 @@ public class PedidoServiceImpl implements PedidoService {
         }
         
         return PedidoMapper.mapPedidoToPedidoDTO(savedPedido);
+    }
+
+    @Override
+    @Transactional
+    public PedidoDTO createPedidoMostrador(PedidoMostradorRequestDTO request) {
+        if (request.getClubId() == null) {
+            throw new IllegalArgumentException("clubId es requerido");
+        }
+        if (request.getItems() == null || request.getItems().isEmpty()) {
+            throw new IllegalArgumentException("El pedido en mostrador debe tener al menos un item");
+        }
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            throw new IllegalArgumentException("Usuario no autenticado");
+        }
+
+        Usuario usuario = usuarioRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario autenticado no encontrado"));
+
+        Club club = clubRepository.findByIdAndAnfitrionId(request.getClubId(), usuario.getId())
+                .orElseThrow(() -> new IllegalArgumentException("No tienes permisos para registrar ventas en este club"));
+
+        Membresia membresia = null;
+        if (request.getSocioCodigo() != null && !request.getSocioCodigo().isBlank()) {
+            membresia = membresiaRepository.findByNumeroSocio(request.getSocioCodigo().trim())
+                    .orElseThrow(() -> new ResourceNotFoundException("No existe socio con codigo: " + request.getSocioCodigo()));
+            if (membresia.getClub() == null || !club.getId().equals(membresia.getClub().getId())) {
+                throw new IllegalArgumentException("El socio no pertenece al club del anfitrión");
+            }
+            if (membresia.getEstado() == null || !"ACTIVA".equalsIgnoreCase(membresia.getEstado())) {
+                throw new IllegalArgumentException("La membresía del socio no está activa");
+            }
+        }
+
+        // Menú permitido: globales APROBADO+activo del hub + locales APROBADO+activo del club; además disponibles en club.
+        Integer hubId = club.getHub() != null ? club.getHub().getId() : null;
+        if (hubId == null) {
+            throw new IllegalArgumentException("El club no tiene Hub asociado");
+        }
+        Set<Integer> permitidos = new HashSet<>();
+        List<Producto> globales = productoRepository.findByHubIdAndTipoAndEstadoAprobacion(hubId, "GLOBAL", "APROBADO");
+        List<Producto> locales = productoRepository.findByClubCreadorIdAndTipoAndEstadoAprobacion(club.getId(), "LOCAL", "APROBADO");
+        for (Producto p : globales) {
+            if (Boolean.TRUE.equals(p.getActivo()) && esProductoDisponibleEnClub(club.getId(), p.getId())) {
+                permitidos.add(p.getId());
+            }
+        }
+        for (Producto p : locales) {
+            if (Boolean.TRUE.equals(p.getActivo()) && esProductoDisponibleEnClub(club.getId(), p.getId())) {
+                permitidos.add(p.getId());
+            }
+        }
+
+        Pedido pedido = new Pedido();
+        pedido.setClub(club);
+        pedido.setMembresia(membresia); // null => venta externa
+        pedido.setEstado(EstadoPedido.ENTREGADO);
+        pedido.setObservaciones(request.getObservaciones());
+        pedido.setFechaPedido(LocalDateTime.now());
+
+        if (request.getTipoConsumo() != null && !request.getTipoConsumo().isBlank()) {
+            try {
+                pedido.setTipoConsumo(TipoConsumo.valueOf(request.getTipoConsumo().trim().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("tipoConsumo debe ser PARA_RECOGER o EN_LUGAR");
+            }
+        } else {
+            pedido.setTipoConsumo(TipoConsumo.EN_LUGAR);
+        }
+
+        Producto primerProducto = null;
+        int cantidadTotal = 0;
+        int puntosGanados = 0;
+
+        for (PedidoItemDTO itemDTO : request.getItems()) {
+            if (itemDTO.getProductoId() == null) {
+                throw new IllegalArgumentException("Cada item debe incluir productoId");
+            }
+            if (itemDTO.getCantidad() == null || itemDTO.getCantidad() <= 0) {
+                throw new IllegalArgumentException("La cantidad de cada item debe ser mayor a 0");
+            }
+            if (!permitidos.contains(itemDTO.getProductoId())) {
+                throw new IllegalArgumentException("El producto " + itemDTO.getProductoId() + " no está disponible en el menú del club");
+            }
+
+            Producto producto = productoRepository.findById(itemDTO.getProductoId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + itemDTO.getProductoId()));
+
+            PedidoItem item = new PedidoItem();
+            item.setPedido(pedido);
+            item.setProducto(producto);
+            item.setCantidad(itemDTO.getCantidad());
+            item.setNota(itemDTO.getNota());
+            pedido.getItems().add(item);
+
+            if (primerProducto == null) {
+                primerProducto = producto;
+            }
+            cantidadTotal += itemDTO.getCantidad();
+            int puntosValor = producto.getPuntosValor() != null ? producto.getPuntosValor() : 0;
+            puntosGanados += (puntosValor * itemDTO.getCantidad());
+        }
+
+        if (primerProducto == null) {
+            throw new IllegalArgumentException("No se pudo crear el pedido: sin productos válidos");
+        }
+        pedido.setProducto(primerProducto);
+        pedido.setCantidad(cantidadTotal);
+
+        Pedido saved = pedidoRepository.save(pedido);
+
+        // Si es socio, acumular puntos por venta en mostrador.
+        if (membresia != null && puntosGanados > 0) {
+            int actuales = membresia.getPuntosAcumulados() != null ? membresia.getPuntosAcumulados() : 0;
+            membresia.setPuntosAcumulados(actuales + puntosGanados);
+            membresiaRepository.save(membresia);
+        }
+
+        return PedidoMapper.mapPedidoToPedidoDTO(saved);
+    }
+
+    private boolean esProductoDisponibleEnClub(Integer clubId, Integer productoId) {
+        Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, productoId);
+        return cp.isEmpty() || Boolean.TRUE.equals(cp.get().getDisponible());
     }
 
     @Override

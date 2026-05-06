@@ -2,6 +2,7 @@ package com.example.herbalife_clubes.controllers;
 
 import com.example.herbalife_clubes.dtos.pedido.PedidoDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoConItemsDTO;
+import com.example.herbalife_clubes.dtos.pedido.PedidoMostradorRequestDTO;
 import com.example.herbalife_clubes.services.PedidoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,12 @@ public class PedidoController {
                                                            @RequestParam Integer membresiaId,
                                                            @RequestParam Integer clubId) {
         PedidoDTO savedPedidoDTO = pedidoService.createPedidoConItems(pedidoDTO, membresiaId, clubId);
+        return new ResponseEntity<>(savedPedidoDTO, HttpStatus.CREATED);
+    }
+
+    @PostMapping("/mostrador")
+    public ResponseEntity<PedidoDTO> createPedidoMostrador(@RequestBody PedidoMostradorRequestDTO request) {
+        PedidoDTO savedPedidoDTO = pedidoService.createPedidoMostrador(request);
         return new ResponseEntity<>(savedPedidoDTO, HttpStatus.CREATED);
     }
 

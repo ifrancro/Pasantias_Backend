@@ -20,7 +20,7 @@ public class Pedido {
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "membresia_id", nullable = false)
+    @JoinColumn(name = "membresia_id", nullable = true)
     private Membresia membresia;
 
     @ManyToOne(fetch = FetchType.LAZY)
