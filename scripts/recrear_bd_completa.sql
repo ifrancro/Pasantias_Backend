@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS asistencias (
   fecha_hora TIMESTAMP,
   fecha_dia DATE,
   estado VARCHAR(255),
+  nota TEXT,
   CONSTRAINT uk_asistencias_membresia_fecha UNIQUE (membresia_id, fecha_dia)
 );
 
@@ -212,6 +213,36 @@ CREATE TABLE IF NOT EXISTS membresia_logros (
   logro_id INTEGER NOT NULL,
   fecha_obtencion TIMESTAMP,
   CONSTRAINT uk_membresia_logros_membresia_logro UNIQUE (membresia_id, logro_id)
+);
+
+CREATE TABLE IF NOT EXISTS prospectos (
+  id SERIAL PRIMARY KEY,
+  club_id INTEGER NOT NULL,
+  nombre VARCHAR(255) NOT NULL,
+  telefono VARCHAR(50) NOT NULL,
+  referido_por_membresia_id INTEGER,
+  fecha_creacion DATE NOT NULL DEFAULT CURRENT_DATE,
+  estado VARCHAR(50) NOT NULL DEFAULT 'EN_SEGUIMIENTO'
+);
+
+CREATE TABLE IF NOT EXISTS misiones_prospecto (
+  id SERIAL PRIMARY KEY,
+  prospecto_id INTEGER NOT NULL,
+  nombre VARCHAR(255) NOT NULL,
+  descripcion TEXT,
+  meta_cantidad INTEGER NOT NULL,
+  progreso_actual INTEGER NOT NULL DEFAULT 0,
+  fecha_limite DATE
+);
+
+CREATE TABLE IF NOT EXISTS compras_manuales (
+  id SERIAL PRIMARY KEY,
+  membresia_id INTEGER NOT NULL,
+  club_id INTEGER NOT NULL,
+  descripcion TEXT NOT NULL,
+  monto NUMERIC(10,2) NOT NULL,
+  fecha DATE NOT NULL DEFAULT CURRENT_DATE,
+  registrada_por_host_id INTEGER NOT NULL
 );
 
 -- =========================
@@ -358,6 +389,30 @@ ALTER TABLE membresia_logros
   ADD CONSTRAINT fk_membresia_logros_logro
   FOREIGN KEY (logro_id) REFERENCES logros(id);
 
+ALTER TABLE prospectos
+  ADD CONSTRAINT fk_prospectos_club
+  FOREIGN KEY (club_id) REFERENCES clubes(id) ON DELETE CASCADE;
+
+ALTER TABLE prospectos
+  ADD CONSTRAINT fk_prospectos_referido
+  FOREIGN KEY (referido_por_membresia_id) REFERENCES membresias(id) ON DELETE SET NULL;
+
+ALTER TABLE misiones_prospecto
+  ADD CONSTRAINT fk_misiones_prospecto_prospecto
+  FOREIGN KEY (prospecto_id) REFERENCES prospectos(id) ON DELETE CASCADE;
+
+ALTER TABLE compras_manuales
+  ADD CONSTRAINT fk_compras_manuales_membresia
+  FOREIGN KEY (membresia_id) REFERENCES membresias(id) ON DELETE CASCADE;
+
+ALTER TABLE compras_manuales
+  ADD CONSTRAINT fk_compras_manuales_club
+  FOREIGN KEY (club_id) REFERENCES clubes(id) ON DELETE CASCADE;
+
+ALTER TABLE compras_manuales
+  ADD CONSTRAINT fk_compras_manuales_host
+  FOREIGN KEY (registrada_por_host_id) REFERENCES usuarios(id);
+
 -- =========================
 -- 3) Checks (enums en Java)
 -- =========================
@@ -381,5 +436,8 @@ CREATE INDEX IF NOT EXISTS idx_logros_club_creador ON logros(club_creador_id);
 CREATE INDEX IF NOT EXISTS idx_logros_estado_aprobacion ON logros(estado_aprobacion);
 CREATE INDEX IF NOT EXISTS idx_logros_fechas_vigencia ON logros(fecha_inicio, fecha_fin);
 CREATE INDEX IF NOT EXISTS idx_requisitos_logro_logro ON requisitos_logro(logro_id);
+CREATE INDEX IF NOT EXISTS idx_prospectos_club ON prospectos(club_id);
+CREATE INDEX IF NOT EXISTS idx_misiones_prospecto_prospecto ON misiones_prospecto(prospecto_id);
+CREATE INDEX IF NOT EXISTS idx_compras_manuales_membresia_fecha ON compras_manuales(membresia_id, fecha DESC);
 
 COMMIT;
