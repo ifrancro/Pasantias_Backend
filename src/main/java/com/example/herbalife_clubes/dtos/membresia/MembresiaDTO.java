@@ -28,5 +28,8 @@ public class MembresiaDTO {
     private Integer rachaActual;
     private Integer rachaMaxima;
     private LocalDate ultimaAsistenciaDia;
+
+    /** true si el socio tiene al menos un ítem de producto tipo COMBO en pedidos ENTREGADOS */
+    private Boolean haConsumidoCombo;
 }
 

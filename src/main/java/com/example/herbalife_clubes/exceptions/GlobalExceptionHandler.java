@@ -64,6 +64,17 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail(ex.getMessage()));
     }
 
+    /**
+     * Formato esperado por Flutter al bloquear asistencia sin combo previo.
+     */
+    @ExceptionHandler(ComboRequiredException.class)
+    public ResponseEntity<Map<String, String>> handleComboRequired(ComboRequiredException ex) {
+        Map<String, String> body = new HashMap<>();
+        body.put("error", ComboRequiredException.ERROR_CODE);
+        body.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<String>> handleBadCredentials(BadCredentialsException ex) {
         return ResponseEntity

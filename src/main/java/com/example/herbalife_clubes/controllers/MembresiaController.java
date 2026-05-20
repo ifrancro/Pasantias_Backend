@@ -1,6 +1,7 @@
 package com.example.herbalife_clubes.controllers;
 
 import com.example.herbalife_clubes.dtos.membresia.ArbolReferidosDTO;
+import com.example.herbalife_clubes.dtos.membresia.EstadoComboDTO;
 import com.example.herbalife_clubes.dtos.membresia.MembresiaDTO;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
@@ -83,6 +84,14 @@ public class MembresiaController {
      * @param id ID de la membresía raíz
      * @return Árbol de referidos con estructura recursiva
      */
+    /**
+     * Indica si el socio consumió al menos un producto tipo COMBO en pedidos ENTREGADOS.
+     */
+    @GetMapping("{id}/estado-combo")
+    public ResponseEntity<EstadoComboDTO> getEstadoCombo(@PathVariable Integer id) {
+        return ResponseEntity.ok(membresiaService.getEstadoCombo(id));
+    }
+
     @GetMapping("{id}/arbol-referidos")
     public ResponseEntity<ArbolReferidosDTO> getArbolReferidos(@PathVariable Integer id) {
         // Validar autenticación

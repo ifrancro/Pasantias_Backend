@@ -40,6 +40,7 @@ public class Producto {
     @Column(name = "puntos_valor")
     private Integer puntosValor;
 
+    /** GLOBAL, LOCAL o COMBO (paquete consumible para validación de asistencia). */
     @Column(name = "tipo", length = 50)
     private String tipo;
 

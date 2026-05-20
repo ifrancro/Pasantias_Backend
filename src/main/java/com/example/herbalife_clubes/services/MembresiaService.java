@@ -1,6 +1,7 @@
 package com.example.herbalife_clubes.services;
 
 import com.example.herbalife_clubes.dtos.membresia.ArbolReferidosDTO;
+import com.example.herbalife_clubes.dtos.membresia.EstadoComboDTO;
 import com.example.herbalife_clubes.dtos.membresia.MembresiaDTO;
 
 import java.util.List;
@@ -15,5 +16,7 @@ public interface MembresiaService {
     MembresiaDTO actualizarPuntos(Integer membresiaId, Integer puntos);
     MembresiaDTO recalcularPuntosPorAsistencias(Integer membresiaId);
     ArbolReferidosDTO getArbolReferidos(Integer membresiaId);
+
+    EstadoComboDTO getEstadoCombo(Integer membresiaId);
 }
 

@@ -20,7 +20,7 @@ public class ProductoDTO {
     private String imagenUrl;
     private String ingredientes; // Privado - no se devuelve en endpoints públicos
     private Integer puntosValor;
-    private String tipo; // GLOBAL | LOCAL
+    private String tipo; // GLOBAL | LOCAL | COMBO
     private String estadoAprobacion; // APROBADO | PENDIENTE | RECHAZADO
     private Boolean activo;
     /** Disponible en el club (tabla club_productos). Solo se rellena cuando se lista por club para anfitrión/admin. */

@@ -8,6 +8,7 @@ import com.example.herbalife_clubes.exceptions.ConflictException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.AsistenciaMapper;
 import com.example.herbalife_clubes.repositories.*;
+import com.example.herbalife_clubes.services.ComboConsumoService;
 import com.example.herbalife_clubes.services.UserLifecycleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -37,6 +38,7 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
     private final MembresiaRepository membresiaRepository;
     private final UsuarioRepository usuarioRepository;
     private final AsistenciaRepository asistenciaRepository;
+    private final ComboConsumoService comboConsumoService;
 
     @Override
     @Transactional
@@ -216,6 +218,8 @@ public class UserLifecycleServiceImpl implements UserLifecycleService {
 
         Usuario anfitrion = getUsuarioAutenticado();
         validarAnfitrionDeClub(membresia.getClub().getId(), anfitrion.getId());
+
+        comboConsumoService.validarComboConsumidoAntesDeAsistencia(membresiaId);
 
         LocalDate fecha = request.getFecha() != null ? request.getFecha() : LocalDate.now();
         if (asistenciaRepository.findByMembresiaIdAndFechaDia(membresiaId, fecha).isPresent()) {

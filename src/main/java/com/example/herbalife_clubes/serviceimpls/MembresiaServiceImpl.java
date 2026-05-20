@@ -1,6 +1,7 @@
 package com.example.herbalife_clubes.serviceimpls;
 
 import com.example.herbalife_clubes.dtos.membresia.ArbolReferidosDTO;
+import com.example.herbalife_clubes.dtos.membresia.EstadoComboDTO;
 import com.example.herbalife_clubes.dtos.membresia.MembresiaDTO;
 import com.example.herbalife_clubes.entities.Club;
 import com.example.herbalife_clubes.entities.Membresia;
@@ -13,6 +14,7 @@ import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.MembresiaRepository;
 import com.example.herbalife_clubes.repositories.NivelSocioRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
+import com.example.herbalife_clubes.services.ComboConsumoService;
 import com.example.herbalife_clubes.services.MembresiaLogroService;
 import com.example.herbalife_clubes.services.MembresiaService;
 import lombok.AllArgsConstructor;
@@ -38,6 +40,8 @@ public class MembresiaServiceImpl implements MembresiaService {
     private AsistenciaRepository asistenciaRepository;
     @Autowired
     private MembresiaLogroService membresiaLogroService;
+    @Autowired
+    private ComboConsumoService comboConsumoService;
 
     @Override
     public MembresiaDTO createMembresia(MembresiaDTO membresiaDTO, Integer usuarioId, Integer clubId, Integer nivelId, Integer referidoPorMembresiaId) {
@@ -93,22 +97,36 @@ public class MembresiaServiceImpl implements MembresiaService {
     public MembresiaDTO getMembresia(Integer membresiaId) {
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
-        return MembresiaMapper.mapMembresiaToMembresiaDTO(membresia);
+        return enriquecerConEstadoCombo(MembresiaMapper.mapMembresiaToMembresiaDTO(membresia), membresiaId);
     }
 
     @Override
     public MembresiaDTO getMembresiaByUsuario(Integer usuarioId) {
         Membresia membresia = membresiaRepository.findByUsuarioId(usuarioId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada para el usuario: " + usuarioId));
-        return MembresiaMapper.mapMembresiaToMembresiaDTO(membresia);
+        return enriquecerConEstadoCombo(MembresiaMapper.mapMembresiaToMembresiaDTO(membresia), membresia.getId());
     }
 
     @Override
     public List<MembresiaDTO> getMembresiasByClub(Integer clubId) {
         List<Membresia> membresias = membresiaRepository.findByClubId(clubId);
         return membresias.stream()
-                .map(MembresiaMapper::mapMembresiaToMembresiaDTO)
+                .map(m -> enriquecerConEstadoCombo(MembresiaMapper.mapMembresiaToMembresiaDTO(m), m.getId()))
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public EstadoComboDTO getEstadoCombo(Integer membresiaId) {
+        return comboConsumoService.obtenerEstadoCombo(membresiaId);
+    }
+
+    private MembresiaDTO enriquecerConEstadoCombo(MembresiaDTO dto, Integer membresiaId) {
+        if (dto == null || membresiaId == null) {
+            return dto;
+        }
+        EstadoComboDTO estado = comboConsumoService.obtenerEstadoCombo(membresiaId);
+        dto.setHaConsumidoCombo(estado.isHaConsumidoCombo());
+        return dto;
     }
 
     @Override

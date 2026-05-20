@@ -6,6 +6,7 @@ import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.AsistenciaMapper;
 import com.example.herbalife_clubes.repositories.*;
 import com.example.herbalife_clubes.services.AsistenciaService;
+import com.example.herbalife_clubes.services.ComboConsumoService;
 import com.example.herbalife_clubes.services.MembresiaLogroService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +29,8 @@ public class AsistenciaServiceImpl implements AsistenciaService {
     private ClubRepository clubRepository;
     @Autowired
     private MembresiaLogroService membresiaLogroService;
+    @Autowired
+    private ComboConsumoService comboConsumoService;
 
     @Override
     @Transactional
@@ -47,6 +50,8 @@ public class AsistenciaServiceImpl implements AsistenciaService {
         if (club.getEstado() == null || (!club.getEstado().equals("APROBADO") && !club.getEstado().equals("ACTIVO"))) {
             throw new IllegalArgumentException("El club no está activo. Estado actual: " + club.getEstado());
         }
+
+        comboConsumoService.validarComboConsumidoAntesDeAsistencia(membresiaId);
         
         // Validar 1 asistencia por día por socio (GLOBAL, sin importar el club)
         LocalDate fechaDia = LocalDate.now();
