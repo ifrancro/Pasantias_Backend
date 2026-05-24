@@ -36,4 +36,3 @@ public interface PedidoItemRepository extends JpaRepository<PedidoItem, Integer>
             @Param("estadoEntregado") EstadoPedido estadoEntregado);
 }
 
-
