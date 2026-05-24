@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 @Service
 @RequiredArgsConstructor
 public class ComboConsumoServiceImpl implements ComboConsumoService {
@@ -28,7 +31,10 @@ public class ComboConsumoServiceImpl implements ComboConsumoService {
         if (!membresiaRepository.existsById(membresiaId)) {
             throw new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId);
         }
-        long total = pedidoItemRepository.countCombosConsumidosEntregados(membresiaId, EstadoPedido.ENTREGADO);
+        LocalDateTime inicioDia = LocalDate.now().atStartOfDay();
+        LocalDateTime finDia = inicioDia.plusDays(1);
+        long total = pedidoItemRepository.countCombosConsumidosEntregadosHoy(
+                membresiaId, EstadoPedido.ENTREGADO, inicioDia, finDia);
         return EstadoComboDTO.builder()
                 .haConsumidoCombo(total > 0)
                 .totalCombosConsumidos(total)
@@ -38,7 +44,10 @@ public class ComboConsumoServiceImpl implements ComboConsumoService {
     @Override
     @Transactional(readOnly = true)
     public void validarComboConsumidoAntesDeAsistencia(Integer membresiaId) {
-        if (!pedidoItemRepository.hasConsumedComboEntregado(membresiaId, EstadoPedido.ENTREGADO)) {
+        LocalDateTime inicioDia = LocalDate.now().atStartOfDay();
+        LocalDateTime finDia = inicioDia.plusDays(1);
+        if (!pedidoItemRepository.hasConsumedComboEntregadoHoy(
+                membresiaId, EstadoPedido.ENTREGADO, inicioDia, finDia)) {
             throw new ComboRequiredException(MENSAJE_COMBO_REQUERIDO);
         }
     }
