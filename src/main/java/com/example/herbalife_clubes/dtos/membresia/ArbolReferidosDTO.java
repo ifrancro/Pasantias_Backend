@@ -16,15 +16,17 @@ public class ArbolReferidosDTO {
     private String nombreCompleto;
     private Integer puntosAcumulados;
     private String estado;
+    private String clubNombre;
     private List<ArbolReferidosDTO> referidos; // Referidos directos (hijos en el árbol)
 
-    public ArbolReferidosDTO(Integer membresiaId, String numeroSocio, String nombreCompleto, 
-                            Integer puntosAcumulados, String estado) {
+    public ArbolReferidosDTO(Integer membresiaId, String numeroSocio, String nombreCompleto,
+                            Integer puntosAcumulados, String estado, String clubNombre) {
         this.membresiaId = membresiaId;
         this.numeroSocio = numeroSocio;
         this.nombreCompleto = nombreCompleto;
         this.puntosAcumulados = puntosAcumulados;
         this.estado = estado;
+        this.clubNombre = clubNombre;
         this.referidos = new ArrayList<>();
     }
 

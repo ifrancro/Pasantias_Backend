@@ -119,5 +119,13 @@ public class MembresiaController {
         ArbolReferidosDTO arbol = membresiaService.getArbolReferidos(id);
         return ResponseEntity.ok(arbol);
     }
+
+    @GetMapping("/buscar")
+    public ResponseEntity<List<MembresiaDTO>> buscarMiembros(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(membresiaService.buscarMiembrosGlobal(q, page, size));
+    }
 }
 

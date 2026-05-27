@@ -18,5 +18,7 @@ public interface MembresiaService {
     ArbolReferidosDTO getArbolReferidos(Integer membresiaId);
 
     EstadoComboDTO getEstadoCombo(Integer membresiaId);
+
+    List<MembresiaDTO> buscarMiembrosGlobal(String query, int page, int size);
 }
 
