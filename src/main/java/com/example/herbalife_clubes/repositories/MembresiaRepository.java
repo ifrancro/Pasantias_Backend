@@ -18,13 +18,18 @@ public interface MembresiaRepository extends JpaRepository<Membresia, Integer> {
     Optional<Membresia> findByNumeroSocio(String numeroSocio);
     List<Membresia> findByReferidoPorMembresiaId(Integer referidoPorMembresiaId);
 
-    @Query("SELECT m FROM Membresia m JOIN FETCH m.usuario u JOIN FETCH m.club c " +
+    @Query(value = "SELECT m FROM Membresia m JOIN FETCH m.usuario u JOIN FETCH m.club c " +
            "WHERE m.estado = 'ACTIVA' AND (" +
            "LOWER(u.nombre) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(u.apellido) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(m.numeroSocio) LIKE LOWER(CONCAT('%', :query, '%'))) " +
-           "ORDER BY u.nombre")
-    List<Membresia> buscarMiembrosGlobal(@Param("query") String query);
+           "ORDER BY u.nombre",
+           countQuery = "SELECT COUNT(m) FROM Membresia m JOIN m.usuario u " +
+           "WHERE m.estado = 'ACTIVA' AND (" +
+           "LOWER(u.nombre) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(u.apellido) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
+           "LOWER(m.numeroSocio) LIKE LOWER(CONCAT('%', :query, '%')))")
+    List<Membresia> buscarMiembrosGlobal(@Param("query") String query, Pageable pageable);
 
     @Query("SELECT m FROM Membresia m JOIN FETCH m.usuario u JOIN FETCH m.club c " +
            "WHERE m.estado = 'ACTIVA' ORDER BY u.nombre")

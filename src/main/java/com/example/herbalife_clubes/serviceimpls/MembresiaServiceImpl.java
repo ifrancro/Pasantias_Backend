@@ -71,13 +71,13 @@ public class MembresiaServiceImpl implements MembresiaService {
         
         // Establecer referido por membresía si se proporciona
         if (referidoPorMembresiaId != null) {
-            if (referidoPorMembresiaId.equals(usuarioId)) {
-                throw new IllegalArgumentException("Un socio no puede referirse a sí mismo");
-            }
             Membresia referidoPorMembresia = membresiaRepository.findById(referidoPorMembresiaId)
                     .orElseThrow(() -> new ResourceNotFoundException("Membresía referente no encontrada con id: " + referidoPorMembresiaId));
             if (!"ACTIVA".equals(referidoPorMembresia.getEstado())) {
                 throw new IllegalArgumentException("La membresía referente no está ACTIVA");
+            }
+            if (referidoPorMembresia.getUsuario() != null && referidoPorMembresia.getUsuario().getId().equals(usuarioId)) {
+                throw new IllegalArgumentException("Un socio no puede referirse a sí mismo");
             }
             if (esAncestroDelUsuario(referidoPorMembresia, usuarioId)) {
                 throw new IllegalArgumentException("No se puede crear un ciclo de referidos");
@@ -187,11 +187,12 @@ public class MembresiaServiceImpl implements MembresiaService {
 
     @Override
     public List<MembresiaDTO> buscarMiembrosGlobal(String query, int page, int size) {
+        PageRequest pageRequest = PageRequest.of(page, size);
         List<Membresia> membresias;
         if (query != null && !query.isBlank()) {
-            membresias = membresiaRepository.buscarMiembrosGlobal(query);
+            membresias = membresiaRepository.buscarMiembrosGlobal(query, pageRequest);
         } else {
-            membresias = membresiaRepository.findAllActiveWithUsuario(PageRequest.of(page, size));
+            membresias = membresiaRepository.findAllActiveWithUsuario(pageRequest);
         }
         return membresias.stream()
                 .map(MembresiaMapper::mapMembresiaToMembresiaDTO)
