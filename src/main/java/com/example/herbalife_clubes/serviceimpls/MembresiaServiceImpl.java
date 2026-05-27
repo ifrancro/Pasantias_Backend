@@ -21,7 +21,11 @@ import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import org.springframework.data.domain.PageRequest;
+
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -69,6 +73,15 @@ public class MembresiaServiceImpl implements MembresiaService {
         if (referidoPorMembresiaId != null) {
             Membresia referidoPorMembresia = membresiaRepository.findById(referidoPorMembresiaId)
                     .orElseThrow(() -> new ResourceNotFoundException("Membresía referente no encontrada con id: " + referidoPorMembresiaId));
+            if (!"ACTIVA".equals(referidoPorMembresia.getEstado())) {
+                throw new IllegalArgumentException("La membresía referente no está ACTIVA");
+            }
+            if (referidoPorMembresia.getUsuario() != null && referidoPorMembresia.getUsuario().getId().equals(usuarioId)) {
+                throw new IllegalArgumentException("Un socio no puede referirse a sí mismo");
+            }
+            if (esAncestroDelUsuario(referidoPorMembresia, usuarioId)) {
+                throw new IllegalArgumentException("No se puede crear un ciclo de referidos");
+            }
             membresia.setReferidoPorMembresia(referidoPorMembresia);
         }
         
@@ -173,6 +186,35 @@ public class MembresiaServiceImpl implements MembresiaService {
     }
 
     @Override
+    public List<MembresiaDTO> buscarMiembrosGlobal(String query, int page, int size) {
+        PageRequest pageRequest = PageRequest.of(page, size);
+        List<Membresia> membresias;
+        if (query != null && !query.isBlank()) {
+            membresias = membresiaRepository.buscarMiembrosGlobal(query, pageRequest);
+        } else {
+            membresias = membresiaRepository.findAllActiveWithUsuario(pageRequest);
+        }
+        return membresias.stream()
+                .map(MembresiaMapper::mapMembresiaToMembresiaDTO)
+                .collect(Collectors.toList());
+    }
+
+    private boolean esAncestroDelUsuario(Membresia referente, Integer usuarioId) {
+        Set<Integer> visitados = new HashSet<>();
+        Membresia actual = referente;
+        while (actual != null) {
+            if (!visitados.add(actual.getId())) {
+                return true;
+            }
+            if (actual.getUsuario() != null && actual.getUsuario().getId().equals(usuarioId)) {
+                return true;
+            }
+            actual = actual.getReferidoPorMembresia();
+        }
+        return false;
+    }
+
+    @Override
     public ArbolReferidosDTO getArbolReferidos(Integer membresiaId) {
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
@@ -180,34 +222,27 @@ public class MembresiaServiceImpl implements MembresiaService {
         return construirArbolRecursivo(membresia);
     }
 
-    /**
-     * Construye el árbol de referidos de forma recursiva
-     * @param membresia Membresía raíz del árbol
-     * @return DTO con la estructura del árbol
-     */
     private ArbolReferidosDTO construirArbolRecursivo(Membresia membresia) {
-        // Obtener nombre completo del usuario
         String nombreCompleto = membresia.getUsuario() != null ?
                 membresia.getUsuario().getNombre() + " " + membresia.getUsuario().getApellido() : "N/A";
-        
-        // Crear DTO para esta membresía
+        String clubNombre = membresia.getClub() != null ? membresia.getClub().getNombreClub() : null;
+
         ArbolReferidosDTO nodo = new ArbolReferidosDTO(
                 membresia.getId(),
                 membresia.getNumeroSocio(),
                 nombreCompleto,
                 membresia.getPuntosAcumulados(),
-                membresia.getEstado()
+                membresia.getEstado(),
+                clubNombre
         );
-        
-        // Obtener todos los referidos directos de esta membresía
+
         List<Membresia> referidosDirectos = membresiaRepository.findByReferidoPorMembresiaId(membresia.getId());
-        
-        // Construir recursivamente el árbol para cada referido
+
         for (Membresia referido : referidosDirectos) {
             ArbolReferidosDTO nodoReferido = construirArbolRecursivo(referido);
             nodo.agregarReferido(nodoReferido);
         }
-        
+
         return nodo;
     }
 }

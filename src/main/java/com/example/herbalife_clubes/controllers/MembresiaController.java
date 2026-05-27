@@ -119,5 +119,26 @@ public class MembresiaController {
         ArbolReferidosDTO arbol = membresiaService.getArbolReferidos(id);
         return ResponseEntity.ok(arbol);
     }
+
+    /**
+     * Búsqueda global de miembros activos por nombre, apellido o número de socio.
+     * Cruza todos los clubes — útil para el selector de referido cross-club.
+     * <p>
+     * Autorización: cualquier usuario autenticado (HOST, MEMBER, ADMIN).
+     * Rate limit: 30 solicitudes por minuto por IP.
+     * </p>
+     *
+     * @param q    texto de búsqueda (busca en nombre, apellido y número de socio). Si es nulo o vacío, devuelve todos los activos.
+     * @param page número de página (0-based, default 0)
+     * @param size tamaño de página (default 50)
+     * @return lista paginada de MembresiaDTO con clubNombre, usuarioNombre, numeroSocio, estado, puntosAcumulados
+     */
+    @GetMapping("/buscar")
+    public ResponseEntity<List<MembresiaDTO>> buscarMiembros(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size) {
+        return ResponseEntity.ok(membresiaService.buscarMiembrosGlobal(q, page, size));
+    }
 }
 
