@@ -51,8 +51,10 @@ public class ReporteGestionServiceImpl implements ReporteGestionService {
         LocalDateTime desde = fechaInicio.atStartOfDay();
         LocalDateTime hasta = fechaFin.plusDays(1).atStartOfDay();
 
-        BigDecimal sumRaw = pedidoRepository.sumIngresosPuntosValorEntregados(clubId, desde, hasta);
-        long totalIngresos = sumRaw != null ? sumRaw.longValue() : 0L;
+        BigDecimal totalIngresos = pedidoRepository.sumIngresosPuntosValorEntregados(clubId, desde, hasta);
+        if (totalIngresos == null) {
+            totalIngresos = BigDecimal.ZERO;
+        }
 
         Map<LocalDate, Long> pedidosPorDia = new LinkedHashMap<>();
         for (Object[] row : pedidoRepository.countPedidosPorDia(clubId, desde, hasta)) {
@@ -136,8 +138,8 @@ public class ReporteGestionServiceImpl implements ReporteGestionService {
             row2.createCell(0).setCellValue("Periodo");
             row2.createCell(1).setCellValue(d.getFechaInicio() + " - " + d.getFechaFin());
             Row row3 = sh.createRow(r++);
-            row3.createCell(0).setCellValue("Total ingresos (puntos valor, pedidos ENTREGADOS)");
-            row3.createCell(1).setCellValue(d.getTotalIngresosPuntosValor());
+            row3.createCell(0).setCellValue("Total ingresos (Bs., precio histórico en pedidos ENTREGADOS)");
+            row3.createCell(1).setCellValue(d.getTotalIngresosPuntosValor().doubleValue());
             r++;
 
             Row hAs = sh.createRow(r++);
@@ -196,7 +198,7 @@ public class ReporteGestionServiceImpl implements ReporteGestionService {
             doc.add(new Paragraph("Reporte de gestión del club", title));
             doc.add(new Paragraph("Club: " + d.getNombreClub(), normal));
             doc.add(new Paragraph("Periodo: " + d.getFechaInicio() + " — " + d.getFechaFin(), normal));
-            doc.add(new Paragraph("Total ingresos (puntos valor, pedidos ENTREGADOS): " + d.getTotalIngresosPuntosValor(), normal));
+            doc.add(new Paragraph("Total ingresos (Bs., precio histórico en pedidos ENTREGADOS): " + d.getTotalIngresosPuntosValor(), normal));
             doc.add(new Paragraph(" "));
 
             doc.add(new Paragraph("Asistencias por día", title));

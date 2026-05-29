@@ -22,6 +22,7 @@ public class ClubDTO {
     private BigDecimal lat;
     private BigDecimal lng;
     private String estado;
+    private String prefijoSocio;
     private LocalDateTime createdAt;
 }
 

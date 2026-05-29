@@ -5,6 +5,7 @@ import com.example.herbalife_clubes.dtos.pedido.PedidoConItemsDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoItemDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoMostradorRequestDTO;
 import com.example.herbalife_clubes.entities.*;
+import com.example.herbalife_clubes.exceptions.MaxSaboresExcedidoException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.PedidoMapper;
 import com.example.herbalife_clubes.repositories.*;
@@ -16,6 +17,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -26,6 +28,8 @@ import java.util.stream.Collectors;
 @Service
 @AllArgsConstructor
 public class PedidoServiceImpl implements PedidoService {
+    private static final int MAX_SABORES_COMBO = 3;
+
     @Autowired
     private PedidoRepository pedidoRepository;
     @Autowired
@@ -108,6 +112,7 @@ public class PedidoServiceImpl implements PedidoService {
         item.setProducto(producto);
         item.setCantidad(pedidoDTO.getCantidad() != null ? pedidoDTO.getCantidad() : 1);
         item.setNota(pedidoDTO.getObservaciones());
+        item.setPrecioUnitario(obtenerPrecioUnitarioProducto(producto));
         pedido.getItems().add(item);
         
         // Asignar producto y cantidad directamente al pedido para compatibilidad con BD
@@ -189,6 +194,7 @@ public class PedidoServiceImpl implements PedidoService {
         if (pedidoDTO.getItems() == null || pedidoDTO.getItems().isEmpty()) {
             throw new IllegalArgumentException("El pedido debe tener al menos un item");
         }
+        validarMaxSaboresCombo(pedidoDTO.getItems().size());
         
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
@@ -259,6 +265,7 @@ public class PedidoServiceImpl implements PedidoService {
             item.setProducto(producto);
             item.setCantidad(itemDTO.getCantidad() != null ? itemDTO.getCantidad() : 1);
             item.setNota(itemDTO.getNota());
+            item.setPrecioUnitario(obtenerPrecioUnitarioProducto(producto));
             pedido.getItems().add(item);
             
             // Guardar referencia al primer producto para compatibilidad con BD
@@ -395,6 +402,7 @@ public class PedidoServiceImpl implements PedidoService {
             item.setProducto(producto);
             item.setCantidad(itemDTO.getCantidad());
             item.setNota(itemDTO.getNota());
+            item.setPrecioUnitario(obtenerPrecioUnitarioProducto(producto));
             pedido.getItems().add(item);
 
             if (primerProducto == null) {
@@ -426,6 +434,19 @@ public class PedidoServiceImpl implements PedidoService {
     private boolean esProductoDisponibleEnClub(Integer clubId, Integer productoId) {
         Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, productoId);
         return cp.isEmpty() || Boolean.TRUE.equals(cp.get().getDisponible());
+    }
+
+    private void validarMaxSaboresCombo(int totalItems) {
+        if (totalItems > MAX_SABORES_COMBO) {
+            throw new MaxSaboresExcedidoException(
+                    MAX_SABORES_COMBO,
+                    totalItems,
+                    "Un combo no puede tener más de 3 sabores/productos. Seleccionaste " + totalItems + " productos.");
+        }
+    }
+
+    private BigDecimal obtenerPrecioUnitarioProducto(Producto producto) {
+        return producto != null && producto.getPrecio() != null ? producto.getPrecio() : BigDecimal.ZERO;
     }
 
     @Override

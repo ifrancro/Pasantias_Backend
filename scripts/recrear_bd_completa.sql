@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS productos (
   imagen_url VARCHAR(1024),
   ingredientes TEXT,
   puntos_valor INTEGER,
+  precio NUMERIC(10,2) DEFAULT 0.00,
   tipo VARCHAR(50),
   estado_aprobacion VARCHAR(50),
   activo BOOLEAN,
@@ -133,7 +134,9 @@ CREATE TABLE IF NOT EXISTS pedido_items (
   pedido_id INTEGER NOT NULL,
   producto_id INTEGER NOT NULL,
   cantidad INTEGER NOT NULL,
-  nota TEXT
+  nota TEXT,
+  precio_unitario NUMERIC(10,2) DEFAULT 0.00,
+  subtotal NUMERIC(10,2) DEFAULT 0.00
 );
 
 CREATE TABLE IF NOT EXISTS asistencias (

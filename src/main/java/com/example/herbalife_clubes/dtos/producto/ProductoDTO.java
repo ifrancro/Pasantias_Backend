@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -19,6 +20,7 @@ public class ProductoDTO {
     private String descripcion;
     private String imagenUrl;
     private String ingredientes; // Privado - no se devuelve en endpoints públicos
+    private BigDecimal precio;
     private Integer puntosValor;
     private String tipo; // GLOBAL | LOCAL | COMBO
     private String estadoAprobacion; // APROBADO | PENDIENTE | RECHAZADO

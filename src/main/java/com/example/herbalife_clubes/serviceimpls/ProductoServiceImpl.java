@@ -19,6 +19,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -52,6 +53,7 @@ public class ProductoServiceImpl implements ProductoService {
         // Crear producto desde el DTO
         Producto producto = ProductoMapper.mapProductoDTOToProducto(productoDTO);
         producto.setHub(hub);
+        validarPrecio(producto.getPrecio());
         
         Club clubAnfitrion = null;
         // Lógica según el rol
@@ -80,6 +82,9 @@ public class ProductoServiceImpl implements ProductoService {
         }
         if (producto.getPuntosValor() == null) {
             producto.setPuntosValor(0);
+        }
+        if (producto.getPrecio() == null) {
+            producto.setPrecio(BigDecimal.ZERO);
         }
         
         // Guardar producto
@@ -144,10 +149,14 @@ public class ProductoServiceImpl implements ProductoService {
         // Crear producto desde el DTO
         Producto producto = ProductoMapper.mapProductoDTOToProducto(productoDTO);
         producto.setHub(hub);
+        validarPrecio(producto.getPrecio());
         
         // Si no viene activo, por defecto true
         if (producto.getActivo() == null) {
             producto.setActivo(true);
+        }
+        if (producto.getPrecio() == null) {
+            producto.setPrecio(BigDecimal.ZERO);
         }
         
         // Guardar producto (NO se crea relación ClubProducto automáticamente)
@@ -167,9 +176,19 @@ public class ProductoServiceImpl implements ProductoService {
         producto.setDescripcion(productoDTO.getDescripcion());
         producto.setImagenUrl(productoDTO.getImagenUrl());
         producto.setActivo(productoDTO.getActivo());
+        validarPrecio(productoDTO.getPrecio());
+        producto.setPrecio(productoDTO.getPrecio() != null ? productoDTO.getPrecio() : BigDecimal.ZERO);
+        producto.setPuntosValor(productoDTO.getPuntosValor() != null ? productoDTO.getPuntosValor() : 0);
+        producto.setIngredientes(productoDTO.getIngredientes());
         
         Producto updatedProducto = productoRepository.save(producto);
         return ProductoMapper.mapProductoToProductoDTO(updatedProducto);
+    }
+
+    private void validarPrecio(BigDecimal precio) {
+        if (precio != null && precio.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El precio no puede ser negativo");
+        }
     }
 
     @Override

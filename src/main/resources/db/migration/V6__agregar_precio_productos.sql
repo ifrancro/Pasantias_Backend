@@ -1,0 +1,6 @@
+ALTER TABLE productos
+ADD COLUMN IF NOT EXISTS precio DECIMAL(10, 2) DEFAULT 0.00;
+
+UPDATE productos
+SET precio = 0.00
+WHERE precio IS NULL;

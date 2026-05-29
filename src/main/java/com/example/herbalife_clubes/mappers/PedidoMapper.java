@@ -28,6 +28,8 @@ public class PedidoMapper {
                         itemDTO.setProductoNombre(item.getProducto() != null ? item.getProducto().getNombre() : null);
                         itemDTO.setCantidad(item.getCantidad());
                         itemDTO.setNota(item.getNota());
+                        itemDTO.setPrecioUnitario(item.getPrecioUnitario());
+                        itemDTO.setSubtotal(item.getSubtotal());
                         return itemDTO;
                     })
                     .collect(Collectors.toList());

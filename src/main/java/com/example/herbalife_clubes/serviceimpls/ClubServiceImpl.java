@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,6 +46,8 @@ public class ClubServiceImpl implements ClubService {
         Club club = ClubMapper.mapClubDTOToClub(clubDTO);
         club.setHub(hub);
         club.setAnfitrion(anfitrion);
+        club.setPrefijoSocio(normalizarPrefijo(club.getPrefijoSocio()));
+        validarPrefijoSocio(club.getPrefijoSocio(), hubId, null);
         if (club.getEstado() == null) {
             club.setEstado("PENDIENTE");
         }
@@ -63,6 +66,9 @@ public class ClubServiceImpl implements ClubService {
         club.setHorario(clubDTO.getHorario());
         club.setLat(clubDTO.getLat());
         club.setLng(clubDTO.getLng());
+        String prefijoNormalizado = normalizarPrefijo(clubDTO.getPrefijoSocio());
+        validarPrefijoSocio(prefijoNormalizado, club.getHub() != null ? club.getHub().getId() : null, clubId);
+        club.setPrefijoSocio(prefijoNormalizado);
         
         Club updatedClub = clubRepository.save(club);
         return ClubMapper.mapClubToClubDTO(updatedClub);
@@ -188,6 +194,33 @@ public class ClubServiceImpl implements ClubService {
         // En el futuro se podría mejorar para devolver el más reciente o activo
         Club club = clubes.get(0);
         return ClubMapper.mapClubToClubDTO(club);
+    }
+
+    private String normalizarPrefijo(String prefijo) {
+        if (prefijo == null) {
+            return null;
+        }
+        String normalizado = prefijo.trim().toUpperCase(Locale.ROOT);
+        return normalizado.isBlank() ? null : normalizado;
+    }
+
+    private void validarPrefijoSocio(String prefijoSocio, Integer hubId, Integer clubIdActual) {
+        if (prefijoSocio == null) {
+            return; // opcional
+        }
+        if (!prefijoSocio.matches("^[A-Z]{2}$")) {
+            throw new IllegalArgumentException(
+                    "El prefijo de socio debe ser exactamente 2 letras mayúsculas (A-Z). Recibido: '" + prefijoSocio + "'");
+        }
+        if (hubId == null) {
+            throw new IllegalArgumentException("No se puede validar prefijo sin hub asociado");
+        }
+        boolean existe = clubIdActual == null
+                ? clubRepository.existsByHubIdAndPrefijoSocioIgnoreCase(hubId, prefijoSocio)
+                : clubRepository.existsByHubIdAndPrefijoSocioIgnoreCaseAndIdNot(hubId, prefijoSocio, clubIdActual);
+        if (existe) {
+            throw new IllegalArgumentException("Ya existe un club con el prefijo '" + prefijoSocio + "' en este Hub");
+        }
     }
 }
 

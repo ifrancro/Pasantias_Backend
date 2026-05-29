@@ -75,6 +75,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+    @ExceptionHandler(MaxSaboresExcedidoException.class)
+    public ResponseEntity<Map<String, Object>> handleMaxSabores(MaxSaboresExcedidoException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("error", MaxSaboresExcedidoException.ERROR_CODE);
+        body.put("message", ex.getMessage());
+        body.put("maxPermitido", ex.getMaxPermitido());
+        body.put("actual", ex.getActual());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ApiResponse<String>> handleBadCredentials(BadCredentialsException ex) {
         return ResponseEntity

@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -40,6 +41,9 @@ public class Producto {
     @Column(name = "puntos_valor")
     private Integer puntosValor;
 
+    @Column(name = "precio", precision = 10, scale = 2)
+    private BigDecimal precio;
+
     /** GLOBAL, LOCAL o COMBO (paquete consumible para validación de asistencia). */
     @Column(name = "tipo", length = 50)
     private String tipo;
@@ -60,6 +64,9 @@ public class Producto {
         }
         if (puntosValor == null) {
             puntosValor = 0;
+        }
+        if (precio == null) {
+            precio = BigDecimal.ZERO;
         }
         createdAt = LocalDateTime.now();
     }

@@ -18,6 +18,7 @@ public class ClubMapper {
         dto.setLat(club.getLat());
         dto.setLng(club.getLng());
         dto.setEstado(club.getEstado());
+        dto.setPrefijoSocio(club.getPrefijoSocio());
         dto.setCreatedAt(club.getCreatedAt());
         return dto;
     }
@@ -31,6 +32,7 @@ public class ClubMapper {
         club.setLat(dto.getLat());
         club.setLng(dto.getLng());
         club.setEstado(dto.getEstado());
+        club.setPrefijoSocio(dto.getPrefijoSocio());
         return club;
     }
 }

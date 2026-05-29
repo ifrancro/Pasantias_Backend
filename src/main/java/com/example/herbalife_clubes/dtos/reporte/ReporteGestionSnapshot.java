@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,8 +23,9 @@ public class ReporteGestionSnapshot {
     private String nombreClub;
     private LocalDate fechaInicio;
     private LocalDate fechaFin;
-    /** Suma de (cantidad × puntos_valor) en pedidos ENTREGADOS del rango. */
-    private long totalIngresosPuntosValor;
+    /** Suma monetaria histórica de subtotales en pedidos ENTREGADOS del rango. */
+    @Builder.Default
+    private BigDecimal totalIngresosPuntosValor = BigDecimal.ZERO;
     /** Día → cantidad de asistencias. */
     @Builder.Default
     private Map<LocalDate, Long> asistenciasPorDia = new LinkedHashMap<>();

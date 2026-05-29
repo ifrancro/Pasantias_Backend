@@ -18,6 +18,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -197,17 +198,27 @@ public class SocioActivationServiceImpl implements SocioActivationService {
 
     @Override
     public String generarNumeroSocio(Integer clubId, Integer membresiaId) {
-        // Formato: C{clubId}-{leftPad(membresiaId, 6)}
-        // Ejemplo: C12-000123
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+
+        String prefijo = normalizarPrefijo(club.getPrefijoSocio());
+        if (prefijo == null || !prefijo.matches("^[A-Z]{2}$")) {
+            prefijo = extraerPrefijoDesdeNombre(club.getNombreClub());
+        }
+        // fallback legacy
+        if (prefijo == null || prefijo.isBlank()) {
+            prefijo = "C" + clubId;
+        }
+
         String paddedId = String.format("%06d", membresiaId);
-        String numeroSocio = "C" + clubId + "-" + paddedId;
+        String numeroSocio = prefijo + "-" + paddedId;
         
         // Verificar unicidad (por si acaso, aunque es muy improbable que haya colisión)
         Optional<Membresia> existente = membresiaRepository.findByNumeroSocio(numeroSocio);
         int intentos = 0;
         while (existente.isPresent() && intentos < 10) {
             // Si hay colisión (muy improbable), agregar un sufijo
-            numeroSocio = "C" + clubId + "-" + paddedId + "-" + intentos;
+            numeroSocio = prefijo + "-" + paddedId + "-" + intentos;
             existente = membresiaRepository.findByNumeroSocio(numeroSocio);
             intentos++;
         }
@@ -217,6 +228,25 @@ public class SocioActivationServiceImpl implements SocioActivationService {
         }
         
         return numeroSocio;
+    }
+
+    private String normalizarPrefijo(String prefijo) {
+        if (prefijo == null) {
+            return null;
+        }
+        String n = prefijo.trim().toUpperCase(Locale.ROOT);
+        return n.isBlank() ? null : n;
+    }
+
+    private String extraerPrefijoDesdeNombre(String nombreClub) {
+        if (nombreClub == null || nombreClub.isBlank()) {
+            return null;
+        }
+        String soloLetras = nombreClub.replaceAll("[^A-Za-z]", "").toUpperCase(Locale.ROOT);
+        if (soloLetras.length() < 2) {
+            return null;
+        }
+        return soloLetras.substring(0, 2);
     }
 
     @Override

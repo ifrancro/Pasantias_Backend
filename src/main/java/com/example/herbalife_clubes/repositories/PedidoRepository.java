@@ -45,10 +45,9 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
     List<Pedido> findByMembresiaIdWithRelations(@Param("membresiaId") Integer membresiaId);
 
     @Query(value = """
-            SELECT COALESCE(SUM(pi.cantidad * COALESCE(pr.puntos_valor, 0)), 0)
+            SELECT COALESCE(SUM(COALESCE(pi.subtotal, COALESCE(pi.precio_unitario, 0) * COALESCE(pi.cantidad, 1))), 0)
             FROM pedido_items pi
             INNER JOIN pedidos p ON p.id = pi.pedido_id
-            INNER JOIN productos pr ON pr.id = pi.producto_id
             WHERE p.club_id = :clubId
               AND p.fecha_pedido >= :desde
               AND p.fecha_pedido < :hasta

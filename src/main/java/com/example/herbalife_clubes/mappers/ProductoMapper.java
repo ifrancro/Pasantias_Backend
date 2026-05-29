@@ -29,6 +29,7 @@ public class ProductoMapper {
         if (incluirIngredientes) {
             dto.setIngredientes(producto.getIngredientes());
         }
+        dto.setPrecio(producto.getPrecio());
         dto.setPuntosValor(producto.getPuntosValor());
         dto.setTipo(producto.getTipo());
         dto.setEstadoAprobacion(producto.getEstadoAprobacion());
@@ -44,6 +45,7 @@ public class ProductoMapper {
         producto.setDescripcion(dto.getDescripcion());
         producto.setImagenUrl(dto.getImagenUrl());
         producto.setIngredientes(dto.getIngredientes());
+        producto.setPrecio(dto.getPrecio());
         producto.setPuntosValor(dto.getPuntosValor());
         producto.setTipo(dto.getTipo());
         producto.setEstadoAprobacion(dto.getEstadoAprobacion());
