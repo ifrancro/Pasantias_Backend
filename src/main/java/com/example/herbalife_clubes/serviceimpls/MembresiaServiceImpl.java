@@ -214,18 +214,32 @@ public class MembresiaServiceImpl implements MembresiaService {
         return false;
     }
 
+    private static final int MAX_PROFUNDIDAD = 10;
+
     @Override
     public ArbolReferidosDTO getArbolReferidos(Integer membresiaId) {
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
         
-        return construirArbolRecursivo(membresia);
+        return construirArbolRecursivo(membresia, 0);
     }
 
-    private ArbolReferidosDTO construirArbolRecursivo(Membresia membresia) {
+    private ArbolReferidosDTO construirArbolRecursivo(Membresia membresia, int nivel) {
         String nombreCompleto = membresia.getUsuario() != null ?
                 membresia.getUsuario().getNombre() + " " + membresia.getUsuario().getApellido() : "N/A";
         String clubNombre = membresia.getClub() != null ? membresia.getClub().getNombreClub() : null;
+
+        if (nivel > MAX_PROFUNDIDAD) {
+            // Retornar nodo hoja truncado para evitar recursión infinita
+            return new ArbolReferidosDTO(
+                    membresia.getId(),
+                    membresia.getNumeroSocio(),
+                    nombreCompleto,
+                    membresia.getPuntosAcumulados(),
+                    membresia.getEstado(),
+                    clubNombre
+            );
+        }
 
         ArbolReferidosDTO nodo = new ArbolReferidosDTO(
                 membresia.getId(),
@@ -239,7 +253,7 @@ public class MembresiaServiceImpl implements MembresiaService {
         List<Membresia> referidosDirectos = membresiaRepository.findByReferidoPorMembresiaId(membresia.getId());
 
         for (Membresia referido : referidosDirectos) {
-            ArbolReferidosDTO nodoReferido = construirArbolRecursivo(referido);
+            ArbolReferidosDTO nodoReferido = construirArbolRecursivo(referido, nivel + 1);
             nodo.agregarReferido(nodoReferido);
         }
 
