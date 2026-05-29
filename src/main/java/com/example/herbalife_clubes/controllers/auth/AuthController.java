@@ -14,6 +14,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -24,8 +26,14 @@ public class AuthController {
     private final UsuarioRepository usuarioRepository;
 
     @PostMapping("/register")
-    public ResponseEntity<AuthenticationResponse> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<AuthenticationResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.register(request));
+    }
+
+    @GetMapping("/check-email")
+    public ResponseEntity<?> checkEmail(@RequestParam String email) {
+        boolean exists = usuarioRepository.existsByEmail(email);
+        return ResponseEntity.ok(java.util.Map.of("exists", exists));
     }
 
     /**
@@ -40,7 +48,7 @@ public class AuthController {
      * 5. Anfitrión escanea el QR y activa al usuario como socio
      */
     @PostMapping("/register-basico")
-    public ResponseEntity<RegisterBasicoResponse> registerBasico(@RequestBody RegisterBasicoRequest request) {
+    public ResponseEntity<RegisterBasicoResponse> registerBasico(@Valid @RequestBody RegisterBasicoRequest request) {
         return ResponseEntity.ok(authService.registerBasico(request));
     }
 
