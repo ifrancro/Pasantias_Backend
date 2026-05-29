@@ -92,6 +92,27 @@ public class MembresiaController {
         return ResponseEntity.ok(membresiaService.getEstadoCombo(id));
     }
 
+    @GetMapping("/me/arbol-referidos")
+    public ResponseEntity<ArbolReferidosDTO> getMiArbolReferidos() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String email = authentication.getName();
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElse(null);
+
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // Obtener la membresía y luego el árbol de referidos del usuario autenticado
+        MembresiaDTO membresia = membresiaService.getMembresiaByUsuario(usuario.getId());
+        ArbolReferidosDTO arbol = membresiaService.getArbolReferidos(membresia.getId());
+        return ResponseEntity.ok(arbol);
+    }
+
     @GetMapping("{id}/arbol-referidos")
     public ResponseEntity<ArbolReferidosDTO> getArbolReferidos(@PathVariable Integer id) {
         // Validar autenticación
@@ -109,9 +130,9 @@ public class MembresiaController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        // Validar que el rol sea ADMIN
+        // Validar que el rol sea ADMIN o ANFITRION
         String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
-        if (!"ADMIN".equalsIgnoreCase(rolNombre)) {
+        if (!"ADMIN".equalsIgnoreCase(rolNombre) && !"ANFITRION".equalsIgnoreCase(rolNombre)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
