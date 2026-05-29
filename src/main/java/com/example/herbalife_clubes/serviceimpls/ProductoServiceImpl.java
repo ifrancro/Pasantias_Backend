@@ -285,8 +285,18 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     public List<ProductoDTO> getProductosByClubParaAnfitrion(Integer clubId) {
-        List<Producto> productos = obtenerProductosMenuClubSinFiltrarDisponibilidad(clubId);
-        return productos.stream()
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+        Integer hubId = club.getHub() != null ? club.getHub().getId() : null;
+        if (hubId == null) {
+            throw new ResourceNotFoundException("El club no tiene Hub asociado");
+        }
+        List<Producto> globales = productoRepository.findByHubIdAndTipoAndEstadoAprobacion(hubId, "GLOBAL", "APROBADO");
+        List<Producto> locales = productoRepository.findByClubCreadorId(clubId);
+        List<Producto> todos = new java.util.ArrayList<>(globales);
+        todos.addAll(locales);
+
+        return todos.stream()
                 .map(p -> {
                     ProductoDTO dto = ProductoMapper.mapProductoToProductoDTO(p, true);
                     Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, p.getId());
@@ -322,10 +332,22 @@ public class ProductoServiceImpl implements ProductoService {
         if (tipo == null || tipo.isBlank()) {
             return getProductosByClubParaAnfitrion(clubId);
         }
-        List<Producto> productos = obtenerProductosMenuClubSinFiltrarDisponibilidad(clubId).stream()
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+        Integer hubId = club.getHub() != null ? club.getHub().getId() : null;
+        if (hubId == null) {
+            throw new ResourceNotFoundException("El club no tiene Hub asociado");
+        }
+        List<Producto> globales = productoRepository.findByHubIdAndTipoAndEstadoAprobacion(hubId, "GLOBAL", "APROBADO");
+        List<Producto> locales = productoRepository.findByClubCreadorId(clubId);
+        List<Producto> todos = new java.util.ArrayList<>(globales);
+        todos.addAll(locales);
+
+        List<Producto> filtrados = todos.stream()
                 .filter(p -> tipo.equalsIgnoreCase(p.getTipo()))
                 .collect(Collectors.toList());
-        return productos.stream()
+
+        return filtrados.stream()
                 .map(p -> {
                     ProductoDTO dto = ProductoMapper.mapProductoToProductoDTO(p, true);
                     Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, p.getId());
