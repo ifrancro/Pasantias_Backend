@@ -32,6 +32,7 @@ public class ProductoMapper {
         dto.setPrecio(producto.getPrecio());
         dto.setPuntosValor(producto.getPuntosValor());
         dto.setTipo(producto.getTipo());
+        dto.setEsCombo(Boolean.TRUE.equals(producto.getEsCombo()));
         dto.setEstadoAprobacion(producto.getEstadoAprobacion());
         dto.setActivo(producto.getActivo());
         dto.setCreatedAt(producto.getCreatedAt());
@@ -48,6 +49,7 @@ public class ProductoMapper {
         producto.setPrecio(dto.getPrecio());
         producto.setPuntosValor(dto.getPuntosValor());
         producto.setTipo(dto.getTipo());
+        producto.setEsCombo(dto.getEsCombo());
         producto.setEstadoAprobacion(dto.getEstadoAprobacion());
         producto.setActivo(dto.getActivo());
         return producto;

@@ -71,14 +71,15 @@ INSERT INTO clubes (id, hub_id, anfitrion_id, nombre_club, direccion, horario, l
 VALUES
   (1, 1, 2, 'Club Herbalife Demo 1', 'Av. Ejemplo #123, Santa Cruz', 'Lun-Sab 07:00-11:00 / 16:00-20:00', -17.77181708, -63.18720420, 'ACTIVO', 'SC', NOW());
 
--- Productos: el id 5 es tipo COMBO (requerido para validar asistencia)
-INSERT INTO productos (id, hub_id, nombre, descripcion, activo, tipo, puntos_valor, precio, estado_aprobacion, created_at)
+-- Productos: el id 5 es un Combo (es_combo=true, requerido para validar asistencia).
+-- El origen sigue siendo GLOBAL para que aparezca en el menú del club.
+INSERT INTO productos (id, hub_id, nombre, descripcion, activo, tipo, es_combo, puntos_valor, precio, estado_aprobacion, created_at)
 VALUES
-  (1, 1, 'Batido Nutricional', 'Batido nutricional Herbalife', true, 'GLOBAL', 10, 20.00, 'APROBADO', NOW()),
-  (2, 1, 'Té Energético', 'Té energético concentrado', true, 'GLOBAL', 5, 12.00, 'APROBADO', NOW()),
-  (3, 1, 'Aloe Concentrado', 'Bebida de aloe concentrado', true, 'GLOBAL', 5, 10.00, 'APROBADO', NOW()),
-  (4, 1, 'Proteína Personalizada', 'Batido con proteína adicional', true, 'GLOBAL', 15, 25.00, 'APROBADO', NOW()),
-  (5, 1, 'Combo Batido + Té', 'Paquete combo para consumo en club', true, 'COMBO', 15, 30.00, 'APROBADO', NOW());
+  (1, 1, 'Batido Nutricional', 'Batido nutricional Herbalife', true, 'GLOBAL', false, 10, 20.00, 'APROBADO', NOW()),
+  (2, 1, 'Té Energético', 'Té energético concentrado', true, 'GLOBAL', false, 5, 12.00, 'APROBADO', NOW()),
+  (3, 1, 'Aloe Concentrado', 'Bebida de aloe concentrado', true, 'GLOBAL', false, 5, 10.00, 'APROBADO', NOW()),
+  (4, 1, 'Proteína Personalizada', 'Batido con proteína adicional', true, 'GLOBAL', false, 15, 25.00, 'APROBADO', NOW()),
+  (5, 1, 'Combo Batido + Té', 'Paquete combo para consumo en club', true, 'GLOBAL', true, 15, 30.00, 'APROBADO', NOW());
 
 INSERT INTO club_productos (club_id, producto_id, disponible, created_at)
 VALUES

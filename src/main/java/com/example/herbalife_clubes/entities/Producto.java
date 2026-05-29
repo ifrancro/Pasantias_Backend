@@ -44,9 +44,16 @@ public class Producto {
     @Column(name = "precio", precision = 10, scale = 2)
     private BigDecimal precio;
 
-    /** GLOBAL, LOCAL o COMBO (paquete consumible para validación de asistencia). */
+    /** Origen del producto: GLOBAL (del hub) o LOCAL (creado por un club). */
     @Column(name = "tipo", length = 50)
     private String tipo;
+
+    /**
+     * Marca el producto como Combo (paquete consumible que habilita el registro de asistencia).
+     * Independiente de {@link #tipo}: un combo puede ser GLOBAL o LOCAL.
+     */
+    @Column(name = "es_combo")
+    private Boolean esCombo;
 
     @Column(name = "estado_aprobacion", length = 50)
     private String estadoAprobacion;
@@ -67,6 +74,9 @@ public class Producto {
         }
         if (precio == null) {
             precio = BigDecimal.ZERO;
+        }
+        if (esCombo == null) {
+            esCombo = false;
         }
         createdAt = LocalDateTime.now();
     }

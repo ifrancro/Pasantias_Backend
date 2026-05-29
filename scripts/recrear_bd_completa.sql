@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS productos (
   puntos_valor INTEGER,
   precio NUMERIC(10,2) DEFAULT 0.00,
   tipo VARCHAR(50),
+  es_combo BOOLEAN DEFAULT false,
   estado_aprobacion VARCHAR(50),
   activo BOOLEAN,
   created_at TIMESTAMP

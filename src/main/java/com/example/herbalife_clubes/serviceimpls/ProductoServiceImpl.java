@@ -54,6 +54,8 @@ public class ProductoServiceImpl implements ProductoService {
         Producto producto = ProductoMapper.mapProductoDTOToProducto(productoDTO);
         producto.setHub(hub);
         validarPrecio(producto.getPrecio());
+        // esCombo es una categoría independiente del origen (GLOBAL/LOCAL): respetar lo enviado.
+        producto.setEsCombo(Boolean.TRUE.equals(productoDTO.getEsCombo()));
         
         Club clubAnfitrion = null;
         // Lógica según el rol
@@ -150,6 +152,7 @@ public class ProductoServiceImpl implements ProductoService {
         Producto producto = ProductoMapper.mapProductoDTOToProducto(productoDTO);
         producto.setHub(hub);
         validarPrecio(producto.getPrecio());
+        producto.setEsCombo(Boolean.TRUE.equals(productoDTO.getEsCombo()));
         
         // Si no viene activo, por defecto true
         if (producto.getActivo() == null) {
@@ -180,6 +183,9 @@ public class ProductoServiceImpl implements ProductoService {
         producto.setPrecio(productoDTO.getPrecio() != null ? productoDTO.getPrecio() : BigDecimal.ZERO);
         producto.setPuntosValor(productoDTO.getPuntosValor() != null ? productoDTO.getPuntosValor() : 0);
         producto.setIngredientes(productoDTO.getIngredientes());
+        if (productoDTO.getEsCombo() != null) {
+            producto.setEsCombo(productoDTO.getEsCombo());
+        }
         
         Producto updatedProducto = productoRepository.save(producto);
         return ProductoMapper.mapProductoToProductoDTO(updatedProducto);
@@ -432,6 +438,7 @@ public class ProductoServiceImpl implements ProductoService {
                             .nombre(producto.getNombre())
                             .descripcion(producto.getDescripcion())
                             .tipo(producto.getTipo())
+                            .esCombo(Boolean.TRUE.equals(producto.getEsCombo()))
                             .estadoAprobacion(producto.getEstadoAprobacion())
                             .activo(producto.getActivo())
                             .disponible(disponible) // null si no hay relación, true/false si existe
@@ -516,6 +523,7 @@ public class ProductoServiceImpl implements ProductoService {
                 .nombre(producto.getNombre())
                 .descripcion(producto.getDescripcion())
                 .tipo(producto.getTipo())
+                .esCombo(Boolean.TRUE.equals(producto.getEsCombo()))
                 .estadoAprobacion(producto.getEstadoAprobacion())
                 .activo(producto.getActivo()) // Estado global (no se modifica)
                 .disponible(clubProducto.getDisponible()) // Estado local en el club

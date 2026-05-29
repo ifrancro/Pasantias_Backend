@@ -22,7 +22,9 @@ public class ProductoDTO {
     private String ingredientes; // Privado - no se devuelve en endpoints públicos
     private BigDecimal precio;
     private Integer puntosValor;
-    private String tipo; // GLOBAL | LOCAL | COMBO
+    private String tipo; // GLOBAL | LOCAL (origen)
+    /** true si el producto es un Combo (habilita registro de asistencia). Independiente de tipo. */
+    private Boolean esCombo;
     private String estadoAprobacion; // APROBADO | PENDIENTE | RECHAZADO
     private Boolean activo;
     /** Disponible en el club (tabla club_productos). Solo se rellena cuando se lista por club para anfitrión/admin. */

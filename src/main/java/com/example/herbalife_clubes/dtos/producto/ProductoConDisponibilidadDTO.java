@@ -24,6 +24,7 @@ public class ProductoConDisponibilidadDTO {
     private String nombre;
     private String descripcion;
     private String tipo;           // GLOBAL | LOCAL
+    private Boolean esCombo;       // true si el producto es un Combo
     private String estadoAprobacion; // APROBADO | PENDIENTE | RECHAZADO
     private Boolean activo;        // Estado global del producto
     private Boolean disponible;    // Estado local en el club (null si no existe relación)
