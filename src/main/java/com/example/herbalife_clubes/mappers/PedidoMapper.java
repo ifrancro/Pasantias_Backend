@@ -30,6 +30,8 @@ public class PedidoMapper {
                         itemDTO.setNota(item.getNota());
                         itemDTO.setPrecioUnitario(item.getPrecioUnitario());
                         itemDTO.setSubtotal(item.getSubtotal());
+                        itemDTO.setComboId(item.getCombo() != null ? item.getCombo().getId() : null);
+                        itemDTO.setComboNombre(item.getCombo() != null ? item.getCombo().getNombre() : null);
                         return itemDTO;
                     })
                     .collect(Collectors.toList());

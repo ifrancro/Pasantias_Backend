@@ -16,5 +16,7 @@ public class PedidoItemDTO {
     private String nota; // Nota específica del item (opcional)
     private BigDecimal precioUnitario;
     private BigDecimal subtotal;
+    private Integer comboId; // ID del combo origen (null si es producto suelto)
+    private String comboNombre; // Nombre del combo para visualización
 }
 

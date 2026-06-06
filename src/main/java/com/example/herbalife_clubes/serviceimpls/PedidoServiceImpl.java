@@ -9,6 +9,8 @@ import com.example.herbalife_clubes.exceptions.MaxSaboresExcedidoException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.PedidoMapper;
 import com.example.herbalife_clubes.repositories.*;
+import com.example.herbalife_clubes.entities.Combo;
+import com.example.herbalife_clubes.entities.ComboItem;
 import com.example.herbalife_clubes.services.PedidoService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +46,8 @@ public class PedidoServiceImpl implements PedidoService {
     private NotificacionRepository notificacionRepository;
     @Autowired
     private UsuarioRepository usuarioRepository;
+    @Autowired
+    private ComboRepository comboRepository;
 
     @Override
     @Transactional
@@ -266,8 +270,15 @@ public class PedidoServiceImpl implements PedidoService {
             item.setCantidad(itemDTO.getCantidad() != null ? itemDTO.getCantidad() : 1);
             item.setNota(itemDTO.getNota());
             item.setPrecioUnitario(obtenerPrecioUnitarioProducto(producto));
+
+            // Vincular combo si se indicó
+            if (itemDTO.getComboId() != null) {
+                Combo combo = comboRepository.findById(itemDTO.getComboId()).orElse(null);
+                item.setCombo(combo);
+            }
+
             pedido.getItems().add(item);
-            
+
             // Guardar referencia al primer producto para compatibilidad con BD
             if (primerProducto == null) {
                 primerProducto = producto;
@@ -403,6 +414,13 @@ public class PedidoServiceImpl implements PedidoService {
             item.setCantidad(itemDTO.getCantidad());
             item.setNota(itemDTO.getNota());
             item.setPrecioUnitario(obtenerPrecioUnitarioProducto(producto));
+
+            // Vincular combo si se indicó
+            if (itemDTO.getComboId() != null) {
+                Combo combo = comboRepository.findById(itemDTO.getComboId()).orElse(null);
+                item.setCombo(combo);
+            }
+
             pedido.getItems().add(item);
 
             if (primerProducto == null) {

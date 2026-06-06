@@ -28,6 +28,10 @@ public class PedidoItem {
     @Column(name = "cantidad", nullable = false)
     private Integer cantidad;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "combo_id")
+    private Combo combo;
+
     @Column(name = "nota", columnDefinition = "TEXT")
     private String nota;
 
