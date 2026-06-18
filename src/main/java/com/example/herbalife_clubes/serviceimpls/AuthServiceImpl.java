@@ -12,7 +12,9 @@ import com.example.herbalife_clubes.repositories.RolRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.security.JwtService;
 import com.example.herbalife_clubes.services.AuthService;
+import com.example.herbalife_clubes.services.VerificationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +25,7 @@ import java.time.format.DateTimeFormatter;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final UsuarioRepository usuarioRepository;
@@ -30,6 +33,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
+    private final VerificationService verificationService;
 
     @Override
     public AuthenticationResponse register(RegisterRequest request) {
@@ -63,9 +67,18 @@ public class AuthServiceImpl implements AuthService {
                 });
         usuario.setRol(rolDefault);
 
-        usuario.setEstado("ACTIVO");
+        // Estado inicial: pendiente de verificación por email
+        usuario.setEstado("PENDIENTE_VERIFICACION");
 
         usuarioRepository.save(usuario);
+
+        // Enviar código de verificación por correo
+        try {
+            verificationService.generateAndSendCode(usuario);
+        } catch (Exception e) {
+            log.error("Error al enviar código de verificación para {}: {}", usuario.getEmail(), e.getMessage());
+            // No fallar el registro, el usuario podrá reenviar el código
+        }
 
         String jwtToken = jwtService.generateToken(usuario);
 
@@ -76,6 +89,7 @@ public class AuthServiceImpl implements AuthService {
                 .nombre(usuario.getNombre())
                 .apellido(usuario.getApellido())
                 .rolNombre(usuario.getRol().getNombre())
+                .requiresVerification(true)
                 .build();
     }
 
@@ -139,9 +153,17 @@ public class AuthServiceImpl implements AuthService {
                 });
         usuario.setRol(rolDefault);
 
-        usuario.setEstado("ACTIVO");
+        // Estado inicial: pendiente de verificación por email
+        usuario.setEstado("PENDIENTE_VERIFICACION");
 
         usuario = usuarioRepository.save(usuario);
+
+        // Enviar código de verificación por correo
+        try {
+            verificationService.generateAndSendCode(usuario);
+        } catch (Exception e) {
+            log.error("Error al enviar código de verificación para {}: {}", usuario.getEmail(), e.getMessage());
+        }
 
         String jwtToken = jwtService.generateToken(usuario);
         

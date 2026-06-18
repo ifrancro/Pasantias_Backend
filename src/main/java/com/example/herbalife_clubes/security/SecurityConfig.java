@@ -35,6 +35,8 @@ public class SecurityConfig {
                                 "/api/auth/register",
                                 "/api/auth/register-basico", // Público: registro de usuarios básicos
                                 "/api/auth/check-email",
+                                "/api/auth/verify-email",    // Público: verificación de correo
+                                "/api/auth/resend-code",     // Público: reenvío de código
                                 "/api/public/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
