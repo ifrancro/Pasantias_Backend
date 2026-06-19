@@ -13,6 +13,7 @@ public class PedidoMostradorRequestDTO {
     private Integer clubId;
     private String socioCodigo; // numero_socio opcional
     private String tipoConsumo; // opcional: PARA_RECOGER | EN_LUGAR
+    private String tipoPago; // EFECTIVO | TRANSFERENCIA | QR | TARJETA | OTRO
     private String observaciones;
     private List<PedidoItemDTO> items;
 }

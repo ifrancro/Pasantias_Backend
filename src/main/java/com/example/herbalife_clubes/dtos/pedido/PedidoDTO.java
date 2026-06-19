@@ -23,6 +23,7 @@ public class PedidoDTO {
 
     private String horarioDeseado; // @deprecated - usar tiempoEstimadoMinutos
     private String tipoConsumo; // PARA_RECOGER | EN_LUGAR
+    private String tipoPago;
     private Integer tiempoEstimadoMinutos; // Tiempo estimado de preparación en minutos
     private String observaciones;
     private String estado; // RECIBIDO | PREPARANDO | LISTO | ENTREGADO | CANCELADO

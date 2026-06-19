@@ -48,6 +48,7 @@ public class PedidoMapper {
         // horarioDeseado fue eliminado - mantener null para compatibilidad
         dto.setHorarioDeseado(null);
         dto.setTipoConsumo(pedido.getTipoConsumo() != null ? pedido.getTipoConsumo().name() : null);
+        dto.setTipoPago(pedido.getTipoPago());
         dto.setTiempoEstimadoMinutos(pedido.getTiempoEstimadoMinutos());
         dto.setObservaciones(pedido.getObservaciones());
         dto.setEstado(pedido.getEstado() != null ? pedido.getEstado().name() : null);

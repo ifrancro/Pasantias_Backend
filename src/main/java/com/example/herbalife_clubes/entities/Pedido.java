@@ -44,6 +44,9 @@ public class Pedido {
     @Column(name = "fecha_pedido")
     private LocalDateTime fechaPedido;
 
+    @Column(name = "tipo_pago", length = 30)
+    private String tipoPago;
+
     // Campos para compatibilidad con estructura de BD existente
     // Estos campos se llenan automáticamente desde el primer item
     @ManyToOne(fetch = FetchType.LAZY)

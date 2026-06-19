@@ -31,6 +31,9 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class PedidoServiceImpl implements PedidoService {
     private static final int MAX_SABORES_COMBO = 3;
+    private static final Set<String> TIPOS_PAGO_VALIDOS = Set.of(
+            "EFECTIVO", "TRANSFERENCIA", "QR", "TARJETA", "OTRO"
+    );
 
     @Autowired
     private PedidoRepository pedidoRepository;
@@ -389,6 +392,15 @@ public class PedidoServiceImpl implements PedidoService {
         } else {
             pedido.setTipoConsumo(TipoConsumo.EN_LUGAR);
         }
+
+        if (request.getTipoPago() == null || request.getTipoPago().isBlank()) {
+            throw new IllegalArgumentException("tipoPago es requerido");
+        }
+        String tipoPago = request.getTipoPago().trim().toUpperCase();
+        if (!TIPOS_PAGO_VALIDOS.contains(tipoPago)) {
+            throw new IllegalArgumentException("tipoPago debe ser EFECTIVO, TRANSFERENCIA, QR, TARJETA u OTRO");
+        }
+        pedido.setTipoPago(tipoPago);
 
         Producto primerProducto = null;
         int cantidadTotal = 0;
