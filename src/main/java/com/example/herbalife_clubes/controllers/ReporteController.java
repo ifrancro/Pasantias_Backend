@@ -1,11 +1,13 @@
 package com.example.herbalife_clubes.controllers;
 
 import com.example.herbalife_clubes.dtos.reporte.ReporteGestionSnapshot;
+import com.example.herbalife_clubes.dtos.reporte.ResumenMensualVentasDTO;
 import com.example.herbalife_clubes.dtos.reporte.VentasDiariasReporteDTO;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.services.ReporteGestionService;
+import com.example.herbalife_clubes.services.ResumenMensualVentasService;
 import com.example.herbalife_clubes.services.VentasDiariasReporteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -40,6 +42,7 @@ public class ReporteController {
 
     private final ReporteGestionService reporteGestionService;
     private final VentasDiariasReporteService ventasDiariasReporteService;
+    private final ResumenMensualVentasService resumenMensualVentasService;
     private final ClubRepository clubRepository;
     private final UsuarioRepository usuarioRepository;
 
@@ -98,6 +101,85 @@ public class ReporteController {
                 "registro_ventas_club%d_%s.%s",
                 clubId,
                 fecha,
+                extension);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(contentType);
+        headers.setContentDisposition(
+                ContentDisposition.attachment()
+                        .filename(filename, StandardCharsets.UTF_8)
+                        .build());
+        headers.setContentLength(body.length);
+
+        return new ResponseEntity<>(body, headers, HttpStatus.OK);
+    }
+
+    /**
+     * Resumen mensual de ventas (JSON): mes calendario, ventas e ingresos por día + top productos.
+     */
+    @GetMapping("/anfitrion/{clubId}/resumen-mensual")
+    public ResponseEntity<ResumenMensualVentasDTO> resumenMensualJson(
+            @PathVariable Integer clubId,
+            @RequestParam int anio,
+            @RequestParam int mes) {
+
+        if (mes < 1 || mes > 12) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        ResponseEntity<Void> authError = verificarAccesoReporte(clubId);
+        if (authError != null) {
+            return ResponseEntity.status(authError.getStatusCode()).build();
+        }
+
+        ResumenMensualVentasDTO reporte = resumenMensualVentasService.generarReporte(clubId, anio, mes);
+        return ResponseEntity.ok(reporte);
+    }
+
+    /**
+     * Descarga del resumen mensual (Excel o PDF).
+     */
+    @GetMapping("/anfitrion/{clubId}/resumen-mensual/descargar")
+    public ResponseEntity<byte[]> descargarResumenMensual(
+            @PathVariable Integer clubId,
+            @RequestParam int anio,
+            @RequestParam int mes,
+            @RequestParam String formato) {
+
+        if (mes < 1 || mes > 12) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        String formatoNorm = formato != null ? formato.trim().toUpperCase() : "";
+        if (!"PDF".equals(formatoNorm) && !"EXCEL".equals(formatoNorm)) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        ResponseEntity<Void> authError = verificarAccesoReporte(clubId);
+        if (authError != null) {
+            return ResponseEntity.status(authError.getStatusCode()).build();
+        }
+
+        ResumenMensualVentasDTO reporte = resumenMensualVentasService.generarReporte(clubId, anio, mes);
+
+        byte[] body;
+        String extension;
+        MediaType contentType;
+        if ("EXCEL".equals(formatoNorm)) {
+            body = resumenMensualVentasService.generarExcel(reporte);
+            extension = "xlsx";
+            contentType = XLSX;
+        } else {
+            body = resumenMensualVentasService.generarPdf(reporte);
+            extension = "pdf";
+            contentType = MediaType.APPLICATION_PDF;
+        }
+
+        String filename = String.format(
+                "resumen_mensual_club%d_%d-%02d.%s",
+                clubId,
+                anio,
+                mes,
                 extension);
 
         HttpHeaders headers = new HttpHeaders();

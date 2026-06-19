@@ -91,6 +91,38 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
             @Param("desde") LocalDateTime desde,
             @Param("hasta") LocalDateTime hasta);
 
+    @Query(value = """
+            SELECT CAST(p.fecha_pedido AS DATE) AS dia, COUNT(*) AS cnt
+            FROM pedidos p
+            WHERE p.club_id = :clubId
+              AND p.fecha_pedido >= :desde
+              AND p.fecha_pedido < :hasta
+              AND p.estado = 'ENTREGADO'
+            GROUP BY CAST(p.fecha_pedido AS DATE)
+            ORDER BY dia
+            """, nativeQuery = true)
+    List<Object[]> countEntregadosPorDia(
+            @Param("clubId") Integer clubId,
+            @Param("desde") LocalDateTime desde,
+            @Param("hasta") LocalDateTime hasta);
+
+    @Query(value = """
+            SELECT CAST(p.fecha_pedido AS DATE) AS dia,
+                   COALESCE(SUM(COALESCE(pi.subtotal, COALESCE(pi.precio_unitario, 0) * COALESCE(pi.cantidad, 1))), 0)
+            FROM pedido_items pi
+            INNER JOIN pedidos p ON p.id = pi.pedido_id
+            WHERE p.club_id = :clubId
+              AND p.fecha_pedido >= :desde
+              AND p.fecha_pedido < :hasta
+              AND p.estado = 'ENTREGADO'
+            GROUP BY CAST(p.fecha_pedido AS DATE)
+            ORDER BY dia
+            """, nativeQuery = true)
+    List<Object[]> ingresosEntregadosPorDia(
+            @Param("clubId") Integer clubId,
+            @Param("desde") LocalDateTime desde,
+            @Param("hasta") LocalDateTime hasta);
+
     @Query("SELECT p.id FROM Pedido p " +
            "WHERE p.club.id = :clubId " +
            "AND p.estado = :estadoEntregado " +
