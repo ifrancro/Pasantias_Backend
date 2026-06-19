@@ -77,22 +77,26 @@ public class SaborController {
     public ResponseEntity<Void> asignarSabor(@PathVariable Integer productoId, @PathVariable Integer saborId) {
         Usuario usuario = getUsuarioAutenticado();
         if (usuario == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        if (!esAdmin(usuario)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!esAdmin(usuario) && !esAnfitrion(usuario)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
-        saborService.asignarSaborAProducto(productoId, saborId);
+        saborService.asignarSaborAProducto(productoId, saborId, usuario);
         return ResponseEntity.ok().build();
     }
 
     /**
-     * Quita un sabor de un producto (solo ADMIN).
+     * Quita un sabor de un producto (ADMIN o anfitrión según producto).
      */
     @DeleteMapping("/productos/{productoId}/sabores/{saborId}")
     public ResponseEntity<Void> quitarSabor(@PathVariable Integer productoId, @PathVariable Integer saborId) {
         Usuario usuario = getUsuarioAutenticado();
         if (usuario == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        if (!esAdmin(usuario)) return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        if (!esAdmin(usuario) && !esAnfitrion(usuario)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
-        saborService.quitarSaborDeProducto(productoId, saborId);
+        saborService.quitarSaborDeProducto(productoId, saborId, usuario);
         return ResponseEntity.noContent().build();
     }
 
@@ -106,6 +110,15 @@ public class SaborController {
     public ResponseEntity<List<SaborDisponibilidadDTO>> getSaboresEnClub(
             @PathVariable Integer clubId, @PathVariable Integer productoId) {
         return ResponseEntity.ok(saborService.getSaboresDeProductoEnClub(clubId, productoId));
+    }
+
+    /**
+     * Lista todos los sabores del hub con disponibilidad en el club (gestión anfitrión).
+     */
+    @GetMapping("/clubes/{clubId}/productos/{productoId}/sabores/gestion")
+    public ResponseEntity<List<SaborDisponibilidadDTO>> getSaboresGestionEnClub(
+            @PathVariable Integer clubId, @PathVariable Integer productoId) {
+        return ResponseEntity.ok(saborService.getSaboresGestionEnClub(clubId, productoId));
     }
 
     /**
@@ -126,7 +139,7 @@ public class SaborController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        return ResponseEntity.ok(saborService.toggleSaborEnClub(clubId, productoId, saborId));
+        return ResponseEntity.ok(saborService.toggleSaborEnClub(clubId, productoId, saborId, usuario));
     }
 
     // ===================== Helpers =====================
@@ -140,6 +153,11 @@ public class SaborController {
     private boolean esAdmin(Usuario usuario) {
         String rol = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
         return "ADMIN".equalsIgnoreCase(rol);
+    }
+
+    private boolean esAnfitrion(Usuario usuario) {
+        String rol = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
+        return "ANFITRION".equalsIgnoreCase(rol);
     }
 
     private boolean esAnfitrionDelClub(Usuario usuario, Integer clubId) {
