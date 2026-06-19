@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.repositories;
 
+import com.example.herbalife_clubes.entities.EstadoPedido;
 import com.example.herbalife_clubes.entities.Pedido;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -89,5 +90,40 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
             @Param("clubId") Integer clubId,
             @Param("desde") LocalDateTime desde,
             @Param("hasta") LocalDateTime hasta);
+
+    @Query("SELECT p.id FROM Pedido p " +
+           "WHERE p.club.id = :clubId " +
+           "AND p.estado = :estadoEntregado " +
+           "AND p.fechaPedido >= :desde " +
+           "AND p.fechaPedido < :hasta " +
+           "ORDER BY p.fechaPedido ASC")
+    List<Integer> findEntregadoIdsByClubAndRango(
+            @Param("clubId") Integer clubId,
+            @Param("desde") LocalDateTime desde,
+            @Param("hasta") LocalDateTime hasta,
+            @Param("estadoEntregado") EstadoPedido estadoEntregado);
+
+    @Query("SELECT DISTINCT p FROM Pedido p " +
+           "LEFT JOIN FETCH p.club " +
+           "LEFT JOIN FETCH p.producto " +
+           "LEFT JOIN FETCH p.membresia m " +
+           "LEFT JOIN FETCH m.usuario " +
+           "LEFT JOIN FETCH m.referidoPorMembresia " +
+           "LEFT JOIN FETCH p.items i " +
+           "LEFT JOIN FETCH i.producto " +
+           "WHERE p.id IN :ids " +
+           "ORDER BY p.fechaPedido ASC")
+    List<Pedido> findEntregadosDetalleByIds(@Param("ids") List<Integer> ids);
+
+    @Query("SELECT COUNT(p) FROM Pedido p " +
+           "WHERE p.membresia.id = :membresiaId " +
+           "AND p.club.id = :clubId " +
+           "AND p.estado = :estadoEntregado " +
+           "AND p.fechaPedido < :antes")
+    long countEntregadosAntesDe(
+            @Param("membresiaId") Integer membresiaId,
+            @Param("clubId") Integer clubId,
+            @Param("antes") LocalDateTime antes,
+            @Param("estadoEntregado") EstadoPedido estadoEntregado);
 }
 

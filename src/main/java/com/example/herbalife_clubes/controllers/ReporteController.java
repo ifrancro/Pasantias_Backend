@@ -1,10 +1,12 @@
 package com.example.herbalife_clubes.controllers;
 
 import com.example.herbalife_clubes.dtos.reporte.ReporteGestionSnapshot;
+import com.example.herbalife_clubes.dtos.reporte.VentasDiariasReporteDTO;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.services.ReporteGestionService;
+import com.example.herbalife_clubes.services.VentasDiariasReporteService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ContentDisposition;
@@ -37,8 +39,77 @@ public class ReporteController {
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
 
     private final ReporteGestionService reporteGestionService;
+    private final VentasDiariasReporteService ventasDiariasReporteService;
     private final ClubRepository clubRepository;
     private final UsuarioRepository usuarioRepository;
+
+    /**
+     * Reporte diario detallado (JSON): una fila por venta ENTREGADA del día.
+     */
+    @GetMapping("/anfitrion/{clubId}/ventas-diarias")
+    public ResponseEntity<VentasDiariasReporteDTO> ventasDiariasJson(
+            @PathVariable Integer clubId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha) {
+
+        ResponseEntity<Void> authError = verificarAccesoReporte(clubId);
+        if (authError != null) {
+            return ResponseEntity.status(authError.getStatusCode()).build();
+        }
+
+        VentasDiariasReporteDTO reporte = ventasDiariasReporteService.generarReporte(clubId, fecha);
+        return ResponseEntity.ok(reporte);
+    }
+
+    /**
+     * Descarga del registro diario detallado (Excel o PDF).
+     */
+    @GetMapping("/anfitrion/{clubId}/ventas-diarias/descargar")
+    public ResponseEntity<byte[]> descargarVentasDiarias(
+            @PathVariable Integer clubId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            @RequestParam String formato) {
+
+        ResponseEntity<Void> authError = verificarAccesoReporte(clubId);
+        if (authError != null) {
+            return ResponseEntity.status(authError.getStatusCode()).build();
+        }
+
+        String formatoNorm = formato != null ? formato.trim().toUpperCase() : "";
+        if (!"PDF".equals(formatoNorm) && !"EXCEL".equals(formatoNorm)) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        VentasDiariasReporteDTO reporte = ventasDiariasReporteService.generarReporte(clubId, fecha);
+
+        byte[] body;
+        String extension;
+        MediaType contentType;
+        if ("EXCEL".equals(formatoNorm)) {
+            body = ventasDiariasReporteService.generarExcel(reporte);
+            extension = "xlsx";
+            contentType = XLSX;
+        } else {
+            body = ventasDiariasReporteService.generarPdf(reporte);
+            extension = "pdf";
+            contentType = MediaType.APPLICATION_PDF;
+        }
+
+        String filename = String.format(
+                "registro_ventas_club%d_%s.%s",
+                clubId,
+                fecha,
+                extension);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(contentType);
+        headers.setContentDisposition(
+                ContentDisposition.attachment()
+                        .filename(filename, StandardCharsets.UTF_8)
+                        .build());
+        headers.setContentLength(body.length);
+
+        return new ResponseEntity<>(body, headers, HttpStatus.OK);
+    }
 
     /**
      * Descarga reporte de gestión del club en el rango indicado.
@@ -60,32 +131,9 @@ public class ReporteController {
             return ResponseEntity.badRequest().build();
         }
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getName() == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        Usuario usuario = usuarioRepository.findByEmail(authentication.getName()).orElse(null);
-        if (usuario == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-
-        boolean esAdmin = usuario.getRol() != null
-                && "ADMIN".equalsIgnoreCase(usuario.getRol().getNombre());
-
-        boolean esAnfitrion = clubRepository.findByIdAndAnfitrionId(clubId, usuario.getId()).isPresent();
-        if (!esAnfitrion) {
-            var clubOpt = clubRepository.findById(clubId);
-            if (clubOpt.isPresent()) {
-                var club = clubOpt.get();
-                if (club.getAnfitrion() != null && club.getAnfitrion().getId().equals(usuario.getId())) {
-                    esAnfitrion = true;
-                }
-            }
-        }
-
-        if (!esAdmin && !esAnfitrion) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        ResponseEntity<Void> authError = verificarAccesoReporte(clubId);
+        if (authError != null) {
+            return ResponseEntity.status(authError.getStatusCode()).build();
         }
 
         ReporteGestionSnapshot datos = reporteGestionService.recopilarDatos(clubId, fechaInicio, fechaFin);
@@ -119,5 +167,37 @@ public class ReporteController {
         headers.setContentLength(body.length);
 
         return new ResponseEntity<>(body, headers, HttpStatus.OK);
+    }
+
+    private ResponseEntity<Void> verificarAccesoReporte(Integer clubId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        Usuario usuario = usuarioRepository.findByEmail(authentication.getName()).orElse(null);
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        boolean esAdmin = usuario.getRol() != null
+                && "ADMIN".equalsIgnoreCase(usuario.getRol().getNombre());
+
+        boolean esAnfitrion = clubRepository.findByIdAndAnfitrionId(clubId, usuario.getId()).isPresent();
+        if (!esAnfitrion) {
+            var clubOpt = clubRepository.findById(clubId);
+            if (clubOpt.isPresent()) {
+                var club = clubOpt.get();
+                if (club.getAnfitrion() != null && club.getAnfitrion().getId().equals(usuario.getId())) {
+                    esAnfitrion = true;
+                }
+            }
+        }
+
+        if (!esAdmin && !esAnfitrion) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
+        return null;
     }
 }
