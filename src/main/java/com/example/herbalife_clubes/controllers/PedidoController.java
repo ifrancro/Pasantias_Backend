@@ -1,14 +1,17 @@
 package com.example.herbalife_clubes.controllers;
 
+import com.example.herbalife_clubes.common.PagedResponse;
 import com.example.herbalife_clubes.dtos.pedido.PedidoDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoConItemsDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoMostradorRequestDTO;
 import com.example.herbalife_clubes.services.PedidoService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -47,16 +50,56 @@ public class PedidoController {
         return ResponseEntity.ok(pedidoDTO);
     }
 
+    /**
+     * Legacy: lista completa de pedidos del socio.
+     * Preferir {@link #getPedidosBySocioPaginados}.
+     */
     @GetMapping("/socio/{membresiaId}")
     public ResponseEntity<List<PedidoDTO>> getPedidosBySocio(@PathVariable Integer membresiaId) {
         List<PedidoDTO> pedidos = pedidoService.getPedidosBySocio(membresiaId);
         return ResponseEntity.ok(pedidos);
     }
 
+    /**
+     * Legacy: lista completa de pedidos del club.
+     * Preferir {@link #getPedidosByClubPaginados}.
+     */
     @GetMapping("/club/{clubId}")
     public ResponseEntity<List<PedidoDTO>> getPedidosByClub(@PathVariable Integer clubId) {
         List<PedidoDTO> pedidos = pedidoService.getPedidosByClub(clubId);
         return ResponseEntity.ok(pedidos);
+    }
+
+    /**
+     * Pedidos del socio con paginación real (metadata incluida).
+     * page base 0, size default 20, máximo 100.
+     */
+    @GetMapping("/socio/{membresiaId}/paginados")
+    public ResponseEntity<PagedResponse<PedidoDTO>> getPedidosBySocioPaginados(
+            @PathVariable Integer membresiaId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime hasta) {
+        return ResponseEntity.ok(
+                pedidoService.getPedidosBySocioPaginados(membresiaId, page, size, estado, desde, hasta));
+    }
+
+    /**
+     * Pedidos del club con paginación real (metadata incluida).
+     * page base 0, size default 20, máximo 100.
+     */
+    @GetMapping("/club/{clubId}/paginados")
+    public ResponseEntity<PagedResponse<PedidoDTO>> getPedidosByClubPaginados(
+            @PathVariable Integer clubId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String estado,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime hasta) {
+        return ResponseEntity.ok(
+                pedidoService.getPedidosByClubPaginados(clubId, page, size, estado, desde, hasta));
     }
 
     /**

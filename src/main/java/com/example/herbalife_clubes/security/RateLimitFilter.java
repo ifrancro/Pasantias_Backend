@@ -30,7 +30,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         String path = request.getServletPath();
 
-        if (!BUSCAR_PATH.equals(path)) {
+        if (!path.equals(BUSCAR_PATH) && !path.startsWith(BUSCAR_PATH + "/")) {
             filterChain.doFilter(request, response);
             return;
         }

@@ -1,6 +1,7 @@
 package com.example.herbalife_clubes.repositories;
 
 import com.example.herbalife_clubes.entities.Membresia;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -34,5 +35,52 @@ public interface MembresiaRepository extends JpaRepository<Membresia, Integer> {
     @Query("SELECT m FROM Membresia m JOIN FETCH m.usuario u JOIN FETCH m.club c " +
            "WHERE m.estado = 'ACTIVA' ORDER BY u.nombre")
     List<Membresia> findAllActiveWithUsuario(Pageable pageable);
+
+    /**
+     * Página de IDs de membresías de un club (paginación en BD).
+     * Orden estable: fechaRegistro DESC, id DESC.
+     */
+    @Query(
+            value = "SELECT m.id FROM Membresia m JOIN m.usuario u WHERE m.club.id = :clubId "
+                    + "AND (:q IS NULL OR :q = '' OR "
+                    + "LOWER(u.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR "
+                    + "LOWER(u.apellido) LIKE LOWER(CONCAT('%', :q, '%')) OR "
+                    + "LOWER(m.numeroSocio) LIKE LOWER(CONCAT('%', :q, '%')))",
+            countQuery = "SELECT COUNT(m) FROM Membresia m JOIN m.usuario u WHERE m.club.id = :clubId "
+                    + "AND (:q IS NULL OR :q = '' OR "
+                    + "LOWER(u.nombre) LIKE LOWER(CONCAT('%', :q, '%')) OR "
+                    + "LOWER(u.apellido) LIKE LOWER(CONCAT('%', :q, '%')) OR "
+                    + "LOWER(m.numeroSocio) LIKE LOWER(CONCAT('%', :q, '%')))"
+    )
+    Page<Integer> findIdsByClubId(
+            @Param("clubId") Integer clubId,
+            @Param("q") String q,
+            Pageable pageable);
+
+    @Query(
+            value = "SELECT m.id FROM Membresia m JOIN m.usuario u "
+                    + "WHERE m.estado = 'ACTIVA' AND ("
+                    + "LOWER(u.nombre) LIKE LOWER(CONCAT('%', :query, '%')) OR "
+                    + "LOWER(u.apellido) LIKE LOWER(CONCAT('%', :query, '%')) OR "
+                    + "LOWER(m.numeroSocio) LIKE LOWER(CONCAT('%', :query, '%')))",
+            countQuery = "SELECT COUNT(m) FROM Membresia m JOIN m.usuario u "
+                    + "WHERE m.estado = 'ACTIVA' AND ("
+                    + "LOWER(u.nombre) LIKE LOWER(CONCAT('%', :query, '%')) OR "
+                    + "LOWER(u.apellido) LIKE LOWER(CONCAT('%', :query, '%')) OR "
+                    + "LOWER(m.numeroSocio) LIKE LOWER(CONCAT('%', :query, '%')))"
+    )
+    Page<Integer> buscarIdsGlobal(@Param("query") String query, Pageable pageable);
+
+    @Query(
+            value = "SELECT m.id FROM Membresia m JOIN m.usuario u WHERE m.estado = 'ACTIVA'",
+            countQuery = "SELECT COUNT(m) FROM Membresia m WHERE m.estado = 'ACTIVA'"
+    )
+    Page<Integer> findIdsAllActive(Pageable pageable);
+
+    @Query("SELECT DISTINCT m FROM Membresia m "
+            + "JOIN FETCH m.usuario "
+            + "JOIN FETCH m.club "
+            + "WHERE m.id IN :ids")
+    List<Membresia> findWithUsuarioClubByIds(@Param("ids") List<Integer> ids);
 }
 

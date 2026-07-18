@@ -1,5 +1,7 @@
 package com.example.herbalife_clubes.serviceimpls;
 
+import com.example.herbalife_clubes.common.PageParams;
+import com.example.herbalife_clubes.common.PagedResponse;
 import com.example.herbalife_clubes.dtos.pedido.PedidoDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoConItemsDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoItemDTO;
@@ -14,6 +16,9 @@ import com.example.herbalife_clubes.entities.ComboItem;
 import com.example.herbalife_clubes.services.PedidoService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -21,8 +26,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -537,6 +545,73 @@ public class PedidoServiceImpl implements PedidoService {
         System.out.println("[PEDIDO] ===== FIN LISTAR PEDIDOS POR CLUB =====");
         
         return pedidosDTO;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponse<PedidoDTO> getPedidosByClubPaginados(
+            Integer clubId, int page, int size, String estado, LocalDateTime desde, LocalDateTime hasta) {
+        validateDateRange(desde, hasta);
+        EstadoPedido estadoFiltro = parseEstadoOptional(estado);
+        Pageable pageable = PageParams.of(
+                page,
+                size,
+                Sort.by(Sort.Order.desc("fechaPedido"), Sort.Order.desc("id")));
+        Page<Integer> idPage = pedidoRepository.findIdsByClubId(
+                clubId, estadoFiltro, desde, hasta, pageable);
+        return mapPedidoIdPage(idPage);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponse<PedidoDTO> getPedidosBySocioPaginados(
+            Integer membresiaId, int page, int size, String estado, LocalDateTime desde, LocalDateTime hasta) {
+        validateDateRange(desde, hasta);
+        EstadoPedido estadoFiltro = parseEstadoOptional(estado);
+        Pageable pageable = PageParams.of(
+                page,
+                size,
+                Sort.by(Sort.Order.desc("fechaPedido"), Sort.Order.desc("id")));
+        Page<Integer> idPage = pedidoRepository.findIdsByMembresiaId(
+                membresiaId, estadoFiltro, desde, hasta, pageable);
+        return mapPedidoIdPage(idPage);
+    }
+
+    private PagedResponse<PedidoDTO> mapPedidoIdPage(Page<Integer> idPage) {
+        List<Integer> ids = idPage.getContent();
+        if (ids.isEmpty()) {
+            return PagedResponse.empty(idPage.getNumber(), idPage.getSize());
+        }
+        List<Pedido> loaded = pedidoRepository.findWithRelationsByIds(ids);
+        Map<Integer, Pedido> byId = new HashMap<>();
+        for (Pedido p : loaded) {
+            byId.put(p.getId(), p);
+        }
+        List<PedidoDTO> content = new ArrayList<>(ids.size());
+        for (Integer id : ids) {
+            Pedido pedido = byId.get(id);
+            if (pedido != null) {
+                content.add(PedidoMapper.mapPedidoToPedidoDTO(pedido));
+            }
+        }
+        return PagedResponse.of(content, idPage.getNumber(), idPage.getSize(), idPage.getTotalElements());
+    }
+
+    private static void validateDateRange(LocalDateTime desde, LocalDateTime hasta) {
+        if (desde != null && hasta != null && desde.isAfter(hasta)) {
+            throw new IllegalArgumentException("desde no puede ser posterior a hasta");
+        }
+    }
+
+    private static EstadoPedido parseEstadoOptional(String estado) {
+        if (estado == null || estado.isBlank()) {
+            return null;
+        }
+        try {
+            return EstadoPedido.valueOf(estado.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Estado inválido: " + estado);
+        }
     }
 
     @Override

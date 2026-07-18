@@ -1,5 +1,7 @@
 package com.example.herbalife_clubes.serviceimpls;
 
+import com.example.herbalife_clubes.common.PageParams;
+import com.example.herbalife_clubes.common.PagedResponse;
 import com.example.herbalife_clubes.dtos.membresia.ArbolReferidosDTO;
 import com.example.herbalife_clubes.dtos.membresia.EstadoComboDTO;
 import com.example.herbalife_clubes.dtos.membresia.MembresiaDTO;
@@ -19,12 +21,18 @@ import com.example.herbalife_clubes.services.MembresiaLogroService;
 import com.example.herbalife_clubes.services.MembresiaService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -197,6 +205,68 @@ public class MembresiaServiceImpl implements MembresiaService {
         return membresias.stream()
                 .map(MembresiaMapper::mapMembresiaToMembresiaDTO)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponse<MembresiaDTO> getMembresiasByClubPaginadas(
+            Integer clubId, int page, int size, String q) {
+        String query = normalizeSearch(q);
+        Pageable pageable = PageParams.of(
+                page,
+                size,
+                Sort.by(Sort.Order.desc("fechaRegistro"), Sort.Order.desc("id")));
+        Page<Integer> idPage = membresiaRepository.findIdsByClubId(clubId, query, pageable);
+        return mapMembresiaIdPage(idPage, true);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponse<MembresiaDTO> buscarMiembrosGlobalPaginado(String query, int page, int size) {
+        String normalized = normalizeSearch(query);
+        Pageable pageable = PageParams.of(
+                page,
+                size,
+                Sort.by(Sort.Order.asc("usuario.nombre"), Sort.Order.asc("id")));
+        Page<Integer> idPage;
+        if (normalized == null || normalized.isEmpty()) {
+            idPage = membresiaRepository.findIdsAllActive(pageable);
+        } else {
+            idPage = membresiaRepository.buscarIdsGlobal(normalized, pageable);
+        }
+        return mapMembresiaIdPage(idPage, false);
+    }
+
+    private PagedResponse<MembresiaDTO> mapMembresiaIdPage(Page<Integer> idPage, boolean enrichCombo) {
+        List<Integer> ids = idPage.getContent();
+        if (ids.isEmpty()) {
+            return PagedResponse.empty(idPage.getNumber(), idPage.getSize());
+        }
+        List<Membresia> loaded = membresiaRepository.findWithUsuarioClubByIds(ids);
+        Map<Integer, Membresia> byId = new HashMap<>();
+        for (Membresia m : loaded) {
+            byId.put(m.getId(), m);
+        }
+        List<MembresiaDTO> content = new ArrayList<>(ids.size());
+        for (Integer id : ids) {
+            Membresia m = byId.get(id);
+            if (m == null) {
+                continue;
+            }
+            MembresiaDTO dto = MembresiaMapper.mapMembresiaToMembresiaDTO(m);
+            if (enrichCombo) {
+                dto = enriquecerConEstadoCombo(dto, m.getId());
+            }
+            content.add(dto);
+        }
+        return PagedResponse.of(content, idPage.getNumber(), idPage.getSize(), idPage.getTotalElements());
+    }
+
+    private static String normalizeSearch(String q) {
+        if (q == null) {
+            return "";
+        }
+        return q.trim();
     }
 
     private boolean esAncestroDelUsuario(Membresia referente, Integer usuarioId) {

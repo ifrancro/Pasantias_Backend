@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.controllers;
 
+import com.example.herbalife_clubes.common.PagedResponse;
 import com.example.herbalife_clubes.dtos.membresia.ArbolReferidosDTO;
 import com.example.herbalife_clubes.dtos.membresia.EstadoComboDTO;
 import com.example.herbalife_clubes.dtos.membresia.MembresiaDTO;
@@ -47,10 +48,28 @@ public class MembresiaController {
         return ResponseEntity.ok(membresiaDTO);
     }
 
+    /**
+     * Legacy: lista completa de membresías del club.
+     * Preferir {@link #getMembresiasByClubPaginadas}.
+     */
     @GetMapping("/club/{clubId}")
     public ResponseEntity<List<MembresiaDTO>> getMembresiasByClub(@PathVariable Integer clubId) {
         List<MembresiaDTO> membresias = membresiaService.getMembresiasByClub(clubId);
         return ResponseEntity.ok(membresias);
+    }
+
+    /**
+     * Membresías del club con paginación y metadata.
+     * q opcional (nombre, apellido, número de socio).
+     */
+    @GetMapping("/club/{clubId}/paginadas")
+    public ResponseEntity<PagedResponse<MembresiaDTO>> getMembresiasByClubPaginadas(
+            @PathVariable Integer clubId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String q) {
+        return ResponseEntity.ok(
+                membresiaService.getMembresiasByClubPaginadas(clubId, page, size, q));
     }
 
     @PatchMapping("{id}/estado")
@@ -142,17 +161,8 @@ public class MembresiaController {
     }
 
     /**
-     * Búsqueda global de miembros activos por nombre, apellido o número de socio.
-     * Cruza todos los clubes — útil para el selector de referido cross-club.
-     * <p>
-     * Autorización: cualquier usuario autenticado (HOST, MEMBER, ADMIN).
-     * Rate limit: 30 solicitudes por minuto por IP.
-     * </p>
-     *
-     * @param q    texto de búsqueda (busca en nombre, apellido y número de socio). Si es nulo o vacío, devuelve todos los activos.
-     * @param page número de página (0-based, default 0)
-     * @param size tamaño de página (default 50)
-     * @return lista paginada de MembresiaDTO con clubNombre, usuarioNombre, numeroSocio, estado, puntosAcumulados
+     * Legacy: page/size aplicados pero respuesta {@code List} sin metadata.
+     * Preferir {@link #buscarMiembrosPaginado}.
      */
     @GetMapping("/buscar")
     public ResponseEntity<List<MembresiaDTO>> buscarMiembros(
@@ -160,6 +170,17 @@ public class MembresiaController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size) {
         return ResponseEntity.ok(membresiaService.buscarMiembrosGlobal(q, page, size));
+    }
+
+    /**
+     * Búsqueda global paginada con metadata (content, totalElements, hasNext, …).
+     */
+    @GetMapping("/buscar/paginado")
+    public ResponseEntity<PagedResponse<MembresiaDTO>> buscarMiembrosPaginado(
+            @RequestParam(required = false) String q,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(membresiaService.buscarMiembrosGlobalPaginado(q, page, size));
     }
 }
 

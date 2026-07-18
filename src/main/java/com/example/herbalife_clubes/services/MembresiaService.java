@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.services;
 
+import com.example.herbalife_clubes.common.PagedResponse;
 import com.example.herbalife_clubes.dtos.membresia.ArbolReferidosDTO;
 import com.example.herbalife_clubes.dtos.membresia.EstadoComboDTO;
 import com.example.herbalife_clubes.dtos.membresia.MembresiaDTO;
@@ -19,6 +20,11 @@ public interface MembresiaService {
 
     EstadoComboDTO getEstadoCombo(Integer membresiaId);
 
+    /** Legacy: page/size aplicados, respuesta sin metadata. */
     List<MembresiaDTO> buscarMiembrosGlobal(String query, int page, int size);
+
+    PagedResponse<MembresiaDTO> getMembresiasByClubPaginadas(Integer clubId, int page, int size, String q);
+
+    PagedResponse<MembresiaDTO> buscarMiembrosGlobalPaginado(String query, int page, int size);
 }
 

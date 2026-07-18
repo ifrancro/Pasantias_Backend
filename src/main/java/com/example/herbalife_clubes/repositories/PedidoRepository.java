@@ -2,6 +2,8 @@ package com.example.herbalife_clubes.repositories;
 
 import com.example.herbalife_clubes.entities.EstadoPedido;
 import com.example.herbalife_clubes.entities.Pedido;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -157,5 +159,55 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
             @Param("clubId") Integer clubId,
             @Param("antes") LocalDateTime antes,
             @Param("estadoEntregado") EstadoPedido estadoEntregado);
+
+    /**
+     * Página de IDs (sin JOIN FETCH de colecciones) — paginación real en BD.
+     * Orden estable: fechaPedido DESC, id DESC.
+     */
+    @Query(
+            value = "SELECT p.id FROM Pedido p WHERE p.club.id = :clubId "
+                    + "AND (:estado IS NULL OR p.estado = :estado) "
+                    + "AND (:desde IS NULL OR p.fechaPedido >= :desde) "
+                    + "AND (:hasta IS NULL OR p.fechaPedido < :hasta)",
+            countQuery = "SELECT COUNT(p) FROM Pedido p WHERE p.club.id = :clubId "
+                    + "AND (:estado IS NULL OR p.estado = :estado) "
+                    + "AND (:desde IS NULL OR p.fechaPedido >= :desde) "
+                    + "AND (:hasta IS NULL OR p.fechaPedido < :hasta)"
+    )
+    Page<Integer> findIdsByClubId(
+            @Param("clubId") Integer clubId,
+            @Param("estado") EstadoPedido estado,
+            @Param("desde") LocalDateTime desde,
+            @Param("hasta") LocalDateTime hasta,
+            Pageable pageable);
+
+    @Query(
+            value = "SELECT p.id FROM Pedido p WHERE p.membresia.id = :membresiaId "
+                    + "AND (:estado IS NULL OR p.estado = :estado) "
+                    + "AND (:desde IS NULL OR p.fechaPedido >= :desde) "
+                    + "AND (:hasta IS NULL OR p.fechaPedido < :hasta)",
+            countQuery = "SELECT COUNT(p) FROM Pedido p WHERE p.membresia.id = :membresiaId "
+                    + "AND (:estado IS NULL OR p.estado = :estado) "
+                    + "AND (:desde IS NULL OR p.fechaPedido >= :desde) "
+                    + "AND (:hasta IS NULL OR p.fechaPedido < :hasta)"
+    )
+    Page<Integer> findIdsByMembresiaId(
+            @Param("membresiaId") Integer membresiaId,
+            @Param("estado") EstadoPedido estado,
+            @Param("desde") LocalDateTime desde,
+            @Param("hasta") LocalDateTime hasta,
+            Pageable pageable);
+
+    /**
+     * Carga batch de relaciones para una página de IDs (sin Pageable → sin HHH90003004).
+     */
+    @Query("SELECT DISTINCT p FROM Pedido p "
+            + "LEFT JOIN FETCH p.club c "
+            + "LEFT JOIN FETCH c.anfitrion "
+            + "LEFT JOIN FETCH p.membresia m "
+            + "LEFT JOIN FETCH p.items i "
+            + "LEFT JOIN FETCH i.producto "
+            + "WHERE p.id IN :ids")
+    List<Pedido> findWithRelationsByIds(@Param("ids") List<Integer> ids);
 }
 
