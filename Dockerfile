@@ -21,6 +21,9 @@ EXPOSE 9090
 # - SPRING_DATASOURCE_URL (para la base de datos PostgreSQL en Render)
 # - SPRING_DATASOURCE_USERNAME
 # - SPRING_DATASOURCE_PASSWORD
+# - FLYWAY_BASELINE_ON_MIGRATE=true  (SOLO una vez al adoptar Flyway; luego quitar)
+# - FLYWAY_BASELINE_VERSION=12       (solo junto al baseline único)
+# Ver docs/MIGRACIONES_POSTGRESQL_RENDER.md
 
 ENTRYPOINT ["java","-jar","/app/app.jar"]
 
