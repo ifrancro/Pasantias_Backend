@@ -17,7 +17,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/clubes/{clubId}/combos")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 public class ComboController {
 

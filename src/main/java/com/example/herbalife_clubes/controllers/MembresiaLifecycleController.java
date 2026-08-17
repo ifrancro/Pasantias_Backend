@@ -13,7 +13,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/membresias")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 public class MembresiaLifecycleController {
 

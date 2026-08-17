@@ -11,7 +11,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/niveles-socio")
-@CrossOrigin("*")
 public class NivelSocioController {
     @Autowired
     private NivelSocioService nivelSocioService;

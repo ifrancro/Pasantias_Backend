@@ -14,7 +14,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/public/clubes")
-@CrossOrigin("*")
 public class PublicClubController {
 
     @Autowired

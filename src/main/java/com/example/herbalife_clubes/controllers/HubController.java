@@ -13,7 +13,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/hubs")
-@CrossOrigin("*")
 public class HubController {
     @Autowired
     private HubService hubService;

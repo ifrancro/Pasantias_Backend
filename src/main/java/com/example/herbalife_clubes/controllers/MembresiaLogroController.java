@@ -10,7 +10,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/membresia-logros")
-@CrossOrigin("*")
 public class MembresiaLogroController {
     @Autowired
     private MembresiaLogroService membresiaLogroService;

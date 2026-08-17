@@ -18,7 +18,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/membresias")
-@CrossOrigin("*")
 public class MembresiaController {
     @Autowired
     private MembresiaService membresiaService;

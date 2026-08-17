@@ -21,7 +21,9 @@ public class CorsConfig {
                 "http://localhost:5174",
                 "http://localhost:9090",
                 "http://127.0.0.1:3000",
-                "http://127.0.0.1:5173"
+                "http://127.0.0.1:5173",
+                "https://www.misterquillo.com",
+                "https://misterquillo.com"
         ));
 
         config.setAllowedOriginPatterns(List.of("https://*.onrender.com"));

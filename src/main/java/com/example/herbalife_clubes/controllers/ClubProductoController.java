@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @RequestMapping("/api/clubes")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 public class ClubProductoController {
 

@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 public class MisionProspectoController {
 

@@ -15,7 +15,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/clubes")
-@CrossOrigin("*")
 public class ClubController {
     @Autowired
     private ClubService clubService;

@@ -16,7 +16,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/usuarios")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 public class UsuarioController {
     

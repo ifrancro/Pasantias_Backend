@@ -16,7 +16,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/logros")
-@CrossOrigin("*")
 public class LogroController {
     @Autowired
     private LogroService logroService;

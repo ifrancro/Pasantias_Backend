@@ -17,7 +17,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 public class SaborController {
 

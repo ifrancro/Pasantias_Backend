@@ -33,7 +33,6 @@ import java.time.LocalDate;
  */
 @RestController
 @RequestMapping("/api/reportes")
-@CrossOrigin("*")
 @RequiredArgsConstructor
 public class ReporteController {
 

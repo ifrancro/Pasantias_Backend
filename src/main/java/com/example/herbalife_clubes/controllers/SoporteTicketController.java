@@ -17,7 +17,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/soporte-tickets")
-@CrossOrigin("*")
 public class SoporteTicketController {
     @Autowired
     private SoporteTicketService ticketService;
