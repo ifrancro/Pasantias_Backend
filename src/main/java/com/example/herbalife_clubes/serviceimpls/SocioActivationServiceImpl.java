@@ -41,15 +41,18 @@ public class SocioActivationServiceImpl implements SocioActivationService {
      * 3. Verificar que el usuario existe (404 si no)
      * 4. Verificar que el usuario es USUARIO_BASICO (409 si ya es SOCIO)
      * 5. Verificar que NO existe membresía previa (409 si existe)
-     * 6. Crear membresía con datos recibidos
-     * 7. Generar numero_socio único
-     * 8. Actualizar rol del usuario a SOCIO
-     * 9. Devolver respuesta con datos
+     * 6. Validar declaración legal esClientePreferenteODistribuidor
+     *    (400 si null; 409 si true; continuar solo si false)
+     * 7. Crear membresía con datos recibidos
+     * 8. Generar numero_socio único
+     * 9. Actualizar rol del usuario a SOCIO
+     * 10. Devolver respuesta con datos
      */
     @Override
     @Transactional
     public ActivarSocioResponse activarSocio(Integer clubId, Integer anfitrionId, String activationPayload,
-                                             String referidoPor, String comoConocio) {
+                                             String referidoPor, String comoConocio,
+                                             Boolean esClientePreferenteODistribuidor) {
         
         System.out.println("[DEBUG SERVICE] Iniciando activarSocio - clubId: " + clubId + ", anfitrionId: " + anfitrionId);
         
@@ -104,6 +107,8 @@ public class SocioActivationServiceImpl implements SocioActivationService {
             throw new ConflictException("El usuario ya tiene una membresía activa");
         }
 
+        validarDeclaracionClientePreferenteODistribuidor(esClientePreferenteODistribuidor);
+
         // 6. Crear membresía
         Membresia membresia = new Membresia();
         membresia.setUsuario(usuario);
@@ -133,6 +138,7 @@ public class SocioActivationServiceImpl implements SocioActivationService {
         }
 
         membresia.setComoConocio(comoConocio);
+        membresia.setEsClientePreferenteODistribuidor(false);
         membresia.setEstado("ACTIVA");
         // puntosAcumulados y fechaRegistro se establecen en @PrePersist
 
@@ -161,6 +167,20 @@ public class SocioActivationServiceImpl implements SocioActivationService {
                 .usuarioApellido(usuario.getApellido())
                 .qrSocioPayload("SOCIO:" + numeroSocio)
                 .build();
+    }
+
+    /**
+     * false = puede activarse; true = conflicto de negocio; null = dato obligatorio ausente.
+     */
+    private void validarDeclaracionClientePreferenteODistribuidor(Boolean esClientePreferenteODistribuidor) {
+        if (esClientePreferenteODistribuidor == null) {
+            throw new IllegalArgumentException(
+                    "Debe responder la declaración sobre si usted, su cónyuge o pareja de vida es cliente preferente o distribuidor independiente de Herbalife");
+        }
+        if (Boolean.TRUE.equals(esClientePreferenteODistribuidor)) {
+            throw new ConflictException(
+                    "Un cliente preferente o distribuidor independiente de Herbalife no puede registrarse como socio");
+        }
     }
 
     /**

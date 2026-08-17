@@ -23,6 +23,7 @@ public class MembresiaDTO {
     private Integer referidoPorMembresiaId;
     private String referidoPorMembresiaNombre; // Nombre del socio que refirió
     private String comoConocio;
+    private Boolean esClientePreferenteODistribuidor;
     private LocalDateTime fechaRegistro;
     private String estado;
     private Integer rachaActual;

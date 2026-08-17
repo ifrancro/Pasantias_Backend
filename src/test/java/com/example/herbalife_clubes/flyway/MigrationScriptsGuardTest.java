@@ -30,6 +30,23 @@ class MigrationScriptsGuardTest {
     }
 
     @Test
+    void v14AddsNullableBooleanOnMembresiasWithoutDefaultFalse() throws Exception {
+        Path v14 = MIGRATIONS.resolve("V14__es_cliente_preferente_o_distribuidor_membresias.sql");
+        assertTrue(Files.exists(v14));
+        String sql = Files.readString(v14, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+        assertTrue(sql.contains("alter table membresias"));
+        assertTrue(sql.contains("es_cliente_preferente_o_distribuidor"));
+        assertTrue(sql.contains("boolean"));
+        assertTrue(sql.contains("if not exists"));
+        assertFalse(sql.contains("default false"),
+                "No usar DEFAULT false: los históricos deben quedar NULL");
+        assertFalse(sql.contains("not null"),
+                "La columna debe ser nullable para registros históricos");
+        assertFalse(sql.contains("insert into"));
+        assertFalse(sql.contains("drop table"));
+    }
+
+    @Test
     void migrationsDoNotContainSecrets() throws Exception {
         assertTrue(Files.isDirectory(MIGRATIONS));
         try (Stream<Path> files = Files.list(MIGRATIONS)) {
@@ -46,13 +63,14 @@ class MigrationScriptsGuardTest {
     }
 
     @Test
-    void versionsAreUniqueAndIncludeV13() throws Exception {
+    void versionsAreUniqueAndIncludeV13AndV14() throws Exception {
         try (Stream<Path> files = Files.list(MIGRATIONS)) {
             List<String> names = files.map(p -> p.getFileName().toString())
                     .filter(n -> n.matches("V\\d+__.+\\.sql"))
                     .sorted()
                     .toList();
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V13__")));
+            assertTrue(names.stream().anyMatch(n -> n.startsWith("V14__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V2__")));
             assertFalse(names.stream().anyMatch(n -> n.startsWith("V1__")),
                     "No existe V1 histórico; no inventar una sin estrategia");

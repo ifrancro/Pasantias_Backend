@@ -20,6 +20,7 @@ public class MembresiaMapper {
         dto.setReferidoPorMembresiaNombre(membresia.getReferidoPorMembresia() != null && membresia.getReferidoPorMembresia().getUsuario() != null ?
                 membresia.getReferidoPorMembresia().getUsuario().getNombre() + " " + membresia.getReferidoPorMembresia().getUsuario().getApellido() : null);
         dto.setComoConocio(membresia.getComoConocio());
+        dto.setEsClientePreferenteODistribuidor(membresia.getEsClientePreferenteODistribuidor());
         dto.setFechaRegistro(membresia.getFechaRegistro());
         dto.setEstado(membresia.getEstado());
         dto.setRachaActual(membresia.getRachaActual());
@@ -35,6 +36,7 @@ public class MembresiaMapper {
         membresia.setPuntosAcumulados(dto.getPuntosAcumulados());
         // referidoPorMembresia se establece en el servicio, no desde el DTO
         membresia.setComoConocio(dto.getComoConocio());
+        membresia.setEsClientePreferenteODistribuidor(dto.getEsClientePreferenteODistribuidor());
         membresia.setEstado(dto.getEstado());
         return membresia;
     }

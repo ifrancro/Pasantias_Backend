@@ -16,10 +16,12 @@ public interface SocioActivationService {
      * @param activationPayload Payload del QR escaneado (formato: "ACTIVATE:{userId}")
      * @param referidoPor Opcional: quién lo refirió
      * @param comoConocio Opcional: cómo conoció el club
+     * @param esClientePreferenteODistribuidor Obligatorio: declaración legal (false = puede activarse)
      * @return Respuesta con datos de la membresía creada
      */
     ActivarSocioResponse activarSocio(Integer clubId, Integer anfitrionId, String activationPayload, 
-                                      String referidoPor, String comoConocio);
+                                      String referidoPor, String comoConocio,
+                                      Boolean esClientePreferenteODistribuidor);
     
     /**
      * Genera el número de socio único.

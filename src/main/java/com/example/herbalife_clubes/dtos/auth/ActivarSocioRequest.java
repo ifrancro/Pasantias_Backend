@@ -30,5 +30,12 @@ public class ActivarSocioRequest {
      * Cómo conoció (opcional)
      */
     private String comoConocio;
+
+    /**
+     * Declaración legal obligatoria en activación.
+     * true = SÍ (no puede activarse), false = NO (puede continuar).
+     * null o ausente no es válido.
+     */
+    private Boolean esClientePreferenteODistribuidor;
 }
 

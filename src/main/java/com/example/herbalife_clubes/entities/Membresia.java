@@ -43,6 +43,14 @@ public class Membresia {
     @Column(name = "como_conocio", length = 255)
     private String comoConocio;
 
+    /**
+     * Declaración legal en activación: ¿usted, cónyuge o pareja de vida es
+     * cliente preferente o distribuidor independiente de Herbalife?
+     * true = SÍ, false = NO, null = registro histórico (nunca respondió).
+     */
+    @Column(name = "es_cliente_preferente_o_distribuidor")
+    private Boolean esClientePreferenteODistribuidor;
+
     @Column(name = "fecha_registro")
     private LocalDateTime fechaRegistro;
 
