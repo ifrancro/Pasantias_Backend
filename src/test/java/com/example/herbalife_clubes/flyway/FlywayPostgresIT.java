@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Integración real PostgreSQL vía Testcontainers.
- * Simula adopción: esquema existente (sin historial) → baseline 12 → V13.
+ * Simula adopción: esquema existente (sin historial) → baseline 12 → V13+V14.
  * Requiere Docker. Sin Docker, la clase se omite.
  */
 @Tag("postgres")
@@ -61,7 +61,7 @@ class FlywayPostgresIT {
     }
 
     @Test
-    void baselineThenV13CreatesIndexesKeepsDataAndIsIdempotent() throws Exception {
+    void baselineThenV13AndV14KeepDataAndAreIdempotent() throws Exception {
         // Datos previos a Flyway (simula BD en producción antes de adoptar)
         try (Connection c = open(); Statement st = c.createStatement()) {
             st.executeUpdate("INSERT INTO roles(nombre) VALUES ('ADMIN')");
@@ -100,18 +100,28 @@ class FlywayPostgresIT {
         assertTrue(indexExists("idx_pedidos_membresia_fecha_id"));
         assertTrue(indexExists("idx_membresias_club_fecha_id"));
         assertTrue(flywayHistoryHasVersion("13"));
+        assertTrue(flywayHistoryHasVersion("14"));
+        assertTrue(columnExists("membresias", "es_cliente_preferente_o_distribuidor"));
 
         try (Connection c = open();
              Statement st = c.createStatement();
              ResultSet rs = st.executeQuery(
                      "SELECT COUNT(*) FROM membresias WHERE numero_socio='IT-001'")) {
             assertTrue(rs.next());
-            assertEquals(1, rs.getInt(1), "V13 no debe borrar datos previos");
+            assertEquals(1, rs.getInt(1), "V13/V14 no deben borrar datos previos");
+        }
+
+        try (Connection c = open();
+             Statement st = c.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT es_cliente_preferente_o_distribuidor FROM membresias WHERE numero_socio='IT-001'")) {
+            assertTrue(rs.next());
+            assertNull(rs.getObject(1), "Registros históricos deben quedar NULL, no false");
         }
 
         MigrateResult second = flyway.migrate();
         assertTrue(second.success);
-        assertEquals(0, second.migrationsExecuted, "migrate repetido no reaplica V13");
+        assertEquals(0, second.migrationsExecuted, "migrate repetido no reaplica V13/V14");
 
         flyway.validate();
     }
@@ -145,6 +155,18 @@ class FlywayPostgresIT {
              var ps = c.prepareStatement(
                      "SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname=?")) {
             ps.setString(1, indexName);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private static boolean columnExists(String tableName, String columnName) throws Exception {
+        try (Connection c = open();
+             var ps = c.prepareStatement(
+                     "SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name=? AND column_name=?")) {
+            ps.setString(1, tableName);
+            ps.setString(2, columnName);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();
             }

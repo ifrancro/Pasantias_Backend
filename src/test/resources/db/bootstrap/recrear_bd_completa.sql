@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS membresias (
   puntos_acumulados INTEGER,
   referido_por_membresia_id INTEGER,
   como_conocio VARCHAR(255),
+  es_cliente_preferente_o_distribuidor BOOLEAN,
   fecha_registro TIMESTAMP,
   estado VARCHAR(255),
   racha_actual INTEGER,

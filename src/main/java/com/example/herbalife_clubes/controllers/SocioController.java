@@ -96,7 +96,8 @@ public class SocioController {
                 anfitrion.getId(),
                 request.getActivationPayload(),
                 request.getReferidoPor(),
-                request.getComoConocio()
+                request.getComoConocio(),
+                request.getEsClientePreferenteODistribuidor()
         );
 
         System.out.println("[DEBUG] Activación exitosa - Membresía ID: " + response.getMembresiaId());
