@@ -43,7 +43,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final VerificationService verificationService;
 
-    @Value("${google.client-id:812612197014-ruqvsvo1rguls69af66us82q1bfnpjg5.apps.googleusercontent.com}")
+    @Value("${google.client-id:812612197014-t4ud108qj177tpoh5in0qf6hiv1rqo4h.apps.googleusercontent.com}")
     private String googleClientId;
 
     @Override
