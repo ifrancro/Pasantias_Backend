@@ -2,6 +2,7 @@ package com.example.herbalife_clubes.serviceimpls;
 
 import com.example.herbalife_clubes.dtos.auth.AuthenticationRequest;
 import com.example.herbalife_clubes.dtos.auth.AuthenticationResponse;
+import com.example.herbalife_clubes.dtos.auth.GoogleAuthRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterBasicoRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterBasicoResponse;
@@ -13,8 +14,13 @@ import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.security.JwtService;
 import com.example.herbalife_clubes.services.AuthService;
 import com.example.herbalife_clubes.services.VerificationService;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +28,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +42,9 @@ public class AuthServiceImpl implements AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final VerificationService verificationService;
+
+    @Value("${google.client-id:812612197014-t4ud108qj177tpoh5in0qf6hiv1rqo4h.apps.googleusercontent.com}")
+    private String googleClientId;
 
     @Override
     public AuthenticationResponse register(RegisterRequest request) {
@@ -115,6 +126,84 @@ public class AuthServiceImpl implements AuthService {
                 .apellido(usuario.getApellido())
                 .rolNombre(usuario.getRol() != null ? usuario.getRol().getNombre() : null)
                 .build();
+    }
+
+    /**
+     * Autentica un usuario con Google Sign-In.
+     * Recibe el idToken generado por el SDK de Google en Flutter,
+     * lo valida con las APIs de Google, y si es válido:
+     * - Si el usuario ya existe (por email): inicia sesión.
+     * - Si el usuario no existe: lo registra automáticamente.
+     * En ambos casos devuelve un JWT propio del sistema.
+     */
+    public AuthenticationResponse authenticateWithGoogle(GoogleAuthRequest request) {
+        try {
+            // 1. Verificar el idToken con Google
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                    new NetHttpTransport(), GsonFactory.getDefaultInstance())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(request.getIdToken());
+            if (idToken == null) {
+                throw new RuntimeException("Token de Google inválido o expirado");
+            }
+
+            // 2. Extraer la información del usuario desde el token verificado
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            String nombre = (String) payload.get("given_name");
+            String apellido = (String) payload.get("family_name");
+
+            if (nombre == null || nombre.isBlank()) nombre = "Usuario";
+            if (apellido == null || apellido.isBlank()) apellido = "Google";
+
+            // 3. Buscar si el usuario ya existe en la base de datos
+            Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
+
+            if (usuario == null) {
+                // 4a. Usuario nuevo → registrarlo automáticamente
+                log.info("[GOOGLE AUTH] Nuevo usuario via Google: {}", email);
+
+                Rol rolDefault = rolRepository.findByNombre("USUARIO_BASICO")
+                        .orElseGet(() -> {
+                            Rol nuevoRol = new Rol();
+                            nuevoRol.setNombre("USUARIO_BASICO");
+                            return rolRepository.save(nuevoRol);
+                        });
+
+                usuario = Usuario.builder()
+                        .nombre(nombre)
+                        .apellido(apellido)
+                        .email(email)
+                        // Password aleatorio: el usuario de Google no necesita contraseña
+                        .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
+                        .rol(rolDefault)
+                        .estado("ACTIVO") // Ya verificado por Google
+                        .build();
+
+                usuario = usuarioRepository.save(usuario);
+            } else {
+                // 4b. Usuario existente → solo iniciar sesión
+                log.info("[GOOGLE AUTH] Usuario existente via Google: {}", email);
+            }
+
+            // 5. Generar JWT propio del sistema
+            String jwtToken = jwtService.generateToken(usuario);
+
+            return AuthenticationResponse.builder()
+                    .token(jwtToken)
+                    .userId(usuario.getId())
+                    .email(usuario.getEmail())
+                    .nombre(usuario.getNombre())
+                    .apellido(usuario.getApellido())
+                    .rolNombre(usuario.getRol() != null ? usuario.getRol().getNombre() : null)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("[GOOGLE AUTH] Error al autenticar con Google: {}", e.getMessage());
+            throw new RuntimeException("Error al autenticar con Google: " + e.getMessage());
+        }
     }
 
     /**

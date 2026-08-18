@@ -34,6 +34,7 @@ public class SecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/register",
                                 "/api/auth/register-basico", // Público: registro de usuarios básicos
+                                "/api/auth/google",          // Público: login con Google
                                 "/api/auth/check-email",
                                 "/api/auth/verify-email",    // Público: verificación de correo
                                 "/api/auth/resend-code",     // Público: reenvío de código

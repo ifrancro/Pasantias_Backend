@@ -2,6 +2,7 @@ package com.example.herbalife_clubes.controllers.auth;
 
 import com.example.herbalife_clubes.dtos.auth.AuthenticationRequest;
 import com.example.herbalife_clubes.dtos.auth.AuthenticationResponse;
+import com.example.herbalife_clubes.dtos.auth.GoogleAuthRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterBasicoRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterBasicoResponse;
@@ -59,6 +60,11 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthenticationResponse> authenticate(@RequestBody AuthenticationRequest request) {
         return ResponseEntity.ok(authService.authenticate(request));
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<AuthenticationResponse> authenticateWithGoogle(@RequestBody GoogleAuthRequest request) {
+        return ResponseEntity.ok(authService.authenticateWithGoogle(request));
     }
 
     /**
