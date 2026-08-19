@@ -2,6 +2,7 @@ package com.example.herbalife_clubes.exceptions;
 
 import com.example.herbalife_clubes.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Hidden;
+import lombok.extern.slf4j.Slf4j;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,7 @@ import java.util.Map;
 
 @ControllerAdvice
 @Hidden
+@Slf4j
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -111,11 +113,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<String>> handleAuthenticationException(AuthenticationException ex) {
+        // El detalle interno solo va al log: exponerlo al cliente filtraba
+        // información del servidor y qué correos existen en la base de datos.
+        log.warn("Fallo de autenticación ({}): {}", ex.getClass().getSimpleName(), ex.getMessage());
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
                 .body(ApiResponse.<String>builder()
                         .success(false)
-                        .message("Error de autenticación: " + (ex.getMessage() != null ? ex.getMessage() : "Credenciales inválidas"))
+                        .message("Credenciales incorrectas. Verifique su email y contraseña.")
                         .data(null)
                         .timestamp(LocalDateTime.now())
                         .build());
