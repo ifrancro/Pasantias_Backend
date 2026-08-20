@@ -9,6 +9,7 @@ import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -20,8 +21,12 @@ public class ApplicationConfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
+        // Se lanza UsernameNotFoundException (no RuntimeException) para que
+        // DaoAuthenticationProvider la enmascare como BadCredentialsException.
+        // Un RuntimeException genérico se envuelve en InternalAuthenticationServiceException
+        // conservando el mensaje, lo que filtraba qué correos existen (user enumeration).
         return username -> usuarioRepository.findByEmail(username)
-                .orElseThrow(() -> new RuntimeException("❌ Usuario no encontrado: " + username));
+                .orElseThrow(() -> new UsernameNotFoundException("Credenciales inválidas"));
     }
 
     @Bean
