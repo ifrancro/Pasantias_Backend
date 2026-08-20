@@ -2,6 +2,8 @@ package com.example.herbalife_clubes.services;
 
 import com.example.herbalife_clubes.entities.Usuario;
 
+import java.util.Optional;
+
 /**
  * Servicio para la verificación de correo electrónico mediante códigos OTP.
  */
@@ -20,9 +22,9 @@ public interface VerificationService {
      *
      * @param email el correo del usuario
      * @param code  el código OTP ingresado
-     * @return true si la verificación fue exitosa
+     * @return el usuario verificado si el código es válido, Optional empty en caso contrario
      */
-    boolean verifyCode(String email, String code);
+    Optional<Usuario> verifyCode(String email, String code);
 
     /**
      * Reenvía un nuevo código de verificación al email dado.

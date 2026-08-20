@@ -46,6 +46,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
 
+            // Un token criptográficamente válido no alcanza: el usuario tiene
+            // que estar habilitado y no bloqueado. Sin esto, el JWT emitido a
+            // una cuenta sin verificar abre toda la API.
+            if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()) {
+                logger.warn("Token de usuario deshabilitado o bloqueado; se continúa como anónimo");
+                filterChain.doFilter(request, response);
+                return;
+            }
+
             if (jwtService.isTokenValid(jwt, userDetails)) {
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(

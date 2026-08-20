@@ -16,6 +16,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 
+import java.util.Optional;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -64,14 +66,14 @@ public class VerificationServiceImpl implements VerificationService {
 
     @Override
     @Transactional
-    public boolean verifyCode(String email, String code) {
+    public Optional<Usuario> verifyCode(String email, String code) {
         var verificationCode = verificationCodeRepository
                 .findValidCode(email, code, LocalDateTime.now())
                 .orElse(null);
 
         if (verificationCode == null) {
             log.warn("Código de verificación inválido o expirado para: {}", email);
-            return false;
+            return Optional.empty();
         }
 
         // Marcar código como usado
@@ -81,10 +83,10 @@ public class VerificationServiceImpl implements VerificationService {
         // Activar el usuario
         Usuario usuario = verificationCode.getUsuario();
         usuario.setEstado("ACTIVO");
-        usuarioRepository.save(usuario);
+        usuario = usuarioRepository.save(usuario);
 
         log.info("Correo verificado exitosamente para: {}", email);
-        return true;
+        return Optional.of(usuario);
     }
 
     @Override

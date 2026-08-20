@@ -18,7 +18,7 @@ public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
 
-    @Value("${spring.mail.username:noreply@nutrilifeclub.com}")
+    @Value("${app.mail.from:}")
     private String fromEmail;
 
     @Value("${app.name:Nutrilife Club}")

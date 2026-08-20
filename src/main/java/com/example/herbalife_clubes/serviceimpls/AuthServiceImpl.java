@@ -83,18 +83,22 @@ public class AuthServiceImpl implements AuthService {
 
         usuarioRepository.save(usuario);
 
-        // Enviar código de verificación por correo
+        // El fallo de envío NO se oculta: si el OTP no salió, el usuario queda
+        // atrapado sin forma de activarse y sin saber por qué. Que el registro
+        // devolviera 200 con el correo caído es lo que dejó este bug invisible
+        // durante meses.
         try {
             verificationService.generateAndSendCode(usuario);
         } catch (Exception e) {
-            log.error("Error al enviar código de verificación para {}: {}", usuario.getEmail(), e.getMessage());
-            // No fallar el registro, el usuario podrá reenviar el código
+            log.error("Error al enviar código de verificación para {}: {}",
+                    usuario.getEmail(), e.getMessage(), e);
+            throw new com.example.herbalife_clubes.exceptions.EmailDeliveryException(
+                    "No pudimos enviar el código de verificación a tu correo. "
+                            + "Revisa la dirección o intenta de nuevo en unos minutos.", e);
         }
 
-        String jwtToken = jwtService.generateToken(usuario);
-
+        // Sin token: la sesión se emite en /verify-email, no acá.
         return AuthenticationResponse.builder()
-                .token(jwtToken)
                 .userId(usuario.getId())
                 .email(usuario.getEmail())
                 .nombre(usuario.getNombre())
@@ -251,7 +255,11 @@ public class AuthServiceImpl implements AuthService {
         try {
             verificationService.generateAndSendCode(usuario);
         } catch (Exception e) {
-            log.error("Error al enviar código de verificación para {}: {}", usuario.getEmail(), e.getMessage());
+            log.error("Error al enviar código de verificación para {}: {}",
+                    usuario.getEmail(), e.getMessage(), e);
+            throw new com.example.herbalife_clubes.exceptions.EmailDeliveryException(
+                    "No pudimos enviar el código de verificación a tu correo. "
+                            + "Revisa la dirección o intenta de nuevo en unos minutos.", e);
         }
 
         String jwtToken = jwtService.generateToken(usuario);

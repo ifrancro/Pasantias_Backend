@@ -49,4 +49,12 @@ public interface VerificationCodeRepository extends JpaRepository<VerificationCo
     long countRecentCodes(
             @Param("usuario") Usuario usuario,
             @Param("since") LocalDateTime since);
+
+    /**
+     * Borra los códigos de un conjunto de usuarios. La FK de verification_codes
+     * no es ON DELETE CASCADE, así que hay que limpiarlos antes de borrar usuarios.
+     */
+    @Modifying
+    @Query("DELETE FROM VerificationCode vc WHERE vc.usuario IN :usuarios")
+    void deleteByUsuarioIn(@Param("usuarios") java.util.List<Usuario> usuarios);
 }
