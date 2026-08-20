@@ -47,6 +47,21 @@ class MigrationScriptsGuardTest {
     }
 
     @Test
+    void v15CreatesVerificationCodesIdempotently() throws Exception {
+        Path v15 = MIGRATIONS.resolve("V15__verification_codes.sql");
+        assertTrue(Files.exists(v15), "Falta la migración de verification_codes");
+        String sql = Files.readString(v15, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+        assertTrue(sql.contains("create table if not exists verification_codes"),
+                "Debe ser idempotente: la tabla ya existe en producción");
+        assertTrue(sql.contains("usuario_id integer not null references usuarios(id)"));
+        assertTrue(sql.contains("code varchar(6) not null"));
+        assertTrue(sql.contains("expires_at timestamp not null"));
+        assertTrue(sql.contains("used boolean not null default false"));
+        assertFalse(sql.contains("drop table"));
+        assertFalse(sql.contains("insert into"));
+    }
+
+    @Test
     void migrationsDoNotContainSecrets() throws Exception {
         assertTrue(Files.isDirectory(MIGRATIONS));
         try (Stream<Path> files = Files.list(MIGRATIONS)) {

@@ -7,6 +7,8 @@ import com.example.herbalife_clubes.dtos.auth.RegisterRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterBasicoRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterBasicoResponse;
 import com.example.herbalife_clubes.dtos.auth.VerifyEmailRequest;
+import com.example.herbalife_clubes.dtos.auth.VerifyEmailResponse;
+import com.example.herbalife_clubes.security.JwtService;
 import com.example.herbalife_clubes.dtos.auth.ResendCodeRequest;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -29,6 +32,7 @@ public class AuthController {
     private final AuthServiceImpl authService;
     private final UsuarioRepository usuarioRepository;
     private final VerificationService verificationService;
+    private final JwtService jwtService;
 
     @PostMapping("/register")
     public ResponseEntity<AuthenticationResponse> register(@Valid @RequestBody RegisterRequest request) {
@@ -46,7 +50,7 @@ public class AuthController {
      * Crea un usuario con rol USUARIO_BASICO y devuelve el QR de activación.
      * 
      * FLUJO:
-     * 1. Usuario se registra -> se crea con rol USUARIO_BASICO
+     * 1. Usuario se registra -> se creado con rol USUARIO_BASICO
      * 2. Se genera QR de activación: "ACTIVATE:{userId}"
      * 3. El front genera la imagen QR con ese payload
      * 4. Usuario muestra su QR de activación
@@ -70,31 +74,34 @@ public class AuthController {
     /**
      * Verificar correo electrónico con código OTP.
      * 
+     * Es el punto donde se emite el JWT del flujo de registro por correo:
+     * /register ya no devuelve token, así que sin pasar por acá no hay sesión.
+     * 
      * @param request contiene email y código de 6 dígitos
-     * @return resultado de la verificación
+     * @return la sesión ya autenticada, o 400 si el código no es válido
      */
     @PostMapping("/verify-email")
-    public ResponseEntity<?> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
-        try {
-            boolean verified = verificationService.verifyCode(request.getEmail(), request.getCode());
-            
-            if (verified) {
-                return ResponseEntity.ok(Map.of(
-                    "verified", true,
-                    "message", "Correo verificado exitosamente"
-                ));
-            } else {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "verified", false,
-                    "message", "Código inválido o expirado. Verifica e intenta de nuevo."
-                ));
-            }
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(Map.of(
-                "verified", false,
-                "message", "Error al verificar: " + e.getMessage()
-            ));
+    public ResponseEntity<VerifyEmailResponse> verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        Optional<Usuario> usuario = verificationService.verifyCode(request.getEmail(), request.getCode());
+        
+        if (usuario.isEmpty()) {
+            return ResponseEntity.badRequest().body(VerifyEmailResponse.builder()
+                .verified(false)
+                .message("Código inválido o expirado. Verifica e intenta de nuevo.")
+                .build());
         }
+
+        Usuario verificado = usuario.get();
+        return ResponseEntity.ok(VerifyEmailResponse.builder()
+            .verified(true)
+            .message("Correo verificado exitosamente")
+            .token(jwtService.generateToken(verificado))
+            .userId(verificado.getId())
+            .email(verificado.getEmail())
+            .nombre(verificado.getNombre())
+            .apellido(verificado.getApellido())
+            .rolNombre(verificado.getRol() != null ? verificado.getRol().getNombre() : null)
+            .build());
     }
 
     /**
