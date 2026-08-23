@@ -34,4 +34,10 @@ public interface VerificationService {
      * @throws RuntimeException si se excede el límite de reenvíos
      */
     void resendCode(String email);
+
+    /**
+     * Marca como usados todos los códigos OTP pendientes del usuario.
+     * Usado cuando el correo queda verificado por otro canal (p. ej. Google).
+     */
+    void invalidateCodes(Usuario usuario);
 }

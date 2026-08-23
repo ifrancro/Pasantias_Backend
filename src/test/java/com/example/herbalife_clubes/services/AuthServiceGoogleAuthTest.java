@@ -1,0 +1,183 @@
+package com.example.herbalife_clubes.services;
+
+import com.example.herbalife_clubes.dtos.auth.AuthenticationResponse;
+import com.example.herbalife_clubes.entities.Rol;
+import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.repositories.RolRepository;
+import com.example.herbalife_clubes.repositories.UsuarioRepository;
+import com.example.herbalife_clubes.security.JwtService;
+import com.example.herbalife_clubes.serviceimpls.AuthServiceImpl;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class AuthServiceGoogleAuthTest {
+
+    @Mock
+    private UsuarioRepository usuarioRepository;
+    @Mock
+    private RolRepository rolRepository;
+    @Mock
+    private PasswordEncoder passwordEncoder;
+    @Mock
+    private JwtService jwtService;
+    @Mock
+    private AuthenticationManager authenticationManager;
+    @Mock
+    private VerificationService verificationService;
+
+    @InjectMocks
+    private AuthServiceImpl authService;
+
+    @Test
+    void googleUsuarioInexistenteCreaActivoYEmiteJwt() {
+        when(usuarioRepository.findByEmail("nuevo@gmail.com")).thenReturn(Optional.empty());
+        Rol rol = rolBasico();
+        when(rolRepository.findByNombre("USUARIO_BASICO")).thenReturn(Optional.of(rol));
+        when(passwordEncoder.encode(any())).thenReturn("random-hash");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
+            Usuario u = inv.getArgument(0);
+            u.setId(100);
+            return u;
+        });
+        when(jwtService.generateToken(any(Usuario.class))).thenReturn("jwt-nuevo");
+
+        AuthenticationResponse response = authService.completeGoogleAuthentication(
+                "nuevo@gmail.com", "Eva", "Test", true);
+
+        assertEquals("jwt-nuevo", response.getToken());
+        assertEquals(100, response.getUserId());
+        assertFalse(response.isRequiresVerification());
+
+        ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
+        verify(usuarioRepository).save(captor.capture());
+        assertEquals("ACTIVO", captor.getValue().getEstado());
+        assertEquals("USUARIO_BASICO", captor.getValue().getRol().getNombre());
+        verify(verificationService, never()).invalidateCodes(any());
+    }
+
+    @Test
+    void googleUsuarioActivoLoginConservaDatos() {
+        Usuario existente = usuarioExistente(26, "ACTIVO", "hash-original", "70000001");
+        when(usuarioRepository.findByEmail("evis96568@gmail.com"))
+                .thenReturn(Optional.of(existente));
+        when(jwtService.generateToken(existente)).thenReturn("jwt-activo");
+
+        AuthenticationResponse response = authService.completeGoogleAuthentication(
+                "evis96568@gmail.com", "Otro", "Nombre", true);
+
+        assertEquals("jwt-activo", response.getToken());
+        assertEquals(26, response.getUserId());
+        assertEquals("Eva", response.getNombre()); // no sobrescribe
+        assertFalse(response.isRequiresVerification());
+        verify(usuarioRepository, never()).save(any());
+        verify(verificationService, never()).invalidateCodes(any());
+        assertEquals("hash-original", existente.getPasswordHash());
+        assertEquals("70000001", existente.getTelefono());
+        assertEquals("ACTIVO", existente.getEstado());
+    }
+
+    @Test
+    void googleUsuarioPendienteActivaMismoIdConservaDatosEInvalidaOtp() {
+        Usuario pendiente = usuarioExistente(26, "PENDIENTE_VERIFICACION", "hash-reg", "+59170000000");
+        when(usuarioRepository.findByEmail("evis96568@gmail.com"))
+                .thenReturn(Optional.of(pendiente));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(jwtService.generateToken(any(Usuario.class))).thenReturn("jwt-activado");
+
+        AuthenticationResponse response = authService.completeGoogleAuthentication(
+                "evis96568@gmail.com", "GoogleNombre", "GoogleApellido", true);
+
+        assertEquals("jwt-activado", response.getToken());
+        assertEquals(26, response.getUserId());
+        assertEquals("Eva", response.getNombre());
+        assertEquals("Tradicional", response.getApellido());
+        assertEquals("USUARIO_BASICO", response.getRolNombre());
+        assertFalse(response.isRequiresVerification());
+
+        verify(verificationService).invalidateCodes(pendiente);
+        ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
+        verify(usuarioRepository).save(captor.capture());
+        Usuario guardado = captor.getValue();
+        assertEquals(26, guardado.getId());
+        assertEquals("ACTIVO", guardado.getEstado());
+        assertEquals("hash-reg", guardado.getPasswordHash());
+        assertEquals("+59170000000", guardado.getTelefono());
+        assertEquals("USUARIO_BASICO", guardado.getRol().getNombre());
+    }
+
+    @Test
+    void googleUsuarioInactivoNoReactiva() {
+        Usuario inactivo = usuarioExistente(30, "INACTIVO", "hash", null);
+        when(usuarioRepository.findByEmail("off@gmail.com")).thenReturn(Optional.of(inactivo));
+
+        assertThrows(DisabledException.class, () ->
+                authService.completeGoogleAuthentication("off@gmail.com", "A", "B", true));
+
+        verify(usuarioRepository, never()).save(any());
+        verify(jwtService, never()).generateToken(any());
+        verify(verificationService, never()).invalidateCodes(any());
+        assertEquals("INACTIVO", inactivo.getEstado());
+    }
+
+    @Test
+    void googleUsuarioBloqueadoNoReactiva() {
+        Usuario bloqueado = usuarioExistente(31, "BLOQUEADO", "hash", null);
+        when(usuarioRepository.findByEmail("blocked@gmail.com")).thenReturn(Optional.of(bloqueado));
+
+        assertThrows(DisabledException.class, () ->
+                authService.completeGoogleAuthentication("blocked@gmail.com", "A", "B", true));
+
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void googleEmailVerifiedFalseRechazado() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                authService.completeGoogleAuthentication("x@gmail.com", "A", "B", false));
+
+        assertTrue(ex.getMessage().toLowerCase().contains("verificado"));
+        verify(usuarioRepository, never()).findByEmail(any());
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void googleEmailVerifiedNullRechazado() {
+        assertThrows(IllegalArgumentException.class, () ->
+                authService.completeGoogleAuthentication("x@gmail.com", "A", "B", null));
+        verify(usuarioRepository, never()).findByEmail(any());
+    }
+
+    private static Rol rolBasico() {
+        Rol rol = new Rol();
+        rol.setId(4);
+        rol.setNombre("USUARIO_BASICO");
+        return rol;
+    }
+
+    private static Usuario usuarioExistente(Integer id, String estado, String passwordHash, String telefono) {
+        return Usuario.builder()
+                .id(id)
+                .email(id == 26 ? "evis96568@gmail.com" : (id == 30 ? "off@gmail.com" : "blocked@gmail.com"))
+                .nombre("Eva")
+                .apellido("Tradicional")
+                .passwordHash(passwordHash)
+                .telefono(telefono)
+                .estado(estado)
+                .rol(rolBasico())
+                .build();
+    }
+}

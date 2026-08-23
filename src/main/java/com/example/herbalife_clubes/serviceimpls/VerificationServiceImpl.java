@@ -108,6 +108,13 @@ public class VerificationServiceImpl implements VerificationService {
         generateAndSendCode(usuario);
     }
 
+    @Override
+    @Transactional
+    public void invalidateCodes(Usuario usuario) {
+        verificationCodeRepository.invalidateAllByUsuario(usuario);
+        log.info("Códigos OTP invalidados para usuario: {}", usuario.getEmail());
+    }
+
     /**
      * Genera un código numérico seguro de la longitud configurada.
      */

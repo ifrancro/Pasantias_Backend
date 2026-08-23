@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -151,7 +152,7 @@ public class AuthServiceImpl implements AuthService {
      * Autentica un usuario con Google Sign-In.
      * Recibe el idToken generado por el SDK de Google en Flutter,
      * lo valida con las APIs de Google, y si es válido:
-     * - Si el usuario ya existe (por email): inicia sesión.
+     * - Si el usuario ya existe (por email): inicia sesión (y activa si estaba pendiente).
      * - Si el usuario no existe: lo registra automáticamente.
      * En ambos casos devuelve un JWT propio del sistema.
      */
@@ -165,64 +166,97 @@ public class AuthServiceImpl implements AuthService {
 
             GoogleIdToken idToken = verifier.verify(request.getIdToken());
             if (idToken == null) {
-                throw new RuntimeException("Token de Google inválido o expirado");
+                throw new IllegalArgumentException("Token de Google inválido o expirado");
             }
 
-            // 2. Extraer la información del usuario desde el token verificado
             GoogleIdToken.Payload payload = idToken.getPayload();
-            String email = payload.getEmail();
-            String nombre = (String) payload.get("given_name");
-            String apellido = (String) payload.get("family_name");
-
-            if (nombre == null || nombre.isBlank()) nombre = "Usuario";
-            if (apellido == null || apellido.isBlank()) apellido = "Google";
-
-            // 3. Buscar si el usuario ya existe en la base de datos
-            Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
-
-            if (usuario == null) {
-                // 4a. Usuario nuevo → registrarlo automáticamente
-                log.info("[GOOGLE AUTH] Nuevo usuario via Google: {}", email);
-
-                Rol rolDefault = rolRepository.findByNombre("USUARIO_BASICO")
-                        .orElseGet(() -> {
-                            Rol nuevoRol = new Rol();
-                            nuevoRol.setNombre("USUARIO_BASICO");
-                            return rolRepository.save(nuevoRol);
-                        });
-
-                usuario = Usuario.builder()
-                        .nombre(nombre)
-                        .apellido(apellido)
-                        .email(email)
-                        // Password aleatorio: el usuario de Google no necesita contraseña
-                        .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
-                        .rol(rolDefault)
-                        .estado("ACTIVO") // Ya verificado por Google
-                        .build();
-
-                usuario = usuarioRepository.save(usuario);
-            } else {
-                // 4b. Usuario existente → solo iniciar sesión
-                log.info("[GOOGLE AUTH] Usuario existente via Google: {}", email);
-            }
-
-            // 5. Generar JWT propio del sistema
-            String jwtToken = jwtService.generateToken(usuario);
-
-            return AuthenticationResponse.builder()
-                    .token(jwtToken)
-                    .userId(usuario.getId())
-                    .email(usuario.getEmail())
-                    .nombre(usuario.getNombre())
-                    .apellido(usuario.getApellido())
-                    .rolNombre(usuario.getRol() != null ? usuario.getRol().getNombre() : null)
-                    .build();
-
+            return completeGoogleAuthentication(
+                    payload.getEmail(),
+                    (String) payload.get("given_name"),
+                    (String) payload.get("family_name"),
+                    payload.getEmailVerified()
+            );
+        } catch (DisabledException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("[GOOGLE AUTH] Error al autenticar con Google: {}", e.getMessage());
             throw new RuntimeException("Error al autenticar con Google: " + e.getMessage());
         }
+    }
+
+    /**
+     * Lógica de negocio post-verificación del idToken de Google.
+     * Separada para poder cubrirla en tests sin llamar a las APIs de Google.
+     */
+    public AuthenticationResponse completeGoogleAuthentication(
+            String email,
+            String nombre,
+            String apellido,
+            Boolean emailVerified
+    ) {
+        if (!Boolean.TRUE.equals(emailVerified)) {
+            throw new IllegalArgumentException(
+                    "El correo de la cuenta de Google no está verificado.");
+        }
+
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Token de Google sin correo electrónico.");
+        }
+
+        if (nombre == null || nombre.isBlank()) nombre = "Usuario";
+        if (apellido == null || apellido.isBlank()) apellido = "Google";
+
+        Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
+
+        if (usuario == null) {
+            log.info("[GOOGLE AUTH] Nuevo usuario via Google: {}", email);
+
+            Rol rolDefault = rolRepository.findByNombre("USUARIO_BASICO")
+                    .orElseGet(() -> {
+                        Rol nuevoRol = new Rol();
+                        nuevoRol.setNombre("USUARIO_BASICO");
+                        return rolRepository.save(nuevoRol);
+                    });
+
+            usuario = Usuario.builder()
+                    .nombre(nombre)
+                    .apellido(apellido)
+                    .email(email)
+                    .passwordHash(passwordEncoder.encode(UUID.randomUUID().toString()))
+                    .rol(rolDefault)
+                    .estado("ACTIVO")
+                    .build();
+
+            usuario = usuarioRepository.save(usuario);
+        } else {
+            String estado = usuario.getEstado();
+            if (estado == null || "ACTIVO".equalsIgnoreCase(estado)) {
+                log.info("[GOOGLE AUTH] Usuario existente ACTIVO via Google: {}", email);
+            } else if ("PENDIENTE_VERIFICACION".equalsIgnoreCase(estado)) {
+                log.info("[GOOGLE AUTH] Activando usuario pendiente via Google: id={} email={}",
+                        usuario.getId(), email);
+                usuario.setEstado("ACTIVO");
+                verificationService.invalidateCodes(usuario);
+                usuario = usuarioRepository.save(usuario);
+            } else {
+                // BLOQUEADO, INACTIVO u otro estado administrativo: no reactivar.
+                log.warn("[GOOGLE AUTH] Cuenta no usable via Google: email={} estado={}",
+                        email, estado);
+                throw new DisabledException("Usuario deshabilitado. Contacte al administrador.");
+            }
+        }
+
+        String jwtToken = jwtService.generateToken(usuario);
+
+        return AuthenticationResponse.builder()
+                .token(jwtToken)
+                .userId(usuario.getId())
+                .email(usuario.getEmail())
+                .nombre(usuario.getNombre())
+                .apellido(usuario.getApellido())
+                .rolNombre(usuario.getRol() != null ? usuario.getRol().getNombre() : null)
+                .requiresVerification(false)
+                .build();
     }
 
     /**
