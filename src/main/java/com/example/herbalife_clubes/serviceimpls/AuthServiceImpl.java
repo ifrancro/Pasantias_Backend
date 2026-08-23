@@ -110,6 +110,21 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
+        // Spring trata PENDIENTE_VERIFICACION como DisabledException (isEnabled=false)
+        // antes de validar la contraseña. Aquí separamos ese caso de una cuenta
+        // realmente deshabilitada/bloqueada, y solo tras confirmar la password.
+        Usuario pendiente = usuarioRepository.findByEmail(request.getEmail()).orElse(null);
+        if (pendiente != null
+                && "PENDIENTE_VERIFICACION".equalsIgnoreCase(pendiente.getEstado())) {
+            if (pendiente.getPasswordHash() == null
+                    || !passwordEncoder.matches(request.getPassword(), pendiente.getPasswordHash())) {
+                throw new org.springframework.security.authentication.BadCredentialsException(
+                        "Credenciales incorrectas");
+            }
+            throw new com.example.herbalife_clubes.exceptions.EmailNotVerifiedException(
+                    "Debes verificar tu correo para continuar.");
+        }
+
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getEmail(),

@@ -99,6 +99,15 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+    @ExceptionHandler(EmailNotVerifiedException.class)
+    public ResponseEntity<Map<String, Object>> handleEmailNotVerified(EmailNotVerifiedException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", EmailNotVerifiedException.ERROR_CODE);
+        body.put("message", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ApiResponse<String>> handleDisabledUser(DisabledException ex) {
         return ResponseEntity
