@@ -4,6 +4,7 @@ import com.example.herbalife_clubes.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -64,6 +65,58 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.CONFLICT)
                 .body(ApiResponse.fail(ex.getMessage()));
+    }
+
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<Map<String, Object>> handleEmailAlreadyExists(EmailAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(emailAlreadyExistsBody(ex.getMessage()));
+    }
+
+    /**
+     * Fallback seguro ante UNIQUE en carrera (p. ej. usuarios.email).
+     * Nunca expone SQL, constraints ni mensajes de Hibernate/PostgreSQL.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.warn("DataIntegrityViolation ({})",
+                ex.getMostSpecificCause() != null
+                        ? ex.getMostSpecificCause().getClass().getSimpleName()
+                        : ex.getClass().getSimpleName());
+
+        if (looksLikeEmailUniqueViolation(ex)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(emailAlreadyExistsBody(EmailAlreadyExistsException.DEFAULT_MESSAGE));
+        }
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", "CONFLICT");
+        body.put("message", "No se pudo completar la operación por un conflicto de datos.");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    private static Map<String, Object> emailAlreadyExistsBody(String message) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", EmailAlreadyExistsException.ERROR_CODE);
+        body.put("message", message != null && !message.isBlank()
+                ? message
+                : EmailAlreadyExistsException.DEFAULT_MESSAGE);
+        return body;
+    }
+
+    private static boolean looksLikeEmailUniqueViolation(DataIntegrityViolationException ex) {
+        String joined = (safeLower(ex.getMessage()) + " "
+                + safeLower(ex.getMostSpecificCause() != null
+                ? ex.getMostSpecificCause().getMessage()
+                : "")).toLowerCase();
+        return joined.contains("usuarios_email")
+                || joined.contains("email")
+                || (joined.contains("unique") && joined.contains("usuario"));
+    }
+
+    private static String safeLower(String value) {
+        return value == null ? "" : value.toLowerCase();
     }
 
     /**

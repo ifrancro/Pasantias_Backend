@@ -8,6 +8,7 @@ import com.example.herbalife_clubes.dtos.auth.RegisterBasicoRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterBasicoResponse;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.exceptions.EmailAlreadyExistsException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.repositories.RolRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
@@ -21,6 +22,7 @@ import com.google.api.client.json.gson.GsonFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -30,6 +32,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -49,13 +52,16 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthenticationResponse register(RegisterRequest request) {
+        String email = normalizeEmail(request.getEmail());
+        ensureEmailAvailable(email);
+
         Usuario usuario = new Usuario();
 
         usuario.setNombre(request.getNombre() != null && !request.getNombre().isBlank() 
                 ? request.getNombre() : "Usuario");
         usuario.setApellido(request.getApellido() != null && !request.getApellido().isBlank() 
                 ? request.getApellido() : "Default");
-        usuario.setEmail(request.getEmail());
+        usuario.setEmail(email);
         usuario.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         usuario.setTelefono(request.getTelefono());
         usuario.setRedesSociales(request.getRedesSociales());
@@ -82,7 +88,12 @@ public class AuthServiceImpl implements AuthService {
         // Estado inicial: pendiente de verificación por email
         usuario.setEstado("PENDIENTE_VERIFICACION");
 
-        usuarioRepository.save(usuario);
+        try {
+            usuarioRepository.save(usuario);
+        } catch (DataIntegrityViolationException e) {
+            // Race: otro registro insertó el mismo email entre exists y save.
+            throw new EmailAlreadyExistsException(EmailAlreadyExistsException.DEFAULT_MESSAGE, e);
+        }
 
         // El fallo de envío NO se oculta: si el OTP no salió, el usuario queda
         // atrapado sin forma de activarse y sin saber por qué. Que el registro
@@ -266,13 +277,16 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public RegisterBasicoResponse registerBasico(RegisterBasicoRequest request) {
+        String email = normalizeEmail(request.getEmail());
+        ensureEmailAvailable(email);
+
         Usuario usuario = new Usuario();
 
         usuario.setNombre(request.getNombre() != null && !request.getNombre().isBlank() 
                 ? request.getNombre() : "Usuario");
         usuario.setApellido(request.getApellido() != null && !request.getApellido().isBlank() 
                 ? request.getApellido() : "Default");
-        usuario.setEmail(request.getEmail());
+        usuario.setEmail(email);
         usuario.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         usuario.setTelefono(request.getTelefono());
         usuario.setRedesSociales(request.getRedesSociales());
@@ -298,7 +312,11 @@ public class AuthServiceImpl implements AuthService {
         // Estado inicial: pendiente de verificación por email
         usuario.setEstado("PENDIENTE_VERIFICACION");
 
-        usuario = usuarioRepository.save(usuario);
+        try {
+            usuario = usuarioRepository.save(usuario);
+        } catch (DataIntegrityViolationException e) {
+            throw new EmailAlreadyExistsException(EmailAlreadyExistsException.DEFAULT_MESSAGE, e);
+        }
 
         // Enviar código de verificación por correo
         try {
@@ -325,6 +343,20 @@ public class AuthServiceImpl implements AuthService {
                 .rolNombre(usuario.getRol().getNombre())
                 .qrActivacionPayload(qrActivacionPayload)
                 .build();
+    }
+
+    /** Normaliza email para unicidad: trim + lowercase. */
+    public static String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private void ensureEmailAvailable(String email) {
+        if (email != null && usuarioRepository.existsByEmail(email)) {
+            throw new EmailAlreadyExistsException();
+        }
     }
 }
 
