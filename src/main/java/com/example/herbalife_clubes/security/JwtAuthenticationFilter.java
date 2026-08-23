@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.security;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,48 +33,54 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
-        final String jwt;
-        final String username;
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        jwt = authHeader.substring(7);
+        final String jwt = authHeader.substring(7);
 
-        username = jwtService.extractUsername(jwt);
+        try {
+            final String username = jwtService.extractUsername(jwt);
 
-        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            try {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
+            if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                try {
+                    UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
 
-                // Un token criptográficamente válido no alcanza: el usuario tiene
-                // que estar habilitado y no bloqueado. Sin esto, el JWT emitido a
-                // una cuenta sin verificar abre toda la API.
-                if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()) {
-                    logger.warn("Token de usuario deshabilitado o bloqueado; se continúa como anónimo");
-                    filterChain.doFilter(request, response);
-                    return;
+                    // Un token criptográficamente válido no alcanza: el usuario tiene
+                    // que estar habilitado y no bloqueado. Sin esto, el JWT emitido a
+                    // una cuenta sin verificar abre toda la API.
+                    if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()) {
+                        logger.warn("Token de usuario deshabilitado o bloqueado; se continúa sin autenticar");
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+
+                    if (jwtService.isTokenValid(jwt, userDetails)) {
+                        UsernamePasswordAuthenticationToken authToken =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails,
+                                        null,
+                                        userDetails.getAuthorities()
+                                );
+
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    }
+                } catch (UsernameNotFoundException ex) {
+                    // Token válido de un usuario que ya no existe (p. ej. borrado de la BD).
+                    // Se continúa sin autenticar: la cadena de seguridad responderá 401
+                    // en vez de propagar la excepción y devolver un 500.
+                    logger.warn("Token con usuario inexistente; se continúa sin autenticar");
                 }
-
-                if (jwtService.isTokenValid(jwt, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails,
-                                    null,
-                                    userDetails.getAuthorities()
-                            );
-
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                }
-            } catch (UsernameNotFoundException ex) {
-                // Token válido de un usuario que ya no existe (p. ej. borrado de la BD).
-                // Se continúa sin autenticar: la cadena de seguridad responderá 401/403
-                // en vez de propagar la excepción y devolver un 500.
-                logger.warn("Token con usuario inexistente; se continúa como anónimo");
             }
+        } catch (JwtException | IllegalArgumentException ex) {
+            // ExpiredJwtException, MalformedJwtException, SignatureException, etc.
+            // No autenticar y dejar que Spring Security (AuthenticationEntryPoint)
+            // responda 401 en endpoints protegidos. Nunca propagar → evita HTTP 500.
+            logger.warn("JWT inválido o expirado (" + ex.getClass().getSimpleName() + ")");
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
