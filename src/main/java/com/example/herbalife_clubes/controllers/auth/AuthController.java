@@ -3,6 +3,7 @@ package com.example.herbalife_clubes.controllers.auth;
 import com.example.herbalife_clubes.dtos.auth.AuthenticationRequest;
 import com.example.herbalife_clubes.dtos.auth.AuthenticationResponse;
 import com.example.herbalife_clubes.dtos.auth.GoogleAuthRequest;
+import com.example.herbalife_clubes.dtos.auth.MeResponse;
 import com.example.herbalife_clubes.dtos.auth.RegisterRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterBasicoRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterBasicoResponse;
@@ -138,22 +139,29 @@ public class AuthController {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
             if (authentication == null || authentication.getName() == null) {
-                return ResponseEntity.status(401).body("Usuario no autenticado");
+                return ResponseEntity.status(401).body(Map.of(
+                        "success", false,
+                        "message", "Usuario no autenticado"
+                ));
             }
 
             String email = authentication.getName();
             Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
 
             if (usuario == null) {
-                return ResponseEntity.status(404).body("Usuario no encontrado");
+                return ResponseEntity.status(404).body(Map.of(
+                        "success", false,
+                        "message", "Usuario no encontrado"
+                ));
             }
 
-            usuario.setPasswordHash(null);
-            return ResponseEntity.ok(usuario);
+            return ResponseEntity.ok(MeResponse.from(usuario));
 
         } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body("Error al obtener usuario autenticado: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "success", false,
+                    "message", "Error al obtener usuario autenticado"
+            ));
         }
     }
 }
