@@ -67,12 +67,13 @@ public class VerificationServiceImpl implements VerificationService {
     @Override
     @Transactional
     public Optional<Usuario> verifyCode(String email, String code) {
+        String normalizedEmail = AuthServiceImpl.normalizeEmail(email);
         var verificationCode = verificationCodeRepository
-                .findValidCode(email, code, LocalDateTime.now())
+                .findValidCode(normalizedEmail, code, LocalDateTime.now())
                 .orElse(null);
 
         if (verificationCode == null) {
-            log.warn("Código de verificación inválido o expirado para: {}", email);
+            log.warn("Código de verificación inválido o expirado para: {}", normalizedEmail);
             return Optional.empty();
         }
 
@@ -85,15 +86,17 @@ public class VerificationServiceImpl implements VerificationService {
         usuario.setEstado("ACTIVO");
         usuario = usuarioRepository.save(usuario);
 
-        log.info("Correo verificado exitosamente para: {}", email);
+        log.info("Correo verificado exitosamente para: {}", normalizedEmail);
         return Optional.of(usuario);
     }
 
     @Override
     @Transactional
     public void resendCode(String email) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con email: " + email));
+        String normalizedEmail = AuthServiceImpl.normalizeEmail(email);
+        Usuario usuario = usuarioRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Usuario no encontrado con email: " + normalizedEmail));
 
         // Verificar límite de reenvíos (en las últimas 24 horas)
         long recentCount = verificationCodeRepository.countRecentCodes(

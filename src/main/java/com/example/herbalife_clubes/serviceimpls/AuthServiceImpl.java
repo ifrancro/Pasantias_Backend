@@ -125,7 +125,8 @@ public class AuthServiceImpl implements AuthService {
         // Spring trata PENDIENTE_VERIFICACION como DisabledException (isEnabled=false)
         // antes de validar la contraseña. Aquí separamos ese caso de una cuenta
         // realmente deshabilitada/bloqueada, y solo tras confirmar la password.
-        Usuario pendiente = usuarioRepository.findByEmail(request.getEmail()).orElse(null);
+        String email = normalizeEmail(request.getEmail());
+        Usuario pendiente = usuarioRepository.findByEmail(email).orElse(null);
         if (pendiente != null
                 && "PENDIENTE_VERIFICACION".equalsIgnoreCase(pendiente.getEstado())) {
             if (pendiente.getPasswordHash() == null
@@ -139,12 +140,12 @@ public class AuthServiceImpl implements AuthService {
 
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
+                        email,
                         request.getPassword()
                 )
         );
 
-        Usuario usuario = usuarioRepository.findByEmail(request.getEmail())
+        Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
 
         String jwtToken = jwtService.generateToken(usuario);

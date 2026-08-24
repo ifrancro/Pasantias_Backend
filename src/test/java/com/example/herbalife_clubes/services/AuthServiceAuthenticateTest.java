@@ -25,6 +25,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -64,6 +65,30 @@ class AuthServiceAuthenticateTest {
         assertEquals("jwt-ok", response.getToken());
         assertEquals("activo@test.com", response.getEmail());
         verify(passwordEncoder, never()).matches(any(), any());
+    }
+
+    @Test
+    void loginNormalizaEmailMayusculasYEspacios() {
+        Usuario usuario = usuarioConEstado("ACTIVO", "hash");
+        usuario.setEmail("socio1@demo.com");
+        when(usuarioRepository.findByEmail("socio1@demo.com"))
+                .thenReturn(Optional.of(usuario));
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(new UsernamePasswordAuthenticationToken("socio1@demo.com", "secret"));
+        when(jwtService.generateToken(usuario)).thenReturn("jwt-ok");
+
+        AuthenticationResponse response = authService.authenticate(
+                AuthenticationRequest.builder()
+                        .email("  SOCIO1@DEMO.COM  ")
+                        .password("secret")
+                        .build());
+
+        assertEquals("jwt-ok", response.getToken());
+        verify(usuarioRepository, atLeastOnce()).findByEmail("socio1@demo.com");
+        verify(authenticationManager).authenticate(argThat(token ->
+                token instanceof UsernamePasswordAuthenticationToken
+                        && "socio1@demo.com".equals(
+                        ((UsernamePasswordAuthenticationToken) token).getPrincipal())));
     }
 
     @Test
