@@ -52,11 +52,10 @@ public class AuthController {
      * Crea un usuario con rol USUARIO_BASICO y devuelve el QR de activación.
      * 
      * FLUJO:
-     * 1. Usuario se registra -> se creado con rol USUARIO_BASICO
-     * 2. Se genera QR de activación: "ACTIVATE:{userId}"
-     * 3. El front genera la imagen QR con ese payload
-     * 4. Usuario muestra su QR de activación
-     * 5. Anfitrión escanea el QR y activa al usuario como socio
+     * 1. Usuario se registra -> se crea con rol USUARIO_BASICO y PENDIENTE_VERIFICACION
+     * 2. Se envía OTP por correo (sin JWT)
+     * 3. Tras /verify-email el usuario pasa a ACTIVO y recibe JWT
+     * 4. Se devuelve QR de activación: "ACTIVATE:{userId}" para el flujo de anfitriones
      */
     @PostMapping("/register-basico")
     public ResponseEntity<RegisterBasicoResponse> registerBasico(@Valid @RequestBody RegisterBasicoRequest request) {

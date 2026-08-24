@@ -20,6 +20,7 @@ public class RegisterBasicoResponse {
     private String nombre;
     private String apellido;
     private String rolNombre;
+    private boolean requiresVerification;
     private String qrActivacionPayload; // Formato: "ACTIVATE:{userId}"
 }
 

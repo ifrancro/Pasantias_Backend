@@ -351,18 +351,16 @@ public class AuthServiceImpl implements AuthService {
                             + "Revisa la dirección o intenta de nuevo en unos minutos.", e);
         }
 
-        String jwtToken = jwtService.generateToken(usuario);
-        
-        // Generar QR de activación: "ACTIVATE:{userId}"
+        // Sin token: la sesión se emite en /verify-email, no acá.
         String qrActivacionPayload = "ACTIVATE:" + usuario.getId();
 
         return RegisterBasicoResponse.builder()
-                .token(jwtToken)
                 .userId(usuario.getId())
                 .email(usuario.getEmail())
                 .nombre(usuario.getNombre())
                 .apellido(usuario.getApellido())
                 .rolNombre(usuario.getRol().getNombre())
+                .requiresVerification(true)
                 .qrActivacionPayload(qrActivacionPayload)
                 .build();
     }

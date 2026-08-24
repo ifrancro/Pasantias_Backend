@@ -130,10 +130,10 @@ class AuthServiceRegisterTest {
     }
 
     @Test
-    void registerBasicoEmailExistenteNoLlamaSave() {
+    void registerBasicoEmailExistenteDevuelve409YNoLlamaSave() {
         when(usuarioRepository.existsByEmail("basico@test.com")).thenReturn(true);
 
-        assertThrows(
+        EmailAlreadyExistsException ex = assertThrows(
                 EmailAlreadyExistsException.class,
                 () -> authService.registerBasico(RegisterBasicoRequest.builder()
                         .nombre("Ana")
@@ -143,11 +143,14 @@ class AuthServiceRegisterTest {
                         .telefono("+59170000000")
                         .build()));
 
+        assertEquals(EmailAlreadyExistsException.DEFAULT_MESSAGE, ex.getMessage());
         verify(usuarioRepository, never()).save(any());
+        verify(verificationService, never()).generateAndSendCode(any());
+        verify(jwtService, never()).generateToken(any());
     }
 
     @Test
-    void registerBasicoEmailNuevoOk() {
+    void registerBasicoUsuarioNuevoPendienteVerificacionSinJwt() {
         when(usuarioRepository.existsByEmail("basico-ok@test.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("hash");
         Rol rol = new Rol();
@@ -159,7 +162,6 @@ class AuthServiceRegisterTest {
             return u;
         });
         doNothing().when(verificationService).generateAndSendCode(any(Usuario.class));
-        when(jwtService.generateToken(any(Usuario.class))).thenReturn("jwt-basico");
 
         RegisterBasicoResponse response = authService.registerBasico(RegisterBasicoRequest.builder()
                 .nombre("Ana")
@@ -169,9 +171,45 @@ class AuthServiceRegisterTest {
                 .telefono("+59170000000")
                 .build());
 
+        assertEquals(7, response.getUserId());
         assertEquals("basico-ok@test.com", response.getEmail());
-        assertEquals("jwt-basico", response.getToken());
+        assertEquals("Ana", response.getNombre());
+        assertEquals("Pérez", response.getApellido());
+        assertEquals("USUARIO_BASICO", response.getRolNombre());
+        assertTrue(response.isRequiresVerification());
+        assertNull(response.getToken());
         assertEquals("ACTIVATE:7", response.getQrActivacionPayload());
+
+        ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
+        verify(usuarioRepository).save(captor.capture());
+        assertEquals("basico-ok@test.com", captor.getValue().getEmail());
+        assertEquals("PENDIENTE_VERIFICACION", captor.getValue().getEstado());
+        verify(verificationService).generateAndSendCode(any(Usuario.class));
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void registerBasicoRaceConditionEnSaveMapeaAEmailAlreadyExists() {
+        when(usuarioRepository.existsByEmail("race-basico@test.com")).thenReturn(false);
+        when(passwordEncoder.encode(any())).thenReturn("hash");
+        Rol rol = new Rol();
+        rol.setNombre("USUARIO_BASICO");
+        when(rolRepository.findByNombre("USUARIO_BASICO")).thenReturn(Optional.of(rol));
+        when(usuarioRepository.save(any(Usuario.class))).thenThrow(
+                new DataIntegrityViolationException("duplicate key value violates unique constraint"));
+
+        assertThrows(
+                EmailAlreadyExistsException.class,
+                () -> authService.registerBasico(RegisterBasicoRequest.builder()
+                        .nombre("Ana")
+                        .apellido("Pérez")
+                        .email("race-basico@test.com")
+                        .password("secret1")
+                        .telefono("+59170000000")
+                        .build()));
+
+        verify(verificationService, never()).generateAndSendCode(any());
+        verify(jwtService, never()).generateToken(any());
     }
 
     @Test
