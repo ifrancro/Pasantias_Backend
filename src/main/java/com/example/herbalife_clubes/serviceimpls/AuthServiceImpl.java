@@ -9,6 +9,8 @@ import com.example.herbalife_clubes.dtos.auth.RegisterBasicoResponse;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.exceptions.EmailAlreadyExistsException;
+import com.example.herbalife_clubes.exceptions.GoogleEmailNotVerifiedException;
+import com.example.herbalife_clubes.exceptions.GoogleTokenInvalidException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.repositories.RolRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
@@ -29,6 +31,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
@@ -169,31 +173,49 @@ public class AuthServiceImpl implements AuthService {
      * En ambos casos devuelve un JWT propio del sistema.
      */
     public AuthenticationResponse authenticateWithGoogle(GoogleAuthRequest request) {
-        try {
-            // 1. Verificar el idToken con Google
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
-                    new NetHttpTransport(), GsonFactory.getDefaultInstance())
-                    .setAudience(Collections.singletonList(googleClientId))
-                    .build();
+        if (request == null || request.getIdToken() == null || request.getIdToken().isBlank()) {
+            throw new GoogleTokenInvalidException();
+        }
 
-            GoogleIdToken idToken = verifier.verify(request.getIdToken());
-            if (idToken == null) {
-                throw new IllegalArgumentException("Token de Google inválido o expirado");
+        try {
+            GoogleIdToken.Payload payload = verifyGoogleIdToken(request.getIdToken());
+            if (payload == null) {
+                // verifier.verify devuelve null si el token es inválido/expirado/audience incorrecto.
+                throw new GoogleTokenInvalidException();
             }
 
-            GoogleIdToken.Payload payload = idToken.getPayload();
             return completeGoogleAuthentication(
                     payload.getEmail(),
                     (String) payload.get("given_name"),
                     (String) payload.get("family_name"),
                     payload.getEmailVerified()
             );
-        } catch (DisabledException | IllegalArgumentException e) {
+        } catch (GoogleTokenInvalidException | GoogleEmailNotVerifiedException | DisabledException e) {
             throw e;
+        } catch (GeneralSecurityException | IOException | IllegalArgumentException e) {
+            // Firma inválida, JWT malformado, fallos de verificación de Google, etc.
+            log.warn("[GOOGLE AUTH] Token no válido ({})", e.getClass().getSimpleName());
+            throw new GoogleTokenInvalidException(GoogleTokenInvalidException.DEFAULT_MESSAGE, e);
         } catch (Exception e) {
-            log.error("[GOOGLE AUTH] Error al autenticar con Google: {}", e.getMessage());
-            throw new RuntimeException("Error al autenticar con Google: " + e.getMessage());
+            // Error interno real: no envolver con mensajes de librería ni el idToken.
+            log.error("[GOOGLE AUTH] Error inesperado ({})", e.getClass().getSimpleName());
+            throw e;
         }
+    }
+
+    /**
+     * Verifica el idToken con Google.
+     * @return payload si es válido; null si Google lo rechaza (inválido/expirado/aud).
+     */
+    public GoogleIdToken.Payload verifyGoogleIdToken(String idTokenString)
+            throws GeneralSecurityException, IOException {
+        GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                new NetHttpTransport(), GsonFactory.getDefaultInstance())
+                .setAudience(Collections.singletonList(googleClientId))
+                .build();
+
+        GoogleIdToken idToken = verifier.verify(idTokenString);
+        return idToken != null ? idToken.getPayload() : null;
     }
 
     /**
@@ -207,12 +229,11 @@ public class AuthServiceImpl implements AuthService {
             Boolean emailVerified
     ) {
         if (!Boolean.TRUE.equals(emailVerified)) {
-            throw new IllegalArgumentException(
-                    "El correo de la cuenta de Google no está verificado.");
+            throw new GoogleEmailNotVerifiedException();
         }
 
         if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("Token de Google sin correo electrónico.");
+            throw new GoogleTokenInvalidException();
         }
 
         if (nombre == null || nombre.isBlank()) nombre = "Usuario";

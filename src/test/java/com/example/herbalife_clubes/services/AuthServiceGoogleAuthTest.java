@@ -1,8 +1,11 @@
 package com.example.herbalife_clubes.services;
 
 import com.example.herbalife_clubes.dtos.auth.AuthenticationResponse;
+import com.example.herbalife_clubes.dtos.auth.GoogleAuthRequest;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.exceptions.GoogleEmailNotVerifiedException;
+import com.example.herbalife_clubes.exceptions.GoogleTokenInvalidException;
 import com.example.herbalife_clubes.repositories.RolRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.security.JwtService;
@@ -17,10 +20,13 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -146,18 +152,105 @@ class AuthServiceGoogleAuthTest {
 
     @Test
     void googleEmailVerifiedFalseRechazado() {
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+        GoogleEmailNotVerifiedException ex = assertThrows(GoogleEmailNotVerifiedException.class, () ->
                 authService.completeGoogleAuthentication("x@gmail.com", "A", "B", false));
 
-        assertTrue(ex.getMessage().toLowerCase().contains("verificado"));
+        assertEquals(GoogleEmailNotVerifiedException.DEFAULT_MESSAGE, ex.getMessage());
         verify(usuarioRepository, never()).findByEmail(any());
         verify(jwtService, never()).generateToken(any());
     }
 
     @Test
     void googleEmailVerifiedNullRechazado() {
-        assertThrows(IllegalArgumentException.class, () ->
+        assertThrows(GoogleEmailNotVerifiedException.class, () ->
                 authService.completeGoogleAuthentication("x@gmail.com", "A", "B", null));
+        verify(usuarioRepository, never()).findByEmail(any());
+    }
+
+    @Test
+    void authenticateWithGoogleTokenInvalidoNoEs500() throws Exception {
+        AuthServiceImpl spy = spy(authService);
+        doReturn(null).when(spy).verifyGoogleIdToken(anyString());
+
+        GoogleTokenInvalidException ex = assertThrows(GoogleTokenInvalidException.class, () ->
+                spy.authenticateWithGoogle(GoogleAuthRequest.builder()
+                        .idToken("token-invalido")
+                        .build()));
+
+        assertEquals(GoogleTokenInvalidException.DEFAULT_MESSAGE, ex.getMessage());
+        assertFalse(ex.getMessage().toLowerCase().contains("eyj"));
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void authenticateWithGoogleTokenExpiradoOAudIncorrectoMapeaATokenInvalid() throws Exception {
+        // verifier.verify() → null cubre expirado / audience incorrecto / firma inválida.
+        AuthServiceImpl spy = spy(authService);
+        doReturn(null).when(spy).verifyGoogleIdToken("expired-or-bad-aud");
+
+        assertThrows(GoogleTokenInvalidException.class, () ->
+                spy.authenticateWithGoogle(GoogleAuthRequest.builder()
+                        .idToken("expired-or-bad-aud")
+                        .build()));
+    }
+
+    @Test
+    void authenticateWithGoogleGeneralSecurityExceptionMapeaATokenInvalid() throws Exception {
+        AuthServiceImpl spy = spy(authService);
+        doThrow(new GeneralSecurityException("signature invalid")).when(spy)
+                .verifyGoogleIdToken(anyString());
+
+        GoogleTokenInvalidException ex = assertThrows(GoogleTokenInvalidException.class, () ->
+                spy.authenticateWithGoogle(GoogleAuthRequest.builder()
+                        .idToken("signed-bad")
+                        .build()));
+
+        assertEquals(GoogleTokenInvalidException.DEFAULT_MESSAGE, ex.getMessage());
+        assertFalse(ex.getMessage().contains("signature"));
+    }
+
+    @Test
+    void authenticateWithGoogleIdTokenVacioLanzaTokenInvalid() {
+        assertThrows(GoogleTokenInvalidException.class, () ->
+                authService.authenticateWithGoogle(GoogleAuthRequest.builder()
+                        .idToken("   ")
+                        .build()));
+    }
+
+    @Test
+    void authenticateWithGoogleErrorInternoNoEnvuelveMensajeDeLibreria() throws Exception {
+        AuthServiceImpl spy = spy(authService);
+        doThrow(new IllegalStateException("detalle-interno-secreto")).when(spy)
+                .verifyGoogleIdToken(anyString());
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, () ->
+                spy.authenticateWithGoogle(GoogleAuthRequest.builder()
+                        .idToken("tok")
+                        .build()));
+
+        // Se propaga sin RuntimeException envolvente con mensaje de Google/JWT.
+        assertEquals("detalle-interno-secreto", ex.getMessage());
+    }
+
+    @Test
+    void authenticateWithGoogleNuncaPropagaElIdTokenEnExcepcionControlada() throws Exception {
+        String secretToken = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.secret-payload";
+        AuthServiceImpl spy = spy(authService);
+        doThrow(new IOException("network")).when(spy).verifyGoogleIdToken(secretToken);
+
+        GoogleTokenInvalidException ex = assertThrows(GoogleTokenInvalidException.class, () ->
+                spy.authenticateWithGoogle(GoogleAuthRequest.builder()
+                        .idToken(secretToken)
+                        .build()));
+
+        assertFalse(ex.getMessage().contains(secretToken));
+        assertFalse(ex.getMessage().contains("eyJ"));
+    }
+
+    @Test
+    void googleEmailAusenteEnPayloadEsTokenInvalid() {
+        assertThrows(GoogleTokenInvalidException.class, () ->
+                authService.completeGoogleAuthentication("  ", "A", "B", true));
         verify(usuarioRepository, never()).findByEmail(any());
     }
 

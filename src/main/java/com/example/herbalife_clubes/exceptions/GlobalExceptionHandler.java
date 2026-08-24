@@ -161,6 +161,25 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
+    @ExceptionHandler(GoogleTokenInvalidException.class)
+    public ResponseEntity<Map<String, Object>> handleGoogleTokenInvalid(GoogleTokenInvalidException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", GoogleTokenInvalidException.ERROR_CODE);
+        body.put("message", GoogleTokenInvalidException.DEFAULT_MESSAGE);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(GoogleEmailNotVerifiedException.class)
+    public ResponseEntity<Map<String, Object>> handleGoogleEmailNotVerified(
+            GoogleEmailNotVerifiedException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", GoogleEmailNotVerifiedException.ERROR_CODE);
+        body.put("message", GoogleEmailNotVerifiedException.DEFAULT_MESSAGE);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ApiResponse<String>> handleDisabledUser(DisabledException ex) {
         return ResponseEntity
@@ -190,13 +209,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<String>> handleGenericException(Exception ex, HttpServletRequest request) {
-        ex.printStackTrace();
+        log.error("Error interno no controlado ({})", ex.getClass().getSimpleName());
         return ResponseEntity
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.<String>builder()
                         .success(false)
                         .message("Error interno del servidor")
-                        .data(ex.getMessage())
+                        .data(null)
                         .timestamp(LocalDateTime.now())
                         .build());
     }
