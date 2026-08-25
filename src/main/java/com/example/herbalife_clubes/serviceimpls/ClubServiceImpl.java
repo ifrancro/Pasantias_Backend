@@ -17,6 +17,7 @@ import com.example.herbalife_clubes.entities.Rol;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Locale;
@@ -75,6 +76,7 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ClubDTO getClub(Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
@@ -82,6 +84,7 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ClubDTO> getAllClubes() {
         List<Club> clubes = clubRepository.findAll();
         return clubes.stream()
@@ -90,6 +93,7 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ClubDTO> getClubesByHub(Integer hubId) {
         List<Club> clubes = clubRepository.findByHubId(hubId);
         return clubes.stream()
@@ -168,6 +172,7 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ClubDTO> getClubesActivos() {
         // Mostrar clubes con estado ACTIVO o APROBADO (visibles al público)
         List<Club> clubes = clubRepository.findByEstadoIn(List.of("ACTIVO", "APROBADO"));
@@ -177,6 +182,7 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ClubDTO getClubActivo(Integer clubId) {
         // Mostrar club si está ACTIVO o APROBADO (visible al público)
         Club club = clubRepository.findByIdAndEstadoIn(clubId, List.of("ACTIVO", "APROBADO"))
@@ -185,6 +191,7 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ClubDTO getClubByAnfitrion(Integer usuarioId) {
         List<Club> clubes = clubRepository.findByAnfitrionId(usuarioId);
         if (clubes.isEmpty()) {

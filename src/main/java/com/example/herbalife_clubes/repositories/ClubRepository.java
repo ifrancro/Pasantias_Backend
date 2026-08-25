@@ -1,6 +1,7 @@
 package com.example.herbalife_clubes.repositories;
 
 import com.example.herbalife_clubes.entities.Club;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,19 +12,39 @@ import java.util.Optional;
 
 @Repository
 public interface ClubRepository extends JpaRepository<Club, Integer> {
+
+    @Override
+    @EntityGraph(attributePaths = {"hub", "anfitrion"})
+    List<Club> findAll();
+
+    @Override
+    @EntityGraph(attributePaths = {"hub", "anfitrion"})
+    Optional<Club> findById(Integer id);
+
+    @EntityGraph(attributePaths = {"hub", "anfitrion"})
     List<Club> findByHubId(Integer hubId);
+
+    @EntityGraph(attributePaths = {"hub", "anfitrion"})
     List<Club> findByAnfitrionId(Integer anfitrionId);
+
     List<Club> findByEstado(String estado);
+
     List<Club> findByHubIdAndPrefijoSocioIgnoreCase(Integer hubId, String prefijoSocio);
+
     boolean existsByHubIdAndPrefijoSocioIgnoreCase(Integer hubId, String prefijoSocio);
+
     boolean existsByHubIdAndPrefijoSocioIgnoreCaseAndIdNot(Integer hubId, String prefijoSocio, Integer id);
+
     Optional<Club> findByIdAndEstado(Integer id, String estado);
+
+    @EntityGraph(attributePaths = {"hub", "anfitrion"})
     List<Club> findByEstadoIn(List<String> estados);
+
+    @EntityGraph(attributePaths = {"hub", "anfitrion"})
     Optional<Club> findByIdAndEstadoIn(Integer id, List<String> estados);
-    
+
     // Consulta personalizada para asegurar que funcione correctamente
     // Compara directamente el anfitrion_id (columna de BD) con el ID del anfitrión
     @Query("SELECT c FROM Club c WHERE c.id = :clubId AND c.anfitrion.id = :anfitrionId")
     Optional<Club> findByIdAndAnfitrionId(@Param("clubId") Integer clubId, @Param("anfitrionId") Integer anfitrionId);
 }
-
