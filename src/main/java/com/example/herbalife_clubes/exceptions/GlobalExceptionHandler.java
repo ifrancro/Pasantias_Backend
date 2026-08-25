@@ -180,6 +180,17 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+    @ExceptionHandler(AdminAccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAdminAccessDenied(AdminAccessDeniedException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", AdminAccessDeniedException.ERROR_CODE);
+        body.put("message", ex.getMessage() != null && !ex.getMessage().isBlank()
+                ? ex.getMessage()
+                : AdminAccessDeniedException.DEFAULT_MESSAGE);
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ApiResponse<String>> handleDisabledUser(DisabledException ex) {
         return ResponseEntity

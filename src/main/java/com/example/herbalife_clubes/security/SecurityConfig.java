@@ -39,6 +39,7 @@ public class SecurityConfig {
                                 "/api/auth/check-email",
                                 "/api/auth/verify-email",    // Público: verificación de correo
                                 "/api/auth/resend-code",     // Público: reenvío de código
+                                "/api/admin/auth/login",     // Público: login panel administrador (solo esta ruta)
                                 "/api/public/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
@@ -53,6 +54,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/socios/me/qr").authenticated()
                         // Rutas de clubes (incluye productos) - autenticadas
                         .requestMatchers("/api/clubes/**").authenticated()
+                        // /api/admin/** (excepto /api/admin/auth/login) queda bajo anyRequest().authenticated()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session ->
