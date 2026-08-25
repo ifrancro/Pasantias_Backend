@@ -1,6 +1,5 @@
 package com.example.herbalife_clubes.serviceimpls;
 
-import com.example.herbalife_clubes.dtos.auth.AdminLoginResponse;
 import com.example.herbalife_clubes.dtos.auth.AuthenticationRequest;
 import com.example.herbalife_clubes.dtos.auth.AuthenticationResponse;
 import com.example.herbalife_clubes.dtos.auth.GoogleAuthRequest;
@@ -9,7 +8,6 @@ import com.example.herbalife_clubes.dtos.auth.RegisterBasicoRequest;
 import com.example.herbalife_clubes.dtos.auth.RegisterBasicoResponse;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
-import com.example.herbalife_clubes.exceptions.AdminAccessDeniedException;
 import com.example.herbalife_clubes.exceptions.EmailAlreadyExistsException;
 import com.example.herbalife_clubes.exceptions.GoogleEmailNotVerifiedException;
 import com.example.herbalife_clubes.exceptions.GoogleTokenInvalidException;
@@ -163,54 +161,6 @@ public class AuthServiceImpl implements AuthService {
                 .nombre(usuario.getNombre())
                 .apellido(usuario.getApellido())
                 .rolNombre(usuario.getRol() != null ? usuario.getRol().getNombre() : null)
-                .build();
-    }
-
-    /**
-     * Login del panel administrador.
-     * Reutiliza la validación de credenciales de {@link #authenticate}, pero
-     * comprueba rol ADMIN <strong>antes</strong> de generar el JWT: un SOCIO
-     * con password correcta nunca recibe token por esta vía.
-     */
-    @Override
-    public AdminLoginResponse authenticateAdmin(AuthenticationRequest request) {
-        String email = normalizeEmail(request.getEmail());
-        Usuario pendiente = usuarioRepository.findByEmail(email).orElse(null);
-        if (pendiente != null
-                && "PENDIENTE_VERIFICACION".equalsIgnoreCase(pendiente.getEstado())) {
-            if (pendiente.getPasswordHash() == null
-                    || !passwordEncoder.matches(request.getPassword(), pendiente.getPasswordHash())) {
-                throw new org.springframework.security.authentication.BadCredentialsException(
-                        "Credenciales incorrectas");
-            }
-            // Pendiente de verificación no es ADMIN usable en el panel.
-            throw new AdminAccessDeniedException();
-        }
-
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        email,
-                        request.getPassword()
-                )
-        );
-
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
-
-        String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombre() : null;
-        if (rolNombre == null || !"ADMIN".equalsIgnoreCase(rolNombre)) {
-            throw new AdminAccessDeniedException();
-        }
-
-        String jwtToken = jwtService.generateToken(usuario);
-
-        return AdminLoginResponse.builder()
-                .token(jwtToken)
-                .userId(usuario.getId())
-                .email(usuario.getEmail())
-                .nombre(usuario.getNombre())
-                .apellido(usuario.getApellido())
-                .rolNombre(rolNombre)
                 .build();
     }
 
