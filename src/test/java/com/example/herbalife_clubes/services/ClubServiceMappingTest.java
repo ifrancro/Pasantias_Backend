@@ -1,9 +1,14 @@
 package com.example.herbalife_clubes.services;
 
 import com.example.herbalife_clubes.dtos.club.ClubDTO;
+import com.example.herbalife_clubes.entities.Club;
+import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.ClubMapperTest;
 import com.example.herbalife_clubes.repositories.ClubRepository;
+import com.example.herbalife_clubes.repositories.HubRepository;
+import com.example.herbalife_clubes.repositories.RolRepository;
+import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.ClubServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -15,6 +20,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,9 +30,27 @@ class ClubServiceMappingTest {
 
     @Mock
     private ClubRepository clubRepository;
+    @Mock
+    private HubRepository hubRepository;
+    @Mock
+    private UsuarioRepository usuarioRepository;
+    @Mock
+    private RolRepository rolRepository;
+    @Mock
+    private NotificacionService notificacionService;
 
     @InjectMocks
     private ClubServiceImpl clubService;
+
+    @Test
+    void getClubMapeaHubYAnfitrionSinLazyInitialization() {
+        when(clubRepository.findById(1)).thenReturn(Optional.of(ClubMapperTest.clubConRelaciones()));
+
+        ClubDTO dto = assertDoesNotThrow(() -> clubService.getClub(1));
+
+        assertClubDto(dto);
+        verify(clubRepository).findById(1);
+    }
 
     @Test
     void getAllClubesMapeaHubYAnfitrionSinLazyInitialization() {
@@ -108,6 +133,48 @@ class ClubServiceMappingTest {
         ResourceNotFoundException ex = assertThrows(
                 ResourceNotFoundException.class, () -> clubService.getClubByAnfitrion(77));
         assertTrue(ex.getMessage().contains("77"));
+    }
+
+    // --- Rutas de escritura: reproducen el caso real reportado (PATCH activar/desactivar/aprobar) ---
+    // Antes del fix, el club devuelto por clubRepository.save() (equivalente a un em.merge() real)
+    // no traía hub/anfitrion inicializados y el mapeo posterior lanzaba LazyInitializationException.
+
+    @Test
+    void activarClubMapeaHubYAnfitrionSinLazyInitialization() {
+        Club mockClub = ClubMapperTest.clubConRelaciones();
+        when(clubRepository.findById(1)).thenReturn(Optional.of(mockClub));
+        when(clubRepository.save(any(Club.class))).thenReturn(mockClub);
+
+        ClubDTO dto = assertDoesNotThrow(() -> clubService.activarClub(1));
+
+        assertClubDto(dto);
+        assertEquals("ACTIVO", dto.getEstado());
+    }
+
+    @Test
+    void desactivarClubMapeaHubYAnfitrionSinLazyInitialization() {
+        Club mockClub = ClubMapperTest.clubConRelaciones();
+        when(clubRepository.findById(1)).thenReturn(Optional.of(mockClub));
+        when(clubRepository.save(any(Club.class))).thenReturn(mockClub);
+
+        ClubDTO dto = assertDoesNotThrow(() -> clubService.desactivarClub(1));
+
+        assertClubDto(dto);
+        assertEquals("INACTIVO", dto.getEstado());
+    }
+
+    @Test
+    void aprobarClubMapeaHubYAnfitrionSinLazyInitialization() {
+        Club mockClub = ClubMapperTest.clubConRelaciones();
+        when(clubRepository.findById(1)).thenReturn(Optional.of(mockClub));
+        when(clubRepository.save(any(Club.class))).thenReturn(mockClub);
+        when(rolRepository.findByNombre("ANFITRION")).thenReturn(Optional.of(new Rol()));
+        lenient().when(usuarioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        ClubDTO dto = assertDoesNotThrow(() -> clubService.aprobarClub(1));
+
+        assertClubDto(dto);
+        assertEquals("ACTIVO", dto.getEstado());
     }
 
     private static void assertClubDto(ClubDTO dto) {
