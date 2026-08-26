@@ -3,6 +3,7 @@ package com.example.herbalife_clubes.repositories;
 import com.example.herbalife_clubes.entities.Membresia;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,10 +14,27 @@ import java.util.Optional;
 
 @Repository
 public interface MembresiaRepository extends JpaRepository<Membresia, Integer> {
+
+    @Override
+    @EntityGraph(attributePaths = {"usuario", "club", "nivel", "referidoPorMembresia.usuario"})
+    Optional<Membresia> findById(Integer id);
+
+    @Override
+    @EntityGraph(attributePaths = {"usuario", "club", "nivel", "referidoPorMembresia.usuario"})
+    List<Membresia> findAll();
+
+    @EntityGraph(attributePaths = {"usuario", "club", "nivel", "referidoPorMembresia.usuario"})
     Optional<Membresia> findByUsuarioId(Integer usuarioId);
+
+    @EntityGraph(attributePaths = {"usuario", "club", "nivel", "referidoPorMembresia.usuario"})
     List<Membresia> findByClubId(Integer clubId);
+
     boolean existsByUsuarioId(Integer usuarioId);
+
+    @EntityGraph(attributePaths = {"usuario", "club", "nivel", "referidoPorMembresia.usuario"})
     Optional<Membresia> findByNumeroSocio(String numeroSocio);
+
+    @EntityGraph(attributePaths = {"usuario", "club", "nivel", "referidoPorMembresia.usuario"})
     List<Membresia> findByReferidoPorMembresiaId(Integer referidoPorMembresiaId);
 
     @Query(value = "SELECT m FROM Membresia m JOIN FETCH m.usuario u JOIN FETCH m.club c " +
@@ -77,10 +95,11 @@ public interface MembresiaRepository extends JpaRepository<Membresia, Integer> {
     )
     Page<Integer> findIdsAllActive(Pageable pageable);
 
+    // LEFT JOIN FETCH m.nivel porque nivel_id es nullable — un JOIN FETCH normal descartaría filas sin nivel
     @Query("SELECT DISTINCT m FROM Membresia m "
             + "JOIN FETCH m.usuario "
             + "JOIN FETCH m.club "
+            + "LEFT JOIN FETCH m.nivel "
             + "WHERE m.id IN :ids")
     List<Membresia> findWithUsuarioClubByIds(@Param("ids") List<Integer> ids);
 }
-

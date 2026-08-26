@@ -38,6 +38,7 @@ public class ClubServiceImpl implements ClubService {
     private NotificacionService notificacionService;
 
     @Override
+    @Transactional
     public ClubDTO createClub(ClubDTO clubDTO, Integer hubId, Integer anfitrionId) {
         Hub hub = hubRepository.findById(hubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Hub no encontrado con id: " + hubId));
@@ -58,6 +59,7 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    @Transactional
     public ClubDTO updateClub(Integer clubId, ClubDTO clubDTO) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
@@ -102,6 +104,7 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    @Transactional
     public ClubDTO aprobarClub(Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
@@ -131,6 +134,7 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    @Transactional
     public ClubDTO rechazarClub(Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
@@ -154,6 +158,7 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    @Transactional
     public ClubDTO activarClub(Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
@@ -163,6 +168,7 @@ public class ClubServiceImpl implements ClubService {
     }
 
     @Override
+    @Transactional
     public ClubDTO desactivarClub(Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));

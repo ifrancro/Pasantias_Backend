@@ -18,6 +18,7 @@ import com.example.herbalife_clubes.services.ProductoService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -39,6 +40,7 @@ public class ProductoServiceImpl implements ProductoService {
     private UsuarioRepository usuarioRepository;
 
     @Override
+    @Transactional
     public ProductoDTO createProducto(ProductoDTO productoDTO, Integer usuarioId, Integer hubId) {
         // Obtener usuario para determinar su rol
         Usuario usuario = usuarioRepository.findById(usuarioId)
@@ -113,6 +115,7 @@ public class ProductoServiceImpl implements ProductoService {
      * @deprecated Usar createProducto en su lugar
      */
     @Deprecated
+    @Transactional
     public ProductoDTO createProductoLegacy(ProductoDTO productoDTO, Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
@@ -143,6 +146,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional
     public ProductoDTO createProductoFromHub(ProductoDTO productoDTO, Integer hubId) {
         // Validar que el hub existe
         Hub hub = hubRepository.findById(hubId)
@@ -171,6 +175,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional
     public ProductoDTO updateProducto(Integer productoId, ProductoDTO productoDTO) {
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
@@ -198,6 +203,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProductoDTO getProducto(Integer productoId) {
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
@@ -205,6 +211,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ProductoDTO getProductoPublico(Integer productoId) {
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
@@ -219,6 +226,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoDTO> getProductos() {
         List<Producto> productos = productoRepository.findAll();
         return productos.stream()
@@ -227,6 +235,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoDTO> getProductosPublicos() {
         // Filtrar productos PENDIENTE y no incluir ingredientes
         List<Producto> productos = productoRepository.findAll().stream()
@@ -276,6 +285,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoDTO> getProductosByClub(Integer clubId) {
         List<Producto> productos = obtenerProductosMenuClub(clubId);
         return productos.stream()
@@ -284,6 +294,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoDTO> getProductosByClubParaAnfitrion(Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
@@ -307,6 +318,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoDTO> getProductosByClubPublico(Integer clubId) {
         List<Producto> productos = obtenerProductosMenuClub(clubId);
         return productos.stream()
@@ -315,6 +327,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoDTO> getProductosByClubAndTipo(Integer clubId, String tipo) {
         if (tipo == null || tipo.isBlank()) {
             return getProductosByClub(clubId);
@@ -328,6 +341,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoDTO> getProductosByClubAndTipoParaAnfitrion(Integer clubId, String tipo) {
         if (tipo == null || tipo.isBlank()) {
             return getProductosByClubParaAnfitrion(clubId);
@@ -358,6 +372,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoDTO> getProductosByClubPublicoAndTipo(Integer clubId, String tipo) {
         if (tipo == null || tipo.isBlank()) {
             return getProductosByClubPublico(clubId);
@@ -371,6 +386,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional
     public ProductoDTO cambiarEstadoAprobacion(Integer productoId, String estadoAprobacion) {
         // Validar que el estado sea válido
         if (!"APROBADO".equalsIgnoreCase(estadoAprobacion) && !"RECHAZADO".equalsIgnoreCase(estadoAprobacion)) {
@@ -386,6 +402,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional
     public ProductoDTO activarProducto(Integer productoId) {
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
@@ -395,6 +412,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional
     public ProductoDTO desactivarProducto(Integer productoId) {
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
@@ -404,6 +422,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoDTO> getProductosPendientes() {
         return productoRepository.findByEstadoAprobacion("PENDIENTE").stream()
                 .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
@@ -411,6 +430,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoDTO> getProductosAprobados(Integer clubId) {
         List<Producto> productos = clubId != null
                 ? productoRepository.findByEstadoAprobacionAndClubCreadorId("APROBADO", clubId)
@@ -421,6 +441,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoDTO> getProductosRechazados(Integer clubId) {
         List<Producto> productos = clubId != null
                 ? productoRepository.findByEstadoAprobacionAndClubCreadorId("RECHAZADO", clubId)
@@ -431,6 +452,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<ProductoConDisponibilidadDTO> getProductosByHub(Integer hubId, Integer clubId) {
         System.out.println("[DEBUG] getProductosByHub - hubId: " + hubId + ", clubId: " + clubId);
         
@@ -474,6 +496,7 @@ public class ProductoServiceImpl implements ProductoService {
     }
 
     @Override
+    @Transactional
     public ProductoConDisponibilidadDTO toggleDisponibilidadEnClub(Integer clubId, Integer productoId) {
         System.out.println("[DEBUG] toggleDisponibilidadEnClub - clubId: " + clubId + ", productoId: " + productoId);
         

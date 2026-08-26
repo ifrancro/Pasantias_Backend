@@ -56,6 +56,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     private ComboConsumoService comboConsumoService;
 
     @Override
+    @Transactional
     public MembresiaDTO createMembresia(MembresiaDTO membresiaDTO, Integer usuarioId, Integer clubId, Integer nivelId, Integer referidoPorMembresiaId) {
         // Validar que el usuario no tenga ya una membresía
         if (membresiaRepository.findByUsuarioId(usuarioId).isPresent()) {
@@ -115,6 +116,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public MembresiaDTO getMembresia(Integer membresiaId) {
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
@@ -122,6 +124,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public MembresiaDTO getMembresiaByUsuario(Integer usuarioId) {
         Membresia membresia = membresiaRepository.findByUsuarioId(usuarioId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada para el usuario: " + usuarioId));
@@ -129,6 +132,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<MembresiaDTO> getMembresiasByClub(Integer clubId) {
         List<Membresia> membresias = membresiaRepository.findByClubId(clubId);
         return membresias.stream()
@@ -137,6 +141,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public EstadoComboDTO getEstadoCombo(Integer membresiaId) {
         return comboConsumoService.obtenerEstadoCombo(membresiaId);
     }
@@ -151,6 +156,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     }
 
     @Override
+    @Transactional
     public MembresiaDTO cambiarEstado(Integer membresiaId, String estado) {
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
@@ -160,6 +166,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     }
 
     @Override
+    @Transactional
     public MembresiaDTO cambiarNivel(Integer membresiaId, Integer nivelId) {
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
@@ -171,6 +178,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     }
 
     @Override
+    @Transactional
     public MembresiaDTO actualizarPuntos(Integer membresiaId, Integer puntos) {
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
@@ -180,6 +188,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     }
 
     @Override
+    @Transactional
     public MembresiaDTO recalcularPuntosPorAsistencias(Integer membresiaId) {
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
@@ -194,6 +203,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<MembresiaDTO> buscarMiembrosGlobal(String query, int page, int size) {
         PageRequest pageRequest = PageRequest.of(page, size);
         List<Membresia> membresias;
@@ -287,6 +297,7 @@ public class MembresiaServiceImpl implements MembresiaService {
     private static final int MAX_PROFUNDIDAD = 10;
 
     @Override
+    @Transactional(readOnly = true)
     public ArbolReferidosDTO getArbolReferidos(Integer membresiaId) {
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
