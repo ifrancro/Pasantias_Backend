@@ -6,6 +6,7 @@ import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.security.JwtService;
 import com.example.herbalife_clubes.serviceimpls.AuthServiceImpl;
+import com.example.herbalife_clubes.services.PasswordResetService;
 import com.example.herbalife_clubes.services.VerificationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +31,8 @@ class AuthControllerResendCodeTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private VerificationService verificationService;
+    @Mock
+    private PasswordResetService passwordResetService;
     @Mock
     private JwtService jwtService;
 

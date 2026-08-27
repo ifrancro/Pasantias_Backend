@@ -1,6 +1,8 @@
 package com.example.herbalife_clubes.exceptions;
 
 import com.example.herbalife_clubes.common.ApiResponse;
+import com.example.herbalife_clubes.exceptions.ResetCodeInvalidException;
+import com.example.herbalife_clubes.exceptions.ResetTokenInvalidException;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.servlet.http.HttpServletRequest;
@@ -188,6 +190,24 @@ public class GlobalExceptionHandler {
         body.put("error", EmailDeliveryException.ERROR_CODE);
         body.put("message", EmailDeliveryException.DEFAULT_MESSAGE);
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
+    }
+
+    @ExceptionHandler(ResetCodeInvalidException.class)
+    public ResponseEntity<Map<String, Object>> handleResetCodeInvalid(ResetCodeInvalidException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", ResetCodeInvalidException.ERROR_CODE);
+        body.put("message", ResetCodeInvalidException.MESSAGE);
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(ResetTokenInvalidException.class)
+    public ResponseEntity<Map<String, Object>> handleResetTokenInvalid(ResetTokenInvalidException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", ResetTokenInvalidException.ERROR_CODE);
+        body.put("message", ResetTokenInvalidException.MESSAGE);
+        return ResponseEntity.badRequest().body(body);
     }
 
     @ExceptionHandler(DisabledException.class)

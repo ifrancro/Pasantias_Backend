@@ -39,6 +39,9 @@ public class SecurityConfig {
                                 "/api/auth/check-email",
                                 "/api/auth/verify-email",    // Público: verificación de correo
                                 "/api/auth/resend-code",     // Público: reenvío de código
+                                "/api/auth/forgot-password",
+                                "/api/auth/verify-reset-code",
+                                "/api/auth/reset-password",
                                 "/api/public/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",

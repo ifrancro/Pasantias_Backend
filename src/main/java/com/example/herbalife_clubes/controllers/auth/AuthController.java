@@ -16,7 +16,13 @@ import com.example.herbalife_clubes.exceptions.EmailDeliveryException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.AuthServiceImpl;
+import com.example.herbalife_clubes.services.PasswordResetService;
 import com.example.herbalife_clubes.services.VerificationService;
+import com.example.herbalife_clubes.exceptions.ResetCodeInvalidException;
+import com.example.herbalife_clubes.exceptions.ResetTokenInvalidException;
+import com.example.herbalife_clubes.dtos.auth.ForgotPasswordRequest;
+import com.example.herbalife_clubes.dtos.auth.ResetPasswordRequest;
+import com.example.herbalife_clubes.dtos.auth.VerifyResetCodeRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +43,7 @@ public class AuthController {
     private final AuthServiceImpl authService;
     private final UsuarioRepository usuarioRepository;
     private final VerificationService verificationService;
+    private final PasswordResetService passwordResetService;
     private final JwtService jwtService;
 
     @PostMapping("/register")
@@ -159,6 +166,57 @@ public class AuthController {
      */
     private static boolean isControlledResendRateLimitMessage(String message) {
         return message != null && message.startsWith("Has excedido el límite de reenvíos (");
+    }
+
+    /**
+     * Solicitar código OTP para restablecer contraseña (anti-enumeración).
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, Object>> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.requestPasswordReset(request.getEmail());
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", PasswordResetService.FORGOT_PASSWORD_PUBLIC_MESSAGE));
+    }
+
+    /**
+     * Verificar OTP de recuperación y emitir resetToken opaco (no JWT de sesión).
+     */
+    @PostMapping("/verify-reset-code")
+    public ResponseEntity<Map<String, Object>> verifyResetCode(
+            @Valid @RequestBody VerifyResetCodeRequest request) {
+        try {
+            String resetToken = passwordResetService.verifyResetCode(
+                    request.getEmail(), request.getCode());
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "resetToken", resetToken));
+        } catch (ResetCodeInvalidException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", ResetCodeInvalidException.ERROR_CODE,
+                    "message", ResetCodeInvalidException.MESSAGE));
+        }
+    }
+
+    /**
+     * Establecer nueva contraseña con resetToken de un solo uso.
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, Object>> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request) {
+        try {
+            passwordResetService.resetPassword(request.getResetToken(), request.getPassword());
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Contraseña actualizada correctamente."));
+        } catch (ResetTokenInvalidException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", ResetTokenInvalidException.ERROR_CODE,
+                    "message", ResetTokenInvalidException.MESSAGE));
+        }
     }
 
     @GetMapping("/me")

@@ -6,6 +6,7 @@ import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.security.JwtService;
 import com.example.herbalife_clubes.serviceimpls.AuthServiceImpl;
+import com.example.herbalife_clubes.services.PasswordResetService;
 import com.example.herbalife_clubes.services.VerificationService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,8 @@ class AuthControllerMeTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private VerificationService verificationService;
+    @Mock
+    private PasswordResetService passwordResetService;
     @Mock
     private JwtService jwtService;
 

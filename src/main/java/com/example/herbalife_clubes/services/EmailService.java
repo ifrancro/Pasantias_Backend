@@ -13,4 +13,9 @@ public interface EmailService {
      * @param code  código OTP de 6 dígitos
      */
     void sendVerificationCode(String to, String name, String code);
+
+    /**
+     * Envía un correo con el código OTP para restablecer contraseña.
+     */
+    void sendPasswordResetCode(String to, String name, String code);
 }

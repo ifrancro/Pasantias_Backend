@@ -1,6 +1,7 @@
 package com.example.herbalife_clubes.services;
 
 import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.entities.VerificationCodePurpose;
 import com.example.herbalife_clubes.exceptions.EmailDeliveryException;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.repositories.VerificationCodeRepository;
@@ -53,9 +54,11 @@ class VerificationServiceResendDeliveryTest {
         usuario.setNombre("Ana");
 
         when(usuarioRepository.findByEmail("pending@test.com")).thenReturn(Optional.of(usuario));
-        when(verificationCodeRepository.countRecentCodes(eq(usuario), any(LocalDateTime.class)))
+        when(verificationCodeRepository.countRecentCodes(
+                eq(usuario), eq(VerificationCodePurpose.EMAIL_VERIFICATION), any(LocalDateTime.class)))
                 .thenReturn(1L);
-        doNothing().when(verificationCodeRepository).invalidateAllByUsuario(usuario);
+        doNothing().when(verificationCodeRepository)
+                .invalidateAllByUsuarioAndPurpose(usuario, VerificationCodePurpose.EMAIL_VERIFICATION);
         when(verificationCodeRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         doThrow(new EmailDeliveryException())
                 .when(emailService).sendVerificationCode(anyString(), anyString(), anyString());
@@ -74,7 +77,8 @@ class VerificationServiceResendDeliveryTest {
         usuario.setEmail("limit@test.com");
 
         when(usuarioRepository.findByEmail("limit@test.com")).thenReturn(Optional.of(usuario));
-        when(verificationCodeRepository.countRecentCodes(eq(usuario), any(LocalDateTime.class)))
+        when(verificationCodeRepository.countRecentCodes(
+                eq(usuario), eq(VerificationCodePurpose.EMAIL_VERIFICATION), any(LocalDateTime.class)))
                 .thenReturn(5L);
 
         RuntimeException ex = assertThrows(

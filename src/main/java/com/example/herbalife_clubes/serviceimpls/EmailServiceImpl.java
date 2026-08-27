@@ -28,20 +28,45 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendVerificationCode(String to, String name, String code) {
+        sendOtpEmail(to, name, code, appName + " - Código de Verificación",
+                "Verificación de Correo Electrónico",
+                "Gracias por registrarte. Usa el siguiente código para verificar tu correo electrónico:",
+                "Si no solicitaste esta verificación, puedes ignorar este correo de forma segura.",
+                "código de verificación");
+    }
+
+    @Override
+    public void sendPasswordResetCode(String to, String name, String code) {
+        sendOtpEmail(to, name, code, appName + " - Restablecer contraseña",
+                "Recuperación de contraseña",
+                "Recibimos una solicitud para restablecer tu contraseña. Usa el siguiente código:",
+                "Si no solicitaste este cambio, ignora este correo. Tu contraseña actual seguirá siendo válida.",
+                "código de recuperación");
+    }
+
+    private void sendOtpEmail(
+            String to,
+            String name,
+            String code,
+            String subject,
+            String headerSubtitle,
+            String bodyIntro,
+            String footerNote,
+            String logLabel) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setFrom(fromEmail);
             helper.setTo(to);
-            helper.setSubject(appName + " - Código de Verificación");
-            helper.setText(buildHtmlContent(name, code), true);
+            helper.setSubject(subject);
+            helper.setText(buildHtmlContent(name, code, headerSubtitle, bodyIntro, footerNote), true);
 
             mailSender.send(message);
-            log.info("Código de verificación enviado a: {}", to);
+            log.info("{} enviado a: {}", logLabel, to);
 
         } catch (MessagingException | MailException e) {
-            log.error("Error al enviar correo de verificación a {}", to, e);
+            log.error("Error al enviar {} a {}", logLabel, to, e);
             throw new EmailDeliveryException(e);
         }
     }
@@ -49,7 +74,12 @@ public class EmailServiceImpl implements EmailService {
     /**
      * Construye el contenido HTML del correo con diseño profesional.
      */
-    private String buildHtmlContent(String name, String code) {
+    private String buildHtmlContent(
+            String name,
+            String code,
+            String headerSubtitle,
+            String bodyIntro,
+            String footerNote) {
         // Separar el código en caracteres individuales para el diseño
         StringBuilder codeBoxes = new StringBuilder();
         for (char c : code.toCharArray()) {
@@ -71,13 +101,13 @@ public class EmailServiceImpl implements EmailService {
             // Header con gradiente verde
             "<tr><td style=\"background:linear-gradient(135deg,#4CAF50,#1B5E20);padding:32px 40px;text-align:center;\">" +
             "<h1 style=\"color:#ffffff;margin:0;font-size:24px;font-weight:700;\">🌿 " + appName + "</h1>" +
-            "<p style=\"color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;\">Verificación de Correo Electrónico</p>" +
+            "<p style=\"color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;\">" + headerSubtitle + "</p>" +
             "</td></tr>" +
             // Cuerpo del mensaje
             "<tr><td style=\"padding:40px;\">" +
             "<p style=\"color:#333;font-size:16px;margin:0 0 8px;\">Hola <strong>" + name + "</strong>,</p>" +
             "<p style=\"color:#666;font-size:14px;line-height:1.6;margin:0 0 28px;\">" +
-            "Gracias por registrarte. Usa el siguiente código para verificar tu correo electrónico:</p>" +
+            bodyIntro + "</p>" +
             // Código OTP centrado
             "<div style=\"text-align:center;margin:0 0 28px;\">" + codeBoxes + "</div>" +
             // Alerta de expiración
@@ -85,7 +115,7 @@ public class EmailServiceImpl implements EmailService {
             "<p style=\"color:#E65100;font-size:13px;margin:0;\">⏱ Este código expira en <strong>15 minutos</strong>.</p>" +
             "</div>" +
             "<p style=\"color:#999;font-size:12px;line-height:1.5;margin:0;\">" +
-            "Si no solicitaste esta verificación, puedes ignorar este correo de forma segura.</p>" +
+            footerNote + "</p>" +
             "</td></tr>" +
             // Footer
             "<tr><td style=\"background:#F5F5F5;padding:20px 40px;text-align:center;border-top:1px solid #eee;\">" +

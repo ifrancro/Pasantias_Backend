@@ -6,13 +6,13 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "verification_codes")
+@Table(name = "password_reset_tokens")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class VerificationCode {
+public class PasswordResetToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,13 +22,8 @@ public class VerificationCode {
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
 
-    @Column(name = "code", length = 6, nullable = false)
-    private String code;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "purpose", length = 32, nullable = false)
-    @Builder.Default
-    private VerificationCodePurpose purpose = VerificationCodePurpose.EMAIL_VERIFICATION;
+    @Column(name = "token_hash", length = 64, nullable = false)
+    private String tokenHash;
 
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
@@ -36,19 +31,12 @@ public class VerificationCode {
     @Column(name = "used", nullable = false)
     private boolean used;
 
-    @Column(name = "failed_attempts", nullable = false)
-    @Builder.Default
-    private int failedAttempts = 0;
-
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        if (!used) {
-            used = false;
-        }
     }
 
     public boolean isExpired() {

@@ -2,6 +2,7 @@ package com.example.herbalife_clubes.services;
 
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.entities.VerificationCode;
+import com.example.herbalife_clubes.entities.VerificationCodePurpose;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.repositories.VerificationCodeRepository;
 import com.example.herbalife_clubes.services.EmailService;
@@ -57,7 +58,8 @@ class VerificationServiceEmailNormalizeTest {
                 .build();
 
         when(verificationCodeRepository.findValidCode(
-                eq("socio1@demo.com"), eq("123456"), any(LocalDateTime.class)))
+                eq("socio1@demo.com"), eq("123456"),
+                eq(VerificationCodePurpose.EMAIL_VERIFICATION), any(LocalDateTime.class)))
                 .thenReturn(Optional.of(vc));
         when(verificationCodeRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(usuarioRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -68,7 +70,21 @@ class VerificationServiceEmailNormalizeTest {
         assertTrue(result.isPresent());
         assertEquals("ACTIVO", result.get().getEstado());
         verify(verificationCodeRepository).findValidCode(
-                eq("socio1@demo.com"), eq("123456"), any(LocalDateTime.class));
+                eq("socio1@demo.com"), eq("123456"),
+                eq(VerificationCodePurpose.EMAIL_VERIFICATION), any(LocalDateTime.class));
+    }
+
+    @Test
+    void verifyCodeNoAceptaOtpPasswordReset() {
+        when(verificationCodeRepository.findValidCode(
+                eq("reset@test.com"), eq("654321"),
+                eq(VerificationCodePurpose.EMAIL_VERIFICATION), any(LocalDateTime.class)))
+                .thenReturn(Optional.empty());
+
+        Optional<Usuario> result = verificationService.verifyCode("reset@test.com", "654321");
+
+        assertTrue(result.isEmpty());
+        verify(usuarioRepository, never()).save(any());
     }
 
     @Test
@@ -80,9 +96,11 @@ class VerificationServiceEmailNormalizeTest {
 
         when(usuarioRepository.findByEmail("socio1@demo.com"))
                 .thenReturn(Optional.of(usuario));
-        when(verificationCodeRepository.countRecentCodes(eq(usuario), any(LocalDateTime.class)))
+        when(verificationCodeRepository.countRecentCodes(
+                eq(usuario), eq(VerificationCodePurpose.EMAIL_VERIFICATION), any(LocalDateTime.class)))
                 .thenReturn(0L);
-        doNothing().when(verificationCodeRepository).invalidateAllByUsuario(usuario);
+        doNothing().when(verificationCodeRepository)
+                .invalidateAllByUsuarioAndPurpose(usuario, VerificationCodePurpose.EMAIL_VERIFICATION);
         when(verificationCodeRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         doNothing().when(emailService).sendVerificationCode(anyString(), anyString(), anyString());
 

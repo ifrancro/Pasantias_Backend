@@ -62,6 +62,21 @@ class MigrationScriptsGuardTest {
     }
 
     @Test
+    void v16AddsPurposeFailedAttemptsAndPasswordResetTokens() throws Exception {
+        Path v16 = MIGRATIONS.resolve("V16__verification_codes_purpose_and_password_reset.sql");
+        assertTrue(Files.exists(v16), "Falta la migración V16 de password reset");
+        String sql = Files.readString(v16, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+        assertTrue(sql.contains("purpose varchar(32)"));
+        assertTrue(sql.contains("email_verification"));
+        assertTrue(sql.contains("failed_attempts integer"));
+        assertTrue(sql.contains("idx_verification_codes_usuario_purpose_used"));
+        assertTrue(sql.contains("idx_verification_codes_usuario_purpose_created"));
+        assertTrue(sql.contains("create table if not exists password_reset_tokens"));
+        assertTrue(sql.contains("token_hash"));
+        assertFalse(sql.contains("insert into"));
+    }
+
+    @Test
     void migrationsDoNotContainSecrets() throws Exception {
         assertTrue(Files.isDirectory(MIGRATIONS));
         try (Stream<Path> files = Files.list(MIGRATIONS)) {
