@@ -54,8 +54,8 @@ public class ClubServiceImpl implements ClubService {
             club.setEstado("PENDIENTE");
         }
         
-        Club savedClub = clubRepository.save(club);
-        return ClubMapper.mapClubToClubDTO(savedClub);
+        clubRepository.save(club);
+        return ClubMapper.mapClubToClubDTO(club);
     }
 
     @Override
@@ -73,8 +73,8 @@ public class ClubServiceImpl implements ClubService {
         validarPrefijoSocio(prefijoNormalizado, club.getHub() != null ? club.getHub().getId() : null, clubId);
         club.setPrefijoSocio(prefijoNormalizado);
         
-        Club updatedClub = clubRepository.save(club);
-        return ClubMapper.mapClubToClubDTO(updatedClub);
+        clubRepository.save(club);
+        return ClubMapper.mapClubToClubDTO(club);
     }
 
     @Override
@@ -111,7 +111,7 @@ public class ClubServiceImpl implements ClubService {
         
         // Cambiar el estado del club a ACTIVO para que se habilite directamente
         club.setEstado("ACTIVO");
-        Club updatedClub = clubRepository.save(club);
+        clubRepository.save(club);
         
         // Cambiar el rol del usuario anfitrión a ANFITRION
         Usuario anfitrion = club.getAnfitrion();
@@ -130,7 +130,7 @@ public class ClubServiceImpl implements ClubService {
             notificacionService.enviarNotificacion(notificacion, null, clubId, anfitrion.getId(), null);
         }
         
-        return ClubMapper.mapClubToClubDTO(updatedClub);
+        return ClubMapper.mapClubToClubDTO(club);
     }
 
     @Override
@@ -141,7 +141,7 @@ public class ClubServiceImpl implements ClubService {
         
         // Cambiar el estado del club a RECHAZADO
         club.setEstado("RECHAZADO");
-        Club updatedClub = clubRepository.save(club);
+        clubRepository.save(club);
         
         // Enviar notificación de rechazo al usuario anfitrión
         Usuario anfitrion = club.getAnfitrion();
@@ -154,7 +154,7 @@ public class ClubServiceImpl implements ClubService {
             notificacionService.enviarNotificacion(notificacion, null, clubId, anfitrion.getId(), null);
         }
         
-        return ClubMapper.mapClubToClubDTO(updatedClub);
+        return ClubMapper.mapClubToClubDTO(club);
     }
 
     @Override
@@ -163,8 +163,8 @@ public class ClubServiceImpl implements ClubService {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
         club.setEstado("ACTIVO");
-        Club updatedClub = clubRepository.save(club);
-        return ClubMapper.mapClubToClubDTO(updatedClub);
+        clubRepository.save(club);
+        return ClubMapper.mapClubToClubDTO(club);
     }
 
     @Override
@@ -173,8 +173,8 @@ public class ClubServiceImpl implements ClubService {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
         club.setEstado("INACTIVO");
-        Club updatedClub = clubRepository.save(club);
-        return ClubMapper.mapClubToClubDTO(updatedClub);
+        clubRepository.save(club);
+        return ClubMapper.mapClubToClubDTO(club);
     }
 
     @Override
