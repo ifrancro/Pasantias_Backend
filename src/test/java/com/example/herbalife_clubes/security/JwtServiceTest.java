@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.security;
 
+import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
@@ -75,7 +76,7 @@ class JwtServiceTest {
     }
 
     @Test
-    void generateTokenConSecretValidoFirmaHs512YSePuedeValidar() {
+    void generateTokenEmiteSoloSubIatExpSinRolesYValida() {
         JwtService service = new JwtService();
         service.applySecret(base64OfLength(64));
 
@@ -89,12 +90,16 @@ class JwtServiceTest {
 
         assertNotNull(token);
         assertEquals(3, token.split("\\.").length);
-        assertEquals("activo@test.com", service.extractUsername(token));
-        assertTrue(service.isTokenValid(token, user));
 
-        // Header HS512 (alg) sin asumir secret en mensaje de error
         String headerJson = new String(Base64.getUrlDecoder().decode(token.split("\\.")[0]));
         assertTrue(headerJson.contains("HS512"));
+
+        assertEquals("activo@test.com", service.extractUsername(token));
+        assertNotNull(service.extractClaim(token, Claims::getIssuedAt));
+        assertNotNull(service.extractClaim(token, Claims::getExpiration));
+        assertNull(service.extractClaim(token, claims -> claims.get("roles")));
+        assertFalse(service.extractClaim(token, Claims::keySet).contains("roles"));
+        assertTrue(service.isTokenValid(token, user));
     }
 
     /** Bytes ficticios de test; el contenido no es un secret de producción. */
