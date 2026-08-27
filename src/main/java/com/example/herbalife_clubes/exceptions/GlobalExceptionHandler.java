@@ -180,6 +180,16 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+    @ExceptionHandler(EmailDeliveryException.class)
+    public ResponseEntity<Map<String, Object>> handleEmailDelivery(EmailDeliveryException ex) {
+        log.warn("Fallo de entrega de correo OTP ({})", ex.getClass().getSimpleName());
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", EmailDeliveryException.ERROR_CODE);
+        body.put("message", EmailDeliveryException.DEFAULT_MESSAGE);
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(body);
+    }
+
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<ApiResponse<String>> handleDisabledUser(DisabledException ex) {
         return ResponseEntity

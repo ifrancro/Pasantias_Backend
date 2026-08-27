@@ -12,10 +12,13 @@ import com.example.herbalife_clubes.dtos.auth.VerifyEmailResponse;
 import com.example.herbalife_clubes.security.JwtService;
 import com.example.herbalife_clubes.dtos.auth.ResendCodeRequest;
 import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.exceptions.EmailDeliveryException;
+import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.AuthServiceImpl;
 import com.example.herbalife_clubes.services.VerificationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,6 +31,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Slf4j
 public class AuthController {
 
     private final AuthServiceImpl authService;
@@ -119,17 +123,42 @@ public class AuthController {
                 "success", true,
                 "message", "Código reenviado exitosamente. Revisa tu correo."
             ));
-        } catch (RuntimeException e) {
+        } catch (EmailDeliveryException e) {
+            throw e;
+        } catch (ResourceNotFoundException e) {
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,
                 "message", e.getMessage()
             ));
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+            String message = e.getMessage();
+            if (isControlledResendRateLimitMessage(message)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", message
+                ));
+            }
+            log.error("Error técnico inesperado al reenviar código ({})",
+                    e.getClass().getSimpleName(), e);
             return ResponseEntity.internalServerError().body(Map.of(
                 "success", false,
-                "message", "Error al reenviar código: " + e.getMessage()
+                "message", "No se pudo reenviar el código. Inténtalo nuevamente."
+            ));
+        } catch (Exception e) {
+            log.error("Error inesperado al reenviar código ({})", e.getClass().getSimpleName(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false,
+                "message", "No se pudo reenviar el código. Inténtalo nuevamente."
             ));
         }
+    }
+
+    /**
+     * Prefijo exacto del mensaje de rate limit en VerificationServiceImpl.resendCode().
+     * Evita filtrar RuntimeException técnicas por e.getMessage().
+     */
+    private static boolean isControlledResendRateLimitMessage(String message) {
+        return message != null && message.startsWith("Has excedido el límite de reenvíos (");
     }
 
     @GetMapping("/me")

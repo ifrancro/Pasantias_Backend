@@ -1,9 +1,11 @@
 package com.example.herbalife_clubes.serviceimpls;
 
+import com.example.herbalife_clubes.exceptions.EmailDeliveryException;
 import com.example.herbalife_clubes.services.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -38,9 +40,9 @@ public class EmailServiceImpl implements EmailService {
             mailSender.send(message);
             log.info("Código de verificación enviado a: {}", to);
 
-        } catch (MessagingException e) {
-            log.error("Error al enviar correo de verificación a {}: {}", to, e.getMessage());
-            throw new RuntimeException("Error al enviar el correo de verificación. Intente nuevamente.", e);
+        } catch (MessagingException | MailException e) {
+            log.error("Error al enviar correo de verificación a {}", to, e);
+            throw new EmailDeliveryException(e);
         }
     }
 

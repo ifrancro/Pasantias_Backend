@@ -7,6 +7,7 @@ import com.example.herbalife_clubes.dtos.auth.RegisterBasicoResponse;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.exceptions.EmailAlreadyExistsException;
+import com.example.herbalife_clubes.exceptions.EmailDeliveryException;
 import com.example.herbalife_clubes.repositories.RolRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.security.JwtService;
@@ -209,6 +210,131 @@ class AuthServiceRegisterTest {
                         .build()));
 
         verify(verificationService, never()).generateAndSendCode(any());
+        verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void registerFalloEntregaOtpEliminaUsuarioYPropagaEmailDeliveryException() {
+        when(usuarioRepository.existsByEmail("fail@test.com")).thenReturn(false);
+        when(passwordEncoder.encode(any())).thenReturn("hash");
+        Rol rol = new Rol();
+        rol.setNombre("USUARIO_BASICO");
+        when(rolRepository.findByNombre("USUARIO_BASICO")).thenReturn(Optional.of(rol));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
+            Usuario u = inv.getArgument(0);
+            u.setId(99);
+            return u;
+        });
+        doThrow(new EmailDeliveryException())
+                .when(verificationService).generateAndSendCode(any(Usuario.class));
+
+        EmailDeliveryException ex = assertThrows(
+                EmailDeliveryException.class,
+                () -> authService.register(RegisterRequest.builder()
+                        .nombre("Ana")
+                        .apellido("Pérez")
+                        .email("fail@test.com")
+                        .password("secret1")
+                        .rolId(1)
+                        .telefono("+59170000000")
+                        .build()));
+
+        assertEquals(EmailDeliveryException.DEFAULT_MESSAGE, ex.getMessage());
+        verify(usuarioRepository).deleteById(99);
+    }
+
+    @Test
+    void registerFalloEntregaYFallaCompensacionMantieneEmailDeliveryException() {
+        when(usuarioRepository.existsByEmail("comp-fail@test.com")).thenReturn(false);
+        when(passwordEncoder.encode(any())).thenReturn("hash");
+        Rol rol = new Rol();
+        rol.setNombre("USUARIO_BASICO");
+        when(rolRepository.findByNombre("USUARIO_BASICO")).thenReturn(Optional.of(rol));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
+            Usuario u = inv.getArgument(0);
+            u.setId(77);
+            return u;
+        });
+        doThrow(new EmailDeliveryException())
+                .when(verificationService).generateAndSendCode(any(Usuario.class));
+        doThrow(new RuntimeException("could not execute statement; FK verification_codes"))
+                .when(usuarioRepository).deleteById(77);
+
+        EmailDeliveryException ex = assertThrows(
+                EmailDeliveryException.class,
+                () -> authService.register(RegisterRequest.builder()
+                        .nombre("Ana")
+                        .apellido("Pérez")
+                        .email("comp-fail@test.com")
+                        .password("secret1")
+                        .rolId(1)
+                        .telefono("+59170000000")
+                        .build()));
+
+        assertEquals(EmailDeliveryException.DEFAULT_MESSAGE, ex.getMessage());
+        verify(usuarioRepository).deleteById(77);
+        assertFalse(ex.getMessage().contains("FK"));
+        assertFalse(ex.getMessage().contains("verification_codes"));
+        assertFalse(ex.getMessage().contains("could not execute"));
+    }
+
+    @Test
+    void registerOtraExcepcionNoCompensaNiEtiquetaComoEmailDelivery() {
+        when(usuarioRepository.existsByEmail("other@test.com")).thenReturn(false);
+        when(passwordEncoder.encode(any())).thenReturn("hash");
+        Rol rol = new Rol();
+        rol.setNombre("USUARIO_BASICO");
+        when(rolRepository.findByNombre("USUARIO_BASICO")).thenReturn(Optional.of(rol));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
+            Usuario u = inv.getArgument(0);
+            u.setId(50);
+            return u;
+        });
+        doThrow(new RuntimeException("fallo interno de verificación"))
+                .when(verificationService).generateAndSendCode(any(Usuario.class));
+
+        RuntimeException ex = assertThrows(
+                RuntimeException.class,
+                () -> authService.register(RegisterRequest.builder()
+                        .nombre("Ana")
+                        .apellido("Pérez")
+                        .email("other@test.com")
+                        .password("secret1")
+                        .rolId(1)
+                        .telefono("+59170000000")
+                        .build()));
+
+        assertEquals("fallo interno de verificación", ex.getMessage());
+        verify(usuarioRepository, never()).deleteById(any());
+    }
+
+    @Test
+    void registerBasicoFalloEntregaOtpEliminaUsuarioYPropagaEmailDeliveryException() {
+        when(usuarioRepository.existsByEmail("basico-fail@test.com")).thenReturn(false);
+        when(passwordEncoder.encode(any())).thenReturn("hash");
+        Rol rol = new Rol();
+        rol.setNombre("USUARIO_BASICO");
+        when(rolRepository.findByNombre("USUARIO_BASICO")).thenReturn(Optional.of(rol));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
+            Usuario u = inv.getArgument(0);
+            u.setId(88);
+            return u;
+        });
+        doThrow(new EmailDeliveryException())
+                .when(verificationService).generateAndSendCode(any(Usuario.class));
+
+        EmailDeliveryException ex = assertThrows(
+                EmailDeliveryException.class,
+                () -> authService.registerBasico(RegisterBasicoRequest.builder()
+                        .nombre("Ana")
+                        .apellido("Pérez")
+                        .email("basico-fail@test.com")
+                        .password("secret1")
+                        .telefono("+59170000000")
+                        .build()));
+
+        assertEquals(EmailDeliveryException.DEFAULT_MESSAGE, ex.getMessage());
+        verify(usuarioRepository).deleteById(88);
         verify(jwtService, never()).generateToken(any());
     }
 

@@ -9,6 +9,7 @@ import com.example.herbalife_clubes.dtos.auth.RegisterBasicoResponse;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.exceptions.EmailAlreadyExistsException;
+import com.example.herbalife_clubes.exceptions.EmailDeliveryException;
 import com.example.herbalife_clubes.exceptions.GoogleEmailNotVerifiedException;
 import com.example.herbalife_clubes.exceptions.GoogleTokenInvalidException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
@@ -99,18 +100,11 @@ public class AuthServiceImpl implements AuthService {
             throw new EmailAlreadyExistsException(EmailAlreadyExistsException.DEFAULT_MESSAGE, e);
         }
 
-        // El fallo de envío NO se oculta: si el OTP no salió, el usuario queda
-        // atrapado sin forma de activarse y sin saber por qué. Que el registro
-        // devolviera 200 con el correo caído es lo que dejó este bug invisible
-        // durante meses.
         try {
             verificationService.generateAndSendCode(usuario);
-        } catch (Exception e) {
-            log.error("Error al enviar código de verificación para {}: {}",
-                    usuario.getEmail(), e.getMessage(), e);
-            throw new com.example.herbalife_clubes.exceptions.EmailDeliveryException(
-                    "No pudimos enviar el código de verificación a tu correo. "
-                            + "Revisa la dirección o intenta de nuevo en unos minutos.", e);
+        } catch (EmailDeliveryException e) {
+            compensateFailedRegistrationDelivery(usuario);
+            throw e;
         }
 
         // Sin token: la sesión se emite en /verify-email, no acá.
@@ -343,12 +337,9 @@ public class AuthServiceImpl implements AuthService {
         // Enviar código de verificación por correo
         try {
             verificationService.generateAndSendCode(usuario);
-        } catch (Exception e) {
-            log.error("Error al enviar código de verificación para {}: {}",
-                    usuario.getEmail(), e.getMessage(), e);
-            throw new com.example.herbalife_clubes.exceptions.EmailDeliveryException(
-                    "No pudimos enviar el código de verificación a tu correo. "
-                            + "Revisa la dirección o intenta de nuevo en unos minutos.", e);
+        } catch (EmailDeliveryException e) {
+            compensateFailedRegistrationDelivery(usuario);
+            throw e;
         }
 
         // Sin token: la sesión se emite en /verify-email, no acá.
@@ -376,6 +367,25 @@ public class AuthServiceImpl implements AuthService {
     private void ensureEmailAvailable(String email) {
         if (email != null && usuarioRepository.existsByEmail(email)) {
             throw new EmailAlreadyExistsException();
+        }
+    }
+
+    /**
+     * Compensación AUTH-005: si el OTP no pudo enviarse tras crear el usuario,
+     * elimina el registro pendiente para permitir reintento con el mismo email.
+     */
+    void compensateFailedRegistrationDelivery(Usuario usuario) {
+        if (usuario == null || usuario.getId() == null) {
+            return;
+        }
+        try {
+            usuarioRepository.deleteById(usuario.getId());
+            log.warn("Usuario id={} eliminado tras fallo de entrega OTP", usuario.getId());
+        } catch (Exception ex) {
+            log.error(
+                    "No se pudo compensar usuario id={} tras fallo de entrega OTP",
+                    usuario.getId(),
+                    ex);
         }
     }
 }
