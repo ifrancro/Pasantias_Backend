@@ -15,6 +15,9 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
+    /** Mínimo de bytes del secreto decodificado para HS512 (RFC 7518). */
+    static final int HS512_MIN_KEY_BYTES = 64;
+
     private final Dotenv dotenv = Dotenv.configure()
             .ignoreIfMissing()
             .load();
@@ -23,9 +26,15 @@ public class JwtService {
 
     @PostConstruct
     public void initKey() {
-        String secret = null;
+        applySecret(resolveSecretFromEnvironment());
+    }
 
-        secret = System.getenv("JWT_SECRET");
+    /**
+     * Resuelve JWT_SECRET desde variables de entorno o .env local.
+     * Visible para tests de ausencia de secreto.
+     */
+    String resolveSecretFromEnvironment() {
+        String secret = System.getenv("JWT_SECRET");
 
         if (secret == null || secret.isBlank()) {
             try {
@@ -34,21 +43,39 @@ public class JwtService {
             }
         }
 
+        return secret;
+    }
+
+    /**
+     * Valida y aplica el secreto Base64. Falla en inicialización si es inválido o corto.
+     * Package-visible para tests unitarios con bytes ficticios.
+     */
+    void applySecret(String secret) {
         if (secret == null || secret.isBlank()) {
             throw new IllegalStateException(
-                "❌ JWT_SECRET no encontrada. " +
-                "Configura la variable de entorno JWT_SECRET. " +
-                "Genera una clave con: openssl rand -base64 64"
+                "JWT_SECRET no encontrada. "
+                + "Configura la variable de entorno JWT_SECRET. "
+                + "Genera una clave con: openssl rand -base64 64"
             );
         }
 
-        byte[] keyBytes = Decoders.BASE64.decode(secret.trim());
-        if (keyBytes.length < 32) {
-            throw new IllegalStateException("❌ La clave JWT_SECRET es demasiado corta. Debe ser ≥ 256 bits (usa openssl rand -base64 64)");
+        final byte[] keyBytes;
+        try {
+            keyBytes = Decoders.BASE64.decode(secret.trim());
+        } catch (RuntimeException ex) {
+            throw new IllegalStateException(
+                "JWT_SECRET debe ser Base64 válido.",
+                ex
+            );
+        }
+
+        if (keyBytes.length < HS512_MIN_KEY_BYTES) {
+            throw new IllegalStateException(
+                "JWT_SECRET debe contener al menos 64 bytes (512 bits) para HS512."
+            );
         }
 
         this.key = Keys.hmacShaKeyFor(keyBytes);
-        System.out.println("🔑 JWT_SECRET cargada correctamente (" + keyBytes.length * 8 + " bits)");
     }
 
     private Key getSignInKey() {
@@ -101,4 +128,3 @@ public class JwtService {
         return extractClaim(token, Claims::getExpiration);
     }
 }
-

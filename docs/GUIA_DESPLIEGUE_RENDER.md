@@ -81,17 +81,19 @@ En la sección **"Environment Variables"**, agrega estas variables:
 #### Variables requeridas:
 
 1. **JWT_SECRET**
-   - **Valor**: Genera una clave base64 de 64 caracteres
-   - **Cómo generar**:
+   - **Formato**: Base64 válido.
+   - **Longitud**: al decodificar debe contener **al menos 64 bytes (512 bits)** — requerido por HS512.
+   - **Cómo generar** (recomendado: 64 bytes aleatorios):
      ```bash
-     # En Windows PowerShell:
+     openssl rand -base64 64
+     ```
+     PowerShell equivalente:
+     ```powershell
      $bytes = New-Object byte[] 64
      [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-     $secret = [Convert]::ToBase64String($bytes)
-     Write-Host $secret
+     [Convert]::ToBase64String($bytes)
      ```
-     O usa un generador online: https://www.base64encode.org/
-   - **Ejemplo**: `aB3dEf9gHiJkLmNoPqRsTuVwXyZ1234567890abcdefghijklmnopqrstuvwxyz+/==`
+   - ⚠️ No copies una clave de ejemplo a producción; genera una nueva para cada entorno.
 
 2. **SPRING_DATASOURCE_URL**
    - **Valor**: Convierte la **Internal Database URL** de Render al formato JDBC
@@ -198,9 +200,9 @@ Content-Type: application/json
 
 ## 🛠️ Solución de Problemas Comunes
 
-### ❌ Error: "JWT_SECRET no encontrada"
+### ❌ Error: "JWT_SECRET no encontrada" / clave demasiado corta
 
-**Solución**: Verifica que la variable de entorno `JWT_SECRET` esté configurada en Render y tenga un valor válido (base64, 64 caracteres).
+**Solución**: Configura `JWT_SECRET` en Render como Base64 válido. Al decodificar debe tener **≥ 64 bytes** (usa `openssl rand -base64 64`).
 
 ### ❌ Error: "Cannot connect to database"
 
