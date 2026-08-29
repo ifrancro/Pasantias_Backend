@@ -547,6 +547,14 @@ public class PedidoServiceImpl implements PedidoService {
         return pedidosDTO;
     }
 
+    /**
+     * Placeholders tipados cuando el filtro HTTP está ausente.
+     * El flag {@code *Presente=false} hace que el OR no filtre; el valor
+     * evita bind null de enum/timestamp (PostgreSQL no infiere el tipo).
+     */
+    private static final EstadoPedido ESTADO_FILTRO_AUSENTE = EstadoPedido.RECIBIDO;
+    private static final LocalDateTime FECHA_FILTRO_AUSENTE = LocalDateTime.of(1970, 1, 1, 0, 0);
+
     @Override
     @Transactional(readOnly = true)
     public PagedResponse<PedidoDTO> getPedidosByClubPaginados(
@@ -558,7 +566,14 @@ public class PedidoServiceImpl implements PedidoService {
                 size,
                 Sort.by(Sort.Order.desc("fechaPedido"), Sort.Order.desc("id")));
         Page<Integer> idPage = pedidoRepository.findIdsByClubId(
-                clubId, estadoFiltro, desde, hasta, pageable);
+                clubId,
+                estadoFiltro != null,
+                estadoFiltro != null ? estadoFiltro : ESTADO_FILTRO_AUSENTE,
+                desde != null,
+                desde != null ? desde : FECHA_FILTRO_AUSENTE,
+                hasta != null,
+                hasta != null ? hasta : FECHA_FILTRO_AUSENTE,
+                pageable);
         return mapPedidoIdPage(idPage);
     }
 
@@ -573,7 +588,14 @@ public class PedidoServiceImpl implements PedidoService {
                 size,
                 Sort.by(Sort.Order.desc("fechaPedido"), Sort.Order.desc("id")));
         Page<Integer> idPage = pedidoRepository.findIdsByMembresiaId(
-                membresiaId, estadoFiltro, desde, hasta, pageable);
+                membresiaId,
+                estadoFiltro != null,
+                estadoFiltro != null ? estadoFiltro : ESTADO_FILTRO_AUSENTE,
+                desde != null,
+                desde != null ? desde : FECHA_FILTRO_AUSENTE,
+                hasta != null,
+                hasta != null ? hasta : FECHA_FILTRO_AUSENTE,
+                pageable);
         return mapPedidoIdPage(idPage);
     }
 

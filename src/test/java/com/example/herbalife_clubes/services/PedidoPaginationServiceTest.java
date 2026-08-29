@@ -2,6 +2,7 @@ package com.example.herbalife_clubes.services;
 
 import com.example.herbalife_clubes.common.PagedResponse;
 import com.example.herbalife_clubes.dtos.pedido.PedidoDTO;
+import com.example.herbalife_clubes.entities.EstadoPedido;
 import com.example.herbalife_clubes.entities.Pedido;
 import com.example.herbalife_clubes.repositories.PedidoRepository;
 import com.example.herbalife_clubes.serviceimpls.PedidoServiceImpl;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -35,7 +37,10 @@ class PedidoPaginationServiceTest {
     void clubPageUsesPageableAndBatchLoadOnce() {
         Pageable pageable = PageRequest.of(0, 20);
         Page<Integer> idPage = new PageImpl<>(List.of(10, 11), pageable, 2);
-        when(pedidoRepository.findIdsByClubId(eq(1), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(pedidoRepository.findIdsByClubId(
+                eq(1), eq(false), any(EstadoPedido.class),
+                eq(false), any(LocalDateTime.class),
+                eq(false), any(LocalDateTime.class), any(Pageable.class)))
                 .thenReturn(idPage);
 
         Pedido p10 = stubPedido(10);
@@ -57,7 +62,10 @@ class PedidoPaginationServiceTest {
 
     @Test
     void emptyPageDoesNotLoadRelations() {
-        when(pedidoRepository.findIdsByClubId(eq(1), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(pedidoRepository.findIdsByClubId(
+                eq(1), eq(false), any(EstadoPedido.class),
+                eq(false), any(LocalDateTime.class),
+                eq(false), any(LocalDateTime.class), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
         PagedResponse<PedidoDTO> result =
@@ -65,6 +73,40 @@ class PedidoPaginationServiceTest {
 
         assertTrue(result.content().isEmpty());
         verify(pedidoRepository, never()).findWithRelationsByIds(anyList());
+    }
+
+    @Test
+    void absentFiltersPassFalseFlags() {
+        when(pedidoRepository.findIdsByClubId(
+                eq(1), eq(false), eq(EstadoPedido.RECIBIDO),
+                eq(false), any(LocalDateTime.class),
+                eq(false), any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        pedidoService.getPedidosByClubPaginados(1, 0, 20, null, null, null);
+
+        verify(pedidoRepository).findIdsByClubId(
+                eq(1), eq(false), eq(EstadoPedido.RECIBIDO),
+                eq(false), any(LocalDateTime.class),
+                eq(false), any(LocalDateTime.class), any(Pageable.class));
+    }
+
+    @Test
+    void presentFiltersPassTrueFlags() {
+        LocalDateTime desde = LocalDateTime.of(2026, 1, 1, 0, 0);
+        LocalDateTime hasta = LocalDateTime.of(2026, 2, 1, 0, 0);
+        when(pedidoRepository.findIdsByClubId(
+                eq(1), eq(true), eq(EstadoPedido.RECIBIDO),
+                eq(true), eq(desde),
+                eq(true), eq(hasta), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        pedidoService.getPedidosByClubPaginados(1, 0, 20, "RECIBIDO", desde, hasta);
+
+        verify(pedidoRepository).findIdsByClubId(
+                eq(1), eq(true), eq(EstadoPedido.RECIBIDO),
+                eq(true), eq(desde),
+                eq(true), eq(hasta), any(Pageable.class));
     }
 
     @Test
@@ -84,13 +126,19 @@ class PedidoPaginationServiceTest {
 
     @Test
     void capsSizeToMax() {
-        when(pedidoRepository.findIdsByMembresiaId(eq(5), isNull(), isNull(), isNull(), any(Pageable.class)))
+        when(pedidoRepository.findIdsByMembresiaId(
+                eq(5), eq(false), any(EstadoPedido.class),
+                eq(false), any(LocalDateTime.class),
+                eq(false), any(LocalDateTime.class), any(Pageable.class)))
                 .thenReturn(Page.empty());
 
         pedidoService.getPedidosBySocioPaginados(5, 0, 999, null, null, null);
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
-        verify(pedidoRepository).findIdsByMembresiaId(eq(5), isNull(), isNull(), isNull(), captor.capture());
+        verify(pedidoRepository).findIdsByMembresiaId(
+                eq(5), eq(false), any(EstadoPedido.class),
+                eq(false), any(LocalDateTime.class),
+                eq(false), any(LocalDateTime.class), captor.capture());
         assertEquals(100, captor.getValue().getPageSize());
     }
 

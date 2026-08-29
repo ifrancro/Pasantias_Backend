@@ -21,7 +21,8 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
     /**
      * Obtiene todos los pedidos de un club con todas las relaciones cargadas (JOIN FETCH)
      * para evitar problemas de Lazy Loading.
-     * Carga: Club, Membresia, Items, Producto (de cada item)
+     * Carga: Club, anfitrion, Membresia, Items, Producto y Combo (de cada item).
+     * No carga combo.items.
      */
     @Query("SELECT DISTINCT p FROM Pedido p " +
            "LEFT JOIN FETCH p.club c " +
@@ -29,6 +30,7 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
            "LEFT JOIN FETCH p.membresia m " +
            "LEFT JOIN FETCH p.items i " +
            "LEFT JOIN FETCH i.producto " +
+           "LEFT JOIN FETCH i.combo " +
            "WHERE p.club.id = :clubId " +
            "ORDER BY p.fechaPedido DESC")
     List<Pedido> findByClubIdWithRelations(@Param("clubId") Integer clubId);
@@ -36,13 +38,15 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
     /**
      * Obtiene todos los pedidos de un socio con todas las relaciones cargadas (JOIN FETCH)
      * para evitar problemas de Lazy Loading.
-     * Carga: Club, Membresia, Items, Producto (de cada item)
+     * Carga: Club, Membresia, Items, Producto y Combo (de cada item).
+     * No carga combo.items.
      */
     @Query("SELECT DISTINCT p FROM Pedido p " +
            "LEFT JOIN FETCH p.club c " +
            "LEFT JOIN FETCH p.membresia m " +
            "LEFT JOIN FETCH p.items i " +
            "LEFT JOIN FETCH i.producto " +
+           "LEFT JOIN FETCH i.combo " +
            "WHERE p.membresia.id = :membresiaId " +
            "ORDER BY p.fechaPedido DESC")
     List<Pedido> findByMembresiaIdWithRelations(@Param("membresiaId") Integer membresiaId);
@@ -163,43 +167,52 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
     /**
      * Página de IDs (sin JOIN FETCH de colecciones) — paginación real en BD.
      * Orden estable: fechaPedido DESC, id DESC.
+     * Filtros opcionales vía flags booleanos: no usar {@code :param IS NULL} sobre
+     * enum/timestamp (PostgreSQL no puede inferir el tipo del parámetro).
      */
     @Query(
             value = "SELECT p.id FROM Pedido p WHERE p.club.id = :clubId "
-                    + "AND (:estado IS NULL OR p.estado = :estado) "
-                    + "AND (:desde IS NULL OR p.fechaPedido >= :desde) "
-                    + "AND (:hasta IS NULL OR p.fechaPedido < :hasta)",
+                    + "AND (:estadoPresente = false OR p.estado = :estado) "
+                    + "AND (:desdePresente = false OR p.fechaPedido >= :desde) "
+                    + "AND (:hastaPresente = false OR p.fechaPedido < :hasta)",
             countQuery = "SELECT COUNT(p) FROM Pedido p WHERE p.club.id = :clubId "
-                    + "AND (:estado IS NULL OR p.estado = :estado) "
-                    + "AND (:desde IS NULL OR p.fechaPedido >= :desde) "
-                    + "AND (:hasta IS NULL OR p.fechaPedido < :hasta)"
+                    + "AND (:estadoPresente = false OR p.estado = :estado) "
+                    + "AND (:desdePresente = false OR p.fechaPedido >= :desde) "
+                    + "AND (:hastaPresente = false OR p.fechaPedido < :hasta)"
     )
     Page<Integer> findIdsByClubId(
             @Param("clubId") Integer clubId,
+            @Param("estadoPresente") boolean estadoPresente,
             @Param("estado") EstadoPedido estado,
+            @Param("desdePresente") boolean desdePresente,
             @Param("desde") LocalDateTime desde,
+            @Param("hastaPresente") boolean hastaPresente,
             @Param("hasta") LocalDateTime hasta,
             Pageable pageable);
 
     @Query(
             value = "SELECT p.id FROM Pedido p WHERE p.membresia.id = :membresiaId "
-                    + "AND (:estado IS NULL OR p.estado = :estado) "
-                    + "AND (:desde IS NULL OR p.fechaPedido >= :desde) "
-                    + "AND (:hasta IS NULL OR p.fechaPedido < :hasta)",
+                    + "AND (:estadoPresente = false OR p.estado = :estado) "
+                    + "AND (:desdePresente = false OR p.fechaPedido >= :desde) "
+                    + "AND (:hastaPresente = false OR p.fechaPedido < :hasta)",
             countQuery = "SELECT COUNT(p) FROM Pedido p WHERE p.membresia.id = :membresiaId "
-                    + "AND (:estado IS NULL OR p.estado = :estado) "
-                    + "AND (:desde IS NULL OR p.fechaPedido >= :desde) "
-                    + "AND (:hasta IS NULL OR p.fechaPedido < :hasta)"
+                    + "AND (:estadoPresente = false OR p.estado = :estado) "
+                    + "AND (:desdePresente = false OR p.fechaPedido >= :desde) "
+                    + "AND (:hastaPresente = false OR p.fechaPedido < :hasta)"
     )
     Page<Integer> findIdsByMembresiaId(
             @Param("membresiaId") Integer membresiaId,
+            @Param("estadoPresente") boolean estadoPresente,
             @Param("estado") EstadoPedido estado,
+            @Param("desdePresente") boolean desdePresente,
             @Param("desde") LocalDateTime desde,
+            @Param("hastaPresente") boolean hastaPresente,
             @Param("hasta") LocalDateTime hasta,
             Pageable pageable);
 
     /**
      * Carga batch de relaciones para una página de IDs (sin Pageable → sin HHH90003004).
+     * Incluye combo del item (id/nombre) sin fetchear combo.items.
      */
     @Query("SELECT DISTINCT p FROM Pedido p "
             + "LEFT JOIN FETCH p.club c "
@@ -207,6 +220,7 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
             + "LEFT JOIN FETCH p.membresia m "
             + "LEFT JOIN FETCH p.items i "
             + "LEFT JOIN FETCH i.producto "
+            + "LEFT JOIN FETCH i.combo "
             + "WHERE p.id IN :ids")
     List<Pedido> findWithRelationsByIds(@Param("ids") List<Integer> ids);
 }
