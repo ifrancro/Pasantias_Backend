@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Data
@@ -19,6 +20,9 @@ public class ComboDTO {
     private String descripcion;
     private String imagenUrl;
     private Integer puntosValor;
+    private BigDecimal precio;
     private Boolean activo;
+    /** Derivado: activo + precio > 0 + todos los productos pedibles en el club. */
+    private Boolean disponible;
     private List<ComboItemDTO> items;
 }

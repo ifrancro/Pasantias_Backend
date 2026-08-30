@@ -9,6 +9,7 @@ import com.example.herbalife_clubes.entities.Club;
 import com.example.herbalife_clubes.entities.EstadoPedido;
 import com.example.herbalife_clubes.entities.Membresia;
 import com.example.herbalife_clubes.entities.Pedido;
+import com.example.herbalife_clubes.entities.PedidoCombo;
 import com.example.herbalife_clubes.entities.PedidoItem;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
@@ -153,11 +154,34 @@ public class VentasDiariasReporteServiceImpl implements VentasDiariasReporteServ
     }
 
     private RegistroVentaDiariaDTO construirFila(Pedido pedido, LocalDate fecha, int numeroFila) {
+        if (pedido.getPedidoCombos() != null) {
+            pedido.getPedidoCombos().size();
+        }
+
         List<ProductoVentaDiariaDTO> productos = new ArrayList<>();
         BigDecimal totalBs = BigDecimal.ZERO;
 
+        if (pedido.getPedidoCombos() != null) {
+            for (PedidoCombo pedidoCombo : pedido.getPedidoCombos()) {
+                BigDecimal subtotal = pedidoCombo.getSubtotalSnapshot() != null
+                        ? pedidoCombo.getSubtotalSnapshot()
+                        : BigDecimal.ZERO;
+                totalBs = totalBs.add(subtotal);
+                productos.add(ProductoVentaDiariaDTO.builder()
+                        .productoId(pedidoCombo.getCombo() != null ? pedidoCombo.getCombo().getId() : null)
+                        .nombre(pedidoCombo.getComboNombreSnapshot())
+                        .cantidad(pedidoCombo.getCantidad())
+                        .esCombo(true)
+                        .subtotal(subtotal)
+                        .build());
+            }
+        }
+
         if (pedido.getItems() != null && !pedido.getItems().isEmpty()) {
             for (PedidoItem item : pedido.getItems()) {
+                if (item.getPedidoCombo() != null) {
+                    continue;
+                }
                 BigDecimal subtotal = item.getSubtotal();
                 if (subtotal == null && item.getPrecioUnitario() != null && item.getCantidad() != null) {
                     subtotal = item.getPrecioUnitario().multiply(BigDecimal.valueOf(item.getCantidad()));
@@ -176,7 +200,7 @@ public class VentasDiariasReporteServiceImpl implements VentasDiariasReporteServ
                         .subtotal(subtotal)
                         .build());
             }
-        } else if (pedido.getProducto() != null) {
+        } else if (pedido.getProducto() != null && (pedido.getPedidoCombos() == null || pedido.getPedidoCombos().isEmpty())) {
             int cantidad = pedido.getCantidad() != null ? pedido.getCantidad() : 1;
             var producto = pedido.getProducto();
             BigDecimal precio = producto.getPrecio() != null ? producto.getPrecio() : BigDecimal.ZERO;

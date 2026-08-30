@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.repositories;
 
+import com.example.herbalife_clubes.entities.Pedido;
 import com.example.herbalife_clubes.entities.PedidoItem;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.OneToMany;
@@ -12,6 +13,34 @@ import java.lang.reflect.Method;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PedidoRepositoryFetchGuardTest {
+
+    @Test
+    void pedidoRepositoryNoJoinFetchPedidoCombosConItems() throws Exception {
+        for (Method method : PedidoRepository.class.getMethods()) {
+            if (!method.getName().startsWith("find")) {
+                continue;
+            }
+            org.springframework.data.jpa.repository.Query query =
+                    method.getAnnotation(org.springframework.data.jpa.repository.Query.class);
+            if (query == null) {
+                continue;
+            }
+            String jpql = query.value().toLowerCase();
+            assertFalse(jpql.contains("pedidocombos") && jpql.contains("items"),
+                    method.getName() + " no debe JOIN FETCH pedidoCombos e items a la vez");
+        }
+    }
+
+    @Test
+    void pedidoPedidoCombosLazyConBatchSize() throws Exception {
+        Field field = com.example.herbalife_clubes.entities.Pedido.class.getDeclaredField("pedidoCombos");
+        OneToMany oneToMany = field.getAnnotation(OneToMany.class);
+        assertNotNull(oneToMany);
+        assertEquals(FetchType.LAZY, oneToMany.fetch());
+        BatchSize batch = field.getAnnotation(BatchSize.class);
+        assertNotNull(batch);
+        assertEquals(50, batch.size());
+    }
 
     @Test
     void pedidoRepositoryNoJoinFetchItemsOpciones() throws Exception {

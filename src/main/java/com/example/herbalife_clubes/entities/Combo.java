@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +36,10 @@ public class Combo {
     @Column(name = "puntos_valor")
     private Integer puntosValor;
 
+    /** Precio de venta único del combo (decidido por el club). */
+    @Column(name = "precio", nullable = false, precision = 10, scale = 2)
+    private BigDecimal precio;
+
     @Column(name = "activo")
     private Boolean activo;
 
@@ -51,6 +56,9 @@ public class Combo {
         }
         if (puntosValor == null) {
             puntosValor = 0;
+        }
+        if (precio == null) {
+            precio = BigDecimal.ZERO;
         }
         if (createdAt == null) {
             createdAt = LocalDateTime.now();

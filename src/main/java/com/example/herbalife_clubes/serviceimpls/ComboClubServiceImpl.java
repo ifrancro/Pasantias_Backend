@@ -5,12 +5,14 @@ import com.example.herbalife_clubes.dtos.combo.ComboDTO;
 import com.example.herbalife_clubes.dtos.combo.ComboItemDTO;
 import com.example.herbalife_clubes.entities.*;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
+import com.example.herbalife_clubes.pedidos.PedidoComboSupport;
 import com.example.herbalife_clubes.repositories.*;
 import com.example.herbalife_clubes.services.ComboClubService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,10 +24,10 @@ public class ComboClubServiceImpl implements ComboClubService {
     private static final int MAX_ITEMS_POR_COMBO = 3;
 
     private final ComboRepository comboRepository;
-    private final ComboItemRepository comboItemRepository;
     private final ClubRepository clubRepository;
     private final ProductoRepository productoRepository;
     private final SaborRepository saborRepository;
+    private final ClubProductoRepository clubProductoRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -38,7 +40,7 @@ public class ComboClubServiceImpl implements ComboClubService {
     @Override
     @Transactional(readOnly = true)
     public ComboDTO getCombo(Integer comboId) {
-        Combo combo = comboRepository.findById(comboId)
+        Combo combo = comboRepository.findByIdWithItems(comboId)
                 .orElseThrow(() -> new ResourceNotFoundException("Combo no encontrado con id: " + comboId));
         return toDTO(combo);
     }
@@ -50,30 +52,19 @@ public class ComboClubServiceImpl implements ComboClubService {
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
 
         validarRequest(request);
+        validarPrecio(request.getPrecio());
 
         Combo combo = new Combo();
         combo.setClub(club);
         combo.setNombre(request.getNombre().trim());
         combo.setDescripcion(request.getDescripcion());
         combo.setImagenUrl(request.getImagenUrl());
+        combo.setPrecio(request.getPrecio());
         combo.setActivo(true);
 
-        // Crear items
-        List<ComboItem> items = buildItems(combo, request.getItems());
+        List<ComboItem> items = buildItems(combo, club, request.getItems());
         combo.setItems(items);
-
-        // Calcular puntos: si no se proporcionan, sumar los puntos de los productos
-        if (request.getPuntosValor() != null) {
-            combo.setPuntosValor(request.getPuntosValor());
-        } else {
-            int totalPuntos = items.stream()
-                    .mapToInt(item -> {
-                        int pv = item.getProducto().getPuntosValor() != null ? item.getProducto().getPuntosValor() : 0;
-                        return pv * item.getCantidad();
-                    })
-                    .sum();
-            combo.setPuntosValor(totalPuntos);
-        }
+        combo.setPuntosValor(calcularPuntos(items));
 
         Combo saved = comboRepository.save(combo);
         return toDTO(saved);
@@ -82,32 +73,21 @@ public class ComboClubServiceImpl implements ComboClubService {
     @Override
     @Transactional
     public ComboDTO updateCombo(Integer comboId, ComboCreateRequest request) {
-        Combo combo = comboRepository.findById(comboId)
+        Combo combo = comboRepository.findByIdWithItems(comboId)
                 .orElseThrow(() -> new ResourceNotFoundException("Combo no encontrado con id: " + comboId));
 
         validarRequest(request);
+        validarPrecio(request.getPrecio());
 
         combo.setNombre(request.getNombre().trim());
         combo.setDescripcion(request.getDescripcion());
         combo.setImagenUrl(request.getImagenUrl());
+        combo.setPrecio(request.getPrecio());
 
-        // Reemplazar items
         combo.getItems().clear();
-        List<ComboItem> newItems = buildItems(combo, request.getItems());
+        List<ComboItem> newItems = buildItems(combo, combo.getClub(), request.getItems());
         combo.getItems().addAll(newItems);
-
-        // Recalcular puntos
-        if (request.getPuntosValor() != null) {
-            combo.setPuntosValor(request.getPuntosValor());
-        } else {
-            int totalPuntos = newItems.stream()
-                    .mapToInt(item -> {
-                        int pv = item.getProducto().getPuntosValor() != null ? item.getProducto().getPuntosValor() : 0;
-                        return pv * item.getCantidad();
-                    })
-                    .sum();
-            combo.setPuntosValor(totalPuntos);
-        }
+        combo.setPuntosValor(calcularPuntos(newItems));
 
         Combo saved = comboRepository.save(combo);
         return toDTO(saved);
@@ -131,8 +111,6 @@ public class ComboClubServiceImpl implements ComboClubService {
         comboRepository.deleteById(comboId);
     }
 
-    // ===================== Helpers =====================
-
     private void validarRequest(ComboCreateRequest request) {
         if (request.getNombre() == null || request.getNombre().isBlank()) {
             throw new IllegalArgumentException("El nombre del combo es requerido");
@@ -142,12 +120,19 @@ public class ComboClubServiceImpl implements ComboClubService {
         }
         if (request.getItems().size() > MAX_ITEMS_POR_COMBO) {
             throw new IllegalArgumentException(
-                    "Un combo no puede tener más de " + MAX_ITEMS_POR_COMBO + " productos distintos. " +
-                    "Recibidos: " + request.getItems().size());
+                    "Un combo no puede tener más de " + MAX_ITEMS_POR_COMBO + " productos distintos. "
+                            + "Recibidos: " + request.getItems().size());
         }
     }
 
-    private List<ComboItem> buildItems(Combo combo, List<ComboCreateRequest.ComboItemRequest> itemRequests) {
+    private static void validarPrecio(BigDecimal precio) {
+        if (precio == null || precio.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException(PedidoComboSupport.MENSAJE_PRECIO_COMBO_INVALIDO);
+        }
+    }
+
+    private List<ComboItem> buildItems(
+            Combo combo, Club club, List<ComboCreateRequest.ComboItemRequest> itemRequests) {
         List<ComboItem> items = new ArrayList<>();
         for (ComboCreateRequest.ComboItemRequest req : itemRequests) {
             if (req.getProductoId() == null) {
@@ -157,6 +142,8 @@ public class ComboClubServiceImpl implements ComboClubService {
             Producto producto = productoRepository.findById(req.getProductoId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Producto no encontrado con id: " + req.getProductoId()));
+
+            validarProductoEnCombo(producto, club);
 
             Sabor sabor = null;
             if (req.getSaborId() != null) {
@@ -175,6 +162,43 @@ public class ComboClubServiceImpl implements ComboClubService {
         return items;
     }
 
+    private void validarProductoEnCombo(Producto producto, Club club) {
+        if (!"APROBADO".equalsIgnoreCase(producto.getEstadoAprobacion())) {
+            throw new IllegalArgumentException(
+                    "El producto " + producto.getNombre() + " no está aprobado");
+        }
+        if (!Boolean.TRUE.equals(producto.getActivo())) {
+            throw new IllegalArgumentException(
+                    "El producto " + producto.getNombre() + " no está activo");
+        }
+
+        String tipo = producto.getTipo() != null ? producto.getTipo().toUpperCase() : "";
+        if ("LOCAL".equals(tipo)) {
+            if (producto.getClubCreador() == null
+                    || !producto.getClubCreador().getId().equals(club.getId())) {
+                throw new IllegalArgumentException(
+                        "No se puede incluir un producto local de otro club en el combo");
+            }
+        } else if ("GLOBAL".equals(tipo)) {
+            if (club.getHub() == null || producto.getHub() == null
+                    || !producto.getHub().getId().equals(club.getHub().getId())) {
+                throw new IllegalArgumentException(
+                        "El producto global " + producto.getNombre() + " no pertenece al hub del club");
+            }
+        } else {
+            throw new IllegalArgumentException("Tipo de producto no soportado en combos: " + producto.getTipo());
+        }
+    }
+
+    private static int calcularPuntos(List<ComboItem> items) {
+        return items.stream()
+                .mapToInt(item -> {
+                    int pv = item.getProducto().getPuntosValor() != null ? item.getProducto().getPuntosValor() : 0;
+                    return pv * item.getCantidad();
+                })
+                .sum();
+    }
+
     private ComboDTO toDTO(Combo combo) {
         List<ComboItemDTO> itemDTOs = combo.getItems() != null
                 ? combo.getItems().stream().map(this::toItemDTO).collect(Collectors.toList())
@@ -188,9 +212,38 @@ public class ComboClubServiceImpl implements ComboClubService {
                 .descripcion(combo.getDescripcion())
                 .imagenUrl(combo.getImagenUrl())
                 .puntosValor(combo.getPuntosValor())
+                .precio(combo.getPrecio())
                 .activo(combo.getActivo())
+                .disponible(esComboDisponible(combo))
                 .items(itemDTOs)
                 .build();
+    }
+
+    private boolean esComboDisponible(Combo combo) {
+        if (!Boolean.TRUE.equals(combo.getActivo())) {
+            return false;
+        }
+        if (combo.getPrecio() == null || combo.getPrecio().compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        if (combo.getItems() == null || combo.getItems().isEmpty()) {
+            return false;
+        }
+        Integer clubId = combo.getClub().getId();
+        for (ComboItem item : combo.getItems()) {
+            Producto producto = item.getProducto();
+            if (!"APROBADO".equalsIgnoreCase(producto.getEstadoAprobacion())) {
+                return false;
+            }
+            if (!Boolean.TRUE.equals(producto.getActivo())) {
+                return false;
+            }
+            var cp = clubProductoRepository.findByClubIdAndProductoId(clubId, producto.getId());
+            if (cp.isEmpty() || cp.get().getDisponible() == null || !cp.get().getDisponible()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private ComboItemDTO toItemDTO(ComboItem item) {

@@ -14,6 +14,7 @@ import com.example.herbalife_clubes.entities.Producto;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.pricing.PrecioEfectivo;
+import com.example.herbalife_clubes.pedidos.PedidoComboSupport;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.ComboRepository;
@@ -62,6 +63,8 @@ class PedidoPrecioServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private ComboRepository comboRepository;
+    @Mock
+    private PedidoComboSupport pedidoComboSupport;
 
     @InjectMocks
     private PedidoServiceImpl pedidoService;

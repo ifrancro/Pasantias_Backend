@@ -103,7 +103,11 @@ class FlywayPostgresIT {
         assertTrue(flywayHistoryHasVersion("18"));
         assertTrue(flywayHistoryHasVersion("19"));
         assertTrue(flywayHistoryHasVersion("20"));
+        assertTrue(flywayHistoryHasVersion("21"));
         assertTrue(tableExists("pedido_item_opciones"));
+        assertTrue(tableExists("pedido_combos"));
+        assertTrue(columnExists("combos", "precio"));
+        assertTrue(columnExists("pedido_items", "pedido_combo_id"));
         assertTrue(columnExists("club_productos", "precio_venta"));
 
         try (Connection c = open();

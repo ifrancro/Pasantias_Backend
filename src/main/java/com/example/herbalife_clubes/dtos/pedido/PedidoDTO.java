@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,8 +32,15 @@ public class PedidoDTO {
     private String estado; // RECIBIDO | PREPARANDO | LISTO | ENTREGADO | CANCELADO
     private LocalDateTime fechaPedido;
     
-    // Lista de items del pedido (pedido_items)
+    // Lista de items del pedido (pedido_items). Incluye componentes de combo para compatibilidad;
+    // clientes modernos deben renderizar combos[] y omitir items con pedidoComboId/comboId duplicado.
     private List<PedidoItemDTO> items;
+
+    /** Líneas comerciales de combos (precio congelado). Preferir esto frente a agrupar items. */
+    private List<PedidoComboResponseDTO> combos = new ArrayList<>();
+
+    /** Total = SUM(items sueltos) + SUM(combos.subtotal). Calculado al mapear si no viene persistido. */
+    private BigDecimal total;
 
     /**
      * Selecciones del endpoint legacy POST /pedidos (un solo producto).

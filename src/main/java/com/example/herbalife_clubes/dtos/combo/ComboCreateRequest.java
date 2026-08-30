@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -16,7 +17,12 @@ public class ComboCreateRequest {
     private String nombre;
     private String descripcion;
     private String imagenUrl;
-    /** Si es null, se calcula automáticamente sumando los puntos de los productos. */
+    /** Precio de venta único del combo (obligatorio en create/update). */
+    private BigDecimal precio;
+    /**
+     * Ignorado en backend: puntosValor se recalcula siempre como suma(producto.puntos * cantidad).
+     * Se mantiene el campo por compatibilidad con clientes legacy.
+     */
     private Integer puntosValor;
     private List<ComboItemRequest> items;
 

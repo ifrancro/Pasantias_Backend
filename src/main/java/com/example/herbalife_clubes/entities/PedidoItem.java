@@ -17,8 +17,8 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(exclude = {"pedido", "producto", "combo", "opciones"})
-@ToString(exclude = {"pedido", "producto", "combo", "opciones"})
+@EqualsAndHashCode(exclude = {"pedido", "producto", "combo", "pedidoCombo", "opciones"})
+@ToString(exclude = {"pedido", "producto", "combo", "pedidoCombo", "opciones"})
 public class PedidoItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,6 +38,11 @@ public class PedidoItem {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "combo_id")
     private Combo combo;
+
+    /** Línea comercial del combo; componentes tienen subtotal 0. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pedido_combo_id")
+    private PedidoCombo pedidoCombo;
 
     @Column(name = "nota", columnDefinition = "TEXT")
     private String nota;

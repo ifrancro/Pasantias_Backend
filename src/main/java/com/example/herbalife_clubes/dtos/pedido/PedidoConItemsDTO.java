@@ -14,6 +14,8 @@ public class PedidoConItemsDTO {
     private String tipoConsumo; // PARA_RECOGER | EN_LUGAR
     private Integer tiempoEstimadoMinutos; // Tiempo estimado de preparación en minutos
     private String observaciones;
-    private List<PedidoItemDTO> items; // Lista de items del pedido
+    private List<PedidoItemDTO> items; // Productos sueltos
+    /** Combos con composición fija y opciones configurables por componente. */
+    private List<PedidoComboRequestDTO> combos;
 }
 

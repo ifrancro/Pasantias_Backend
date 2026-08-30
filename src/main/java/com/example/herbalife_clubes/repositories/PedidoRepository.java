@@ -54,13 +54,24 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
     List<Pedido> findByMembresiaIdWithRelations(@Param("membresiaId") Integer membresiaId);
 
     @Query(value = """
-            SELECT COALESCE(SUM(COALESCE(pi.subtotal, COALESCE(pi.precio_unitario, 0) * COALESCE(pi.cantidad, 1))), 0)
-            FROM pedido_items pi
-            INNER JOIN pedidos p ON p.id = pi.pedido_id
-            WHERE p.club_id = :clubId
-              AND p.fecha_pedido >= :desde
-              AND p.fecha_pedido < :hasta
-              AND p.estado = 'ENTREGADO'
+            SELECT COALESCE(SUM(ingreso), 0) FROM (
+                SELECT COALESCE(pi.subtotal, COALESCE(pi.precio_unitario, 0) * COALESCE(pi.cantidad, 1)) AS ingreso
+                FROM pedido_items pi
+                INNER JOIN pedidos p ON p.id = pi.pedido_id
+                WHERE p.club_id = :clubId
+                  AND p.fecha_pedido >= :desde
+                  AND p.fecha_pedido < :hasta
+                  AND p.estado = 'ENTREGADO'
+                  AND pi.pedido_combo_id IS NULL
+                UNION ALL
+                SELECT pc.subtotal_snapshot AS ingreso
+                FROM pedido_combos pc
+                INNER JOIN pedidos p ON p.id = pc.pedido_id
+                WHERE p.club_id = :clubId
+                  AND p.fecha_pedido >= :desde
+                  AND p.fecha_pedido < :hasta
+                  AND p.estado = 'ENTREGADO'
+            ) ingresos
             """, nativeQuery = true)
     BigDecimal sumIngresosPuntosValorEntregados(
             @Param("clubId") Integer clubId,
@@ -115,15 +126,26 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
             @Param("hasta") LocalDateTime hasta);
 
     @Query(value = """
-            SELECT CAST(p.fecha_pedido AS DATE) AS dia,
-                   COALESCE(SUM(COALESCE(pi.subtotal, COALESCE(pi.precio_unitario, 0) * COALESCE(pi.cantidad, 1))), 0)
-            FROM pedido_items pi
-            INNER JOIN pedidos p ON p.id = pi.pedido_id
-            WHERE p.club_id = :clubId
-              AND p.fecha_pedido >= :desde
-              AND p.fecha_pedido < :hasta
-              AND p.estado = 'ENTREGADO'
-            GROUP BY CAST(p.fecha_pedido AS DATE)
+            SELECT dia, COALESCE(SUM(ingreso), 0) FROM (
+                SELECT CAST(p.fecha_pedido AS DATE) AS dia,
+                       COALESCE(pi.subtotal, COALESCE(pi.precio_unitario, 0) * COALESCE(pi.cantidad, 1)) AS ingreso
+                FROM pedido_items pi
+                INNER JOIN pedidos p ON p.id = pi.pedido_id
+                WHERE p.club_id = :clubId
+                  AND p.fecha_pedido >= :desde
+                  AND p.fecha_pedido < :hasta
+                  AND p.estado = 'ENTREGADO'
+                  AND pi.pedido_combo_id IS NULL
+                UNION ALL
+                SELECT CAST(p.fecha_pedido AS DATE) AS dia, pc.subtotal_snapshot AS ingreso
+                FROM pedido_combos pc
+                INNER JOIN pedidos p ON p.id = pc.pedido_id
+                WHERE p.club_id = :clubId
+                  AND p.fecha_pedido >= :desde
+                  AND p.fecha_pedido < :hasta
+                  AND p.estado = 'ENTREGADO'
+            ) ingresos_por_linea
+            GROUP BY dia
             ORDER BY dia
             """, nativeQuery = true)
     List<Object[]> ingresosEntregadosPorDia(

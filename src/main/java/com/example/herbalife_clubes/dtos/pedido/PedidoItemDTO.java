@@ -20,6 +20,8 @@ public class PedidoItemDTO {
     private BigDecimal subtotal;
     private Integer comboId; // ID del combo origen (null si es producto suelto)
     private String comboNombre; // Nombre del combo para visualización
+    /** Línea comercial moderna; si != null el item es componente de preparación (subtotal 0). */
+    private Integer pedidoComboId;
     /** Selecciones estructuradas (request: grupoId/opcionId/cantidad; response incluye snapshots). */
     private List<PedidoItemOpcionResponseDTO> opciones = new ArrayList<>();
 }

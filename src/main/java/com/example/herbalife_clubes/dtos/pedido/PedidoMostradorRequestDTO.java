@@ -16,4 +16,6 @@ public class PedidoMostradorRequestDTO {
     private String tipoPago; // EFECTIVO | TRANSFERENCIA | QR | TARJETA | OTRO
     private String observaciones;
     private List<PedidoItemDTO> items;
+    /** Mismo contrato que POST /pedidos/con-items (deuda UI mostrador si aún no envía configuración). */
+    private List<PedidoComboRequestDTO> combos;
 }
