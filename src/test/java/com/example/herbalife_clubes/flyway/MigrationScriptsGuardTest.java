@@ -110,6 +110,27 @@ class MigrationScriptsGuardTest {
     }
 
     @Test
+    void v18CreatesProductoGruposYOpciones() throws Exception {
+        Path v18 = MIGRATIONS.resolve("V18__producto_grupos_opciones.sql");
+        assertTrue(Files.exists(v18), "Falta la migración V18 de grupos de opciones");
+        String sql = Files.readString(v18, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+        assertTrue(sql.contains("create table if not exists producto_grupos_opciones"));
+        assertTrue(sql.contains("create table if not exists producto_opciones"));
+        assertTrue(sql.contains("references productos(id) on delete cascade"));
+        assertTrue(sql.contains("references producto_grupos_opciones(id) on delete cascade"));
+        assertTrue(sql.contains("min_selecciones"));
+        assertTrue(sql.contains("max_selecciones"));
+        assertTrue(sql.contains("permite_repetir"));
+        assertTrue(sql.contains("uq_pgo_producto_nombre"));
+        assertTrue(sql.contains("uq_po_grupo_nombre"));
+        assertFalse(sql.contains("club_producto_opciones"));
+        assertFalse(sql.contains("pedido_item_opciones"));
+        assertFalse(sql.contains("precio_extra"));
+        assertFalse(sql.contains("drop table"));
+        assertFalse(sql.contains("insert into"));
+    }
+
+    @Test
     void versionsAreUniqueAndIncludeV13AndV14() throws Exception {
         try (Stream<Path> files = Files.list(MIGRATIONS)) {
             List<String> names = files.map(p -> p.getFileName().toString())
@@ -120,6 +141,7 @@ class MigrationScriptsGuardTest {
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V14__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V16__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V17__")));
+            assertTrue(names.stream().anyMatch(n -> n.startsWith("V18__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V2__")));
             assertFalse(names.stream().anyMatch(n -> n.startsWith("V1__")),
                     "No existe V1 histórico; no inventar una sin estrategia");

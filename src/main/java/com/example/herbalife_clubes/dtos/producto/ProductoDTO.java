@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -39,6 +40,12 @@ public class ProductoDTO {
     private Boolean activo;
     /** Disponible en el club (tabla club_productos). Solo se rellena cuando se lista por club para anfitrión/admin. */
     private Boolean disponible;
+    /**
+     * Definición de grupos/opciones. Null en JSON público (socio) y si el cliente viejo no envía el campo.
+     * PUT: null = preservar; [] = borrar todos; con contenido = reemplazar definición completa.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private List<ProductoGrupoOpcionDTO> gruposOpciones;
     private LocalDateTime createdAt;
 }
 

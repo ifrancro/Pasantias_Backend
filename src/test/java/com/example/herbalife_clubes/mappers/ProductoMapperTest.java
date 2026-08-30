@@ -22,6 +22,8 @@ class ProductoMapperTest {
         assertEquals("Ana Admin", dto.getRevisadoPorNombre());
         assertNotNull(dto.getRevisadoAt());
         assertEquals("leche, cacao", dto.getIngredientes());
+        assertNotNull(dto.getGruposOpciones());
+        assertTrue(dto.getGruposOpciones().isEmpty());
     }
 
     @Test
@@ -40,6 +42,8 @@ class ProductoMapperTest {
         assertFalse(body.contains("revisadoPorUsuarioId"));
         assertFalse(body.contains("revisadoPorNombre"));
         assertFalse(body.contains("revisadoAt"));
+        assertFalse(body.contains("gruposOpciones"));
+        assertNull(dto.getGruposOpciones());
     }
 
     static Producto productoConRevision() {

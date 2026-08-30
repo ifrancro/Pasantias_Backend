@@ -5,8 +5,13 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "productos")
@@ -73,6 +78,19 @@ public class Producto {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    /**
+     * Definición estructural de grupos/opciones. Cascade + orphanRemoval:
+     * PUT con gruposOpciones != null reemplaza la colección completa.
+     * Seguro en este ticket porque no hay pedido_item_opciones ni club_producto_opciones.
+     * Deuda futura: antes de introducir esas FKs hay que dejar de regenerar IDs
+     * y sincronizar por identidad estable.
+     */
+    @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("orden ASC, id ASC")
+    @EqualsAndHashCode.Exclude
+    @ToString.Exclude
+    private List<ProductoGrupoOpcion> gruposOpciones = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

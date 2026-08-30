@@ -127,6 +127,9 @@ class ProductoSec001ServiceTest {
         assertEquals("Batido v2", dto.getNombre());
         assertTrue(producto.getActivo());
         assertTrue(dto.getActivo());
+        assertEquals("PENDIENTE", dto.getEstadoAprobacion());
+        assertNull(producto.getRevisadoPor());
+        assertNull(producto.getRevisadoAt());
     }
 
     @Test
@@ -146,6 +149,7 @@ class ProductoSec001ServiceTest {
 
         assertFalse(producto.getActivo());
         assertFalse(dto.getActivo());
+        assertEquals("PENDIENTE", dto.getEstadoAprobacion());
     }
 
     @Test

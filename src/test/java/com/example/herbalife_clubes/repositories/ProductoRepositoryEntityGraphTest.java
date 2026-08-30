@@ -12,7 +12,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ProductoRepositoryEntityGraphTest {
 
-    private static final Set<String> REQUIRED_PATHS = Set.of("hub", "clubCreador", "revisadoPor");
+    private static final Set<String> REQUIRED_PATHS = Set.of(
+            "hub", "clubCreador", "revisadoPor", "gruposOpciones", "gruposOpciones.opciones");
 
     @Test
     void consultasQueAlimentanProductoMapperCarganHubYClubCreador() throws Exception {
@@ -34,6 +35,6 @@ class ProductoRepositoryEntityGraphTest {
         assertNotNull(graph, methodName + " debe declarar @EntityGraph(hub, clubCreador, revisadoPor)");
         Set<String> paths = Set.of(graph.attributePaths());
         assertTrue(paths.containsAll(REQUIRED_PATHS),
-                methodName + " debe cargar hub, clubCreador y revisadoPor, no " + paths);
+                methodName + " debe cargar hub, clubCreador, revisadoPor y gruposOpciones, no " + paths);
     }
 }

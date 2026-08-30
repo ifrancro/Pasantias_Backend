@@ -15,7 +15,8 @@ import com.example.herbalife_clubes.repositories.HubRepository;
 import com.example.herbalife_clubes.repositories.ProductoRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.services.ProductoService;
-import lombok.AllArgsConstructor;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -28,7 +29,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-@AllArgsConstructor
 public class ProductoServiceImpl implements ProductoService {
     @Autowired
     private ProductoRepository productoRepository;
@@ -40,6 +40,13 @@ public class ProductoServiceImpl implements ProductoService {
     private ClubProductoRepository clubProductoRepository;
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    /**
+     * No forma parte del constructor Lombok: los tests Mockito no lo mockean.
+     * En runtime Spring lo inyecta para flush de DELETE antes de INSERT.
+     */
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     @Transactional
@@ -92,7 +99,10 @@ public class ProductoServiceImpl implements ProductoService {
         if (producto.getPrecio() == null) {
             producto.setPrecio(BigDecimal.ZERO);
         }
-        
+
+        ProductoGruposOpcionesSupport.aplicarSiPresente(
+                producto, productoDTO.getGruposOpciones(), this::flushDeletesDeGrupos);
+
         // Guardar producto
         Producto savedProducto = productoRepository.save(producto);
 
@@ -185,6 +195,8 @@ public class ProductoServiceImpl implements ProductoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
         assertPuedeEditarProducto(usuario, producto);
 
+        boolean cambioEstructural = hayCambioEstructural(producto, productoDTO);
+
         producto.setNombre(productoDTO.getNombre());
         producto.setDescripcion(productoDTO.getDescripcion());
         producto.setImagenUrl(productoDTO.getImagenUrl());
@@ -198,11 +210,64 @@ public class ProductoServiceImpl implements ProductoService {
         if (productoDTO.getEsCombo() != null) {
             producto.setEsCombo(productoDTO.getEsCombo());
         }
-        // RECHAZADO no pasa a PENDIENTE aquí: el anfitrión usa /reenviar.
-        // APROBADO no vuelve a revisión en este ticket (PROD-OPTIONS-001b).
+        ProductoGruposOpcionesSupport.aplicarSiPresente(
+                producto, productoDTO.getGruposOpciones(), this::flushDeletesDeGrupos);
+
+        // ANFITRION + LOCAL APROBADO + cambio estructural → vuelve a revisión.
+        // RECHAZADO se queda RECHAZADO (reenviar es explícito). PENDIENTE se queda PENDIENTE.
+        if (esAnfitrion(usuarioRol(usuario))
+                && "LOCAL".equalsIgnoreCase(producto.getTipo())
+                && "APROBADO".equalsIgnoreCase(producto.getEstadoAprobacion())
+                && cambioEstructural) {
+            producto.setEstadoAprobacion("PENDIENTE");
+            producto.setRevisadoPor(null);
+            producto.setRevisadoAt(null);
+        }
 
         productoRepository.save(producto);
         return ProductoMapper.mapProductoToProductoDTO(producto, true);
+    }
+
+    /**
+     * Fuerza DELETE de grupos/opciones huérfanos antes de INSERT con los mismos nombres UNIQUE.
+     */
+    private void flushDeletesDeGrupos() {
+        if (entityManager != null) {
+            entityManager.flush();
+        }
+    }
+
+    /**
+     * Campos estructurales: nombre, descripción, ingredientes, imagen, puntos, grupos/opciones/reglas.
+     * No incluye activo, disponible ni precio.
+     */
+    private static boolean hayCambioEstructural(Producto actual, ProductoDTO dto) {
+        if (!ProductoGruposOpcionesSupport.norm(actual.getNombre())
+                .equals(ProductoGruposOpcionesSupport.norm(dto.getNombre()))) {
+            return true;
+        }
+        if (!ProductoGruposOpcionesSupport.norm(actual.getDescripcion())
+                .equals(ProductoGruposOpcionesSupport.norm(dto.getDescripcion()))) {
+            return true;
+        }
+        if (!ProductoGruposOpcionesSupport.norm(actual.getIngredientes())
+                .equals(ProductoGruposOpcionesSupport.norm(dto.getIngredientes()))) {
+            return true;
+        }
+        if (!ProductoGruposOpcionesSupport.norm(actual.getImagenUrl())
+                .equals(ProductoGruposOpcionesSupport.norm(dto.getImagenUrl()))) {
+            return true;
+        }
+        int puntosActual = actual.getPuntosValor() == null ? 0 : actual.getPuntosValor();
+        int puntosNuevo = dto.getPuntosValor() == null ? 0 : dto.getPuntosValor();
+        if (puntosActual != puntosNuevo) {
+            return true;
+        }
+        if (dto.getGruposOpciones() != null
+                && ProductoGruposOpcionesSupport.gruposDistintos(actual, dto.getGruposOpciones())) {
+            return true;
+        }
+        return false;
     }
 
     private void validarPrecio(BigDecimal precio) {
