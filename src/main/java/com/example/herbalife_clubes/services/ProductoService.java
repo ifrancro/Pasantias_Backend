@@ -55,9 +55,9 @@ public interface ProductoService {
 
     ProductoDTO updateProducto(Integer productoId, ProductoDTO productoDTO, Integer usuarioId);
     ProductoDTO getProducto(Integer productoId);
-    ProductoDTO getProductoPublico(Integer productoId); // Sin ingredientes y sin PENDIENTE
+    ProductoDTO getProductoPublico(Integer productoId); // APROBADO + activo; sin ingredientes
     List<ProductoDTO> getProductos();
-    List<ProductoDTO> getProductosPublicos(); // Sin ingredientes y sin PENDIENTE
+    List<ProductoDTO> getProductosPublicos(); // APROBADO + activo; sin ingredientes
     List<ProductoDTO> getProductosByClub(Integer clubId);
     /**
      * Para anfitrión/admin: todos los productos del club (incl. disponible=false) con el campo disponible rellenado.
@@ -84,8 +84,10 @@ public interface ProductoService {
     List<ProductoDTO> getProductosAprobados(Integer clubId);
     /** Productos rechazados. Si clubId no null, solo los creados por ese club. DTO completo para Admin. */
     List<ProductoDTO> getProductosRechazados(Integer clubId);
-    ProductoDTO activarProducto(Integer productoId);
-    ProductoDTO desactivarProducto(Integer productoId);
+    /** Activa el producto a nivel global (productos.activo). Solo ADMIN. */
+    ProductoDTO activarProducto(Integer productoId, Integer adminUsuarioId);
+    /** Desactiva el producto a nivel global (productos.activo). Solo ADMIN. */
+    ProductoDTO desactivarProducto(Integer productoId, Integer adminUsuarioId);
     
     /**
      * Obtiene todos los productos de un Hub (catálogo completo).

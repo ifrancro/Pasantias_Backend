@@ -188,7 +188,9 @@ public class ProductoServiceImpl implements ProductoService {
         producto.setNombre(productoDTO.getNombre());
         producto.setDescripcion(productoDTO.getDescripcion());
         producto.setImagenUrl(productoDTO.getImagenUrl());
-        producto.setActivo(productoDTO.getActivo());
+        if (esAdmin(usuarioRol(usuario)) && productoDTO.getActivo() != null) {
+            producto.setActivo(productoDTO.getActivo());
+        }
         validarPrecio(productoDTO.getPrecio());
         producto.setPrecio(productoDTO.getPrecio() != null ? productoDTO.getPrecio() : BigDecimal.ZERO);
         producto.setPuntosValor(productoDTO.getPuntosValor() != null ? productoDTO.getPuntosValor() : 0);
@@ -222,13 +224,11 @@ public class ProductoServiceImpl implements ProductoService {
     public ProductoDTO getProductoPublico(Integer productoId) {
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
-        
-        // No devolver productos PENDIENTE
-        if ("PENDIENTE".equalsIgnoreCase(producto.getEstadoAprobacion())) {
+
+        if (!esVisibleEnMenuPublico(producto)) {
             throw new ResourceNotFoundException("Producto no encontrado con id: " + productoId);
         }
-        
-        // No incluir ingredientes en respuesta pública
+
         return ProductoMapper.mapProductoToProductoDTO(producto, false);
     }
 
@@ -244,18 +244,18 @@ public class ProductoServiceImpl implements ProductoService {
     @Override
     @Transactional(readOnly = true)
     public List<ProductoDTO> getProductosPublicos() {
-        // Filtrar productos PENDIENTE y no incluir ingredientes
         List<Producto> productos = productoRepository.findAll().stream()
-                .filter(p -> !"PENDIENTE".equalsIgnoreCase(p.getEstadoAprobacion()))
+                .filter(ProductoServiceImpl::esVisibleEnMenuPublico)
                 .collect(Collectors.toList());
-        
+
         return productos.stream()
                 .map(p -> ProductoMapper.mapProductoToProductoDTO(p, false))
                 .collect(Collectors.toList());
     }
 
     /**
-     * Incluye producto si no existe fila en club_productos o si existe y disponible=true (respeta toggle).
+     * Incluye producto si no existe fila en club_productos o si existe y disponible=true (opt-out).
+     * Deuda PROD-AVAIL-002: el pedido socio exige fila explícita; el menú no.
      */
     private List<Producto> filtrarPorDisponibilidadEnClub(List<Producto> productos, Integer clubId) {
         return productos.stream()
@@ -286,9 +286,14 @@ public class ProductoServiceImpl implements ProductoService {
 
     /**
      * Productos del menú del club filtrando por disponibilidad (para socios y vista pública).
+     * Requiere APROBADO + activo=true. Respeta opt-out de club_productos (PROD-AVAIL-002).
      */
     private List<Producto> obtenerProductosMenuClub(Integer clubId) {
-        return filtrarPorDisponibilidadEnClub(obtenerProductosMenuClubSinFiltrarDisponibilidad(clubId), clubId);
+        return filtrarPorDisponibilidadEnClub(
+                obtenerProductosMenuClubSinFiltrarDisponibilidad(clubId).stream()
+                        .filter(ProductoServiceImpl::esVisibleEnMenuPublico)
+                        .collect(Collectors.toList()),
+                clubId);
     }
 
     @Override
@@ -461,7 +466,8 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     @Transactional
-    public ProductoDTO activarProducto(Integer productoId) {
+    public ProductoDTO activarProducto(Integer productoId, Integer adminUsuarioId) {
+        assertAdminCatalogo(adminUsuarioId);
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
         producto.setActivo(true);
@@ -471,7 +477,8 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     @Transactional
-    public ProductoDTO desactivarProducto(Integer productoId) {
+    public ProductoDTO desactivarProducto(Integer productoId, Integer adminUsuarioId) {
+        assertAdminCatalogo(adminUsuarioId);
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
         producto.setActivo(false);
@@ -597,6 +604,18 @@ public class ProductoServiceImpl implements ProductoService {
         Producto producto = productoOpt.get();
         
         System.out.println("[DEBUG] Producto encontrado: " + producto.getNombre() + " (ID: " + producto.getId() + ")");
+
+        if (!"APROBADO".equalsIgnoreCase(producto.getEstadoAprobacion())) {
+            throw new IllegalArgumentException(
+                    "Solo se puede cambiar la disponibilidad de un producto APROBADO");
+        }
+        if ("LOCAL".equalsIgnoreCase(producto.getTipo())) {
+            Integer creadorId = producto.getClubCreador() != null ? producto.getClubCreador().getId() : null;
+            if (creadorId == null || !clubId.equals(creadorId)) {
+                throw new AccessDeniedException(
+                        "No puedes cambiar la disponibilidad de un producto local de otro club");
+            }
+        }
         
         // Validar que el producto pertenece al mismo Hub que el club
         if (!producto.getHub().getId().equals(club.getHub().getId())) {
@@ -632,6 +651,19 @@ public class ProductoServiceImpl implements ProductoService {
                 .disponible(clubProducto.getDisponible()) // Estado local en el club
                 .createdAt(producto.getCreatedAt())
                 .build();
+    }
+
+    private void assertAdminCatalogo(Integer adminUsuarioId) {
+        Usuario usuario = usuarioRepository.findById(adminUsuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + adminUsuarioId));
+        if (!esAdmin(usuarioRol(usuario))) {
+            throw new AccessDeniedException("Solo un administrador puede activar o desactivar un producto");
+        }
+    }
+
+    private static boolean esVisibleEnMenuPublico(Producto producto) {
+        return "APROBADO".equalsIgnoreCase(producto.getEstadoAprobacion())
+                && Boolean.TRUE.equals(producto.getActivo());
     }
 
     private void assertPuedeEditarProducto(Usuario usuario, Producto producto) {

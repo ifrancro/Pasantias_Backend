@@ -87,6 +87,61 @@ class ProductoControllerRevisionTest {
     }
 
     @Test
+    void activarSinJwtDevuelve401() {
+        ResponseEntity<ProductoDTO> response = productoController.activarProducto(10);
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    }
+
+    @Test
+    void desactivarSinJwtDevuelve401() {
+        ResponseEntity<ProductoDTO> response = productoController.desactivarProducto(10);
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    }
+
+    @Test
+    void activarComoAnfitrionPropaga403() {
+        authenticateAs("andrea@club.com");
+        Usuario host = anfitrion(20, "andrea@club.com");
+        when(usuarioRepository.findByEmail("andrea@club.com")).thenReturn(Optional.of(host));
+        when(productoService.activarProducto(10, 20))
+                .thenThrow(new AccessDeniedException("Solo un administrador puede activar o desactivar un producto"));
+
+        AccessDeniedException ex = assertThrows(
+                AccessDeniedException.class,
+                () -> productoController.activarProducto(10));
+        ResponseEntity<?> handled = new GlobalExceptionHandler().handleAccessDenied(ex);
+        assertEquals(HttpStatus.FORBIDDEN, handled.getStatusCode());
+    }
+
+    @Test
+    void adminActivarPasaUsuarioId() {
+        authenticateAs("ana@hub.com");
+        when(usuarioRepository.findByEmail("ana@hub.com")).thenReturn(Optional.of(admin()));
+        ProductoDTO dto = new ProductoDTO();
+        dto.setActivo(true);
+        when(productoService.activarProducto(10, 7)).thenReturn(dto);
+
+        ResponseEntity<ProductoDTO> response = productoController.activarProducto(10);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(productoService).activarProducto(10, 7);
+    }
+
+    @Test
+    void adminDesactivarPasaUsuarioId() {
+        authenticateAs("ana@hub.com");
+        when(usuarioRepository.findByEmail("ana@hub.com")).thenReturn(Optional.of(admin()));
+        ProductoDTO dto = new ProductoDTO();
+        dto.setActivo(false);
+        when(productoService.desactivarProducto(10, 7)).thenReturn(dto);
+
+        ResponseEntity<ProductoDTO> response = productoController.desactivarProducto(10);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(productoService).desactivarProducto(10, 7);
+    }
+
+    @Test
     void aprobarPasaComentarioOpcionalYAdminId() {
         authenticateAs("ana@hub.com");
         when(usuarioRepository.findByEmail("ana@hub.com")).thenReturn(Optional.of(admin()));

@@ -210,13 +210,21 @@ public class ProductoController {
 
     @PatchMapping("{id}/activar")
     public ResponseEntity<ProductoDTO> activarProducto(@PathVariable Integer id) {
-        ProductoDTO productoDTO = productoService.activarProducto(id);
+        Usuario usuario = usuarioAutenticadoOrNull();
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        ProductoDTO productoDTO = productoService.activarProducto(id, usuario.getId());
         return ResponseEntity.ok(productoDTO);
     }
 
     @PatchMapping("{id}/desactivar")
     public ResponseEntity<ProductoDTO> desactivarProducto(@PathVariable Integer id) {
-        ProductoDTO productoDTO = productoService.desactivarProducto(id);
+        Usuario usuario = usuarioAutenticadoOrNull();
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        ProductoDTO productoDTO = productoService.desactivarProducto(id, usuario.getId());
         return ResponseEntity.ok(productoDTO);
     }
 

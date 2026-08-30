@@ -103,19 +103,8 @@ public class PedidoServiceImpl implements PedidoService {
         }
         System.out.println("[PEDIDO] ✓ Membresía válida");
 
-        // Producto debe estar disponible en el club (validación de disponibilidad por club)
-        System.out.println("[PEDIDO] Validando disponibilidad del producto en el club...");
-        ClubProducto cp = clubProductoRepository.findByClubIdAndProductoId(clubId, productoId)
-                .orElseThrow(() -> {
-                    System.out.println("[PEDIDO] ERROR: Producto no está configurado para este club");
-                    return new IllegalArgumentException("El producto no está configurado para este club");
-                });
-        System.out.println("[PEDIDO]   - ClubProducto encontrado, disponible: " + cp.getDisponible());
-        if (cp.getDisponible() == null || !cp.getDisponible()) {
-            System.out.println("[PEDIDO] ERROR: Producto no está disponible. Disponible: " + cp.getDisponible());
-            throw new IllegalArgumentException("El producto no está disponible en este club");
-        }
-        System.out.println("[PEDIDO] ✓ Producto disponible");
+        // Producto en menú del socio: APROBADO + activo + disponible en club (fila explícita).
+        assertProductoPedidoSocio(producto, clubId);
         
         Pedido pedido = PedidoMapper.mapPedidoDTOToPedido(pedidoDTO);
         pedido.setMembresia(membresia);
@@ -265,14 +254,8 @@ public class PedidoServiceImpl implements PedidoService {
         for (PedidoItemDTO itemDTO : pedidoDTO.getItems()) {
             Producto producto = productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + itemDTO.getProductoId()));
-            
-            // Validar disponibilidad del producto en el club
-            ClubProducto cp = clubProductoRepository.findByClubIdAndProductoId(clubId, itemDTO.getProductoId())
-                    .orElseThrow(() -> new IllegalArgumentException("El producto " + producto.getNombre() + " no está configurado para este club"));
-            
-            if (cp.getDisponible() == null || !cp.getDisponible()) {
-                throw new IllegalArgumentException("El producto " + producto.getNombre() + " no está disponible en este club");
-            }
+
+            assertProductoPedidoSocio(producto, clubId);
             
             // Crear item
             PedidoItem item = new PedidoItem();
@@ -467,6 +450,26 @@ public class PedidoServiceImpl implements PedidoService {
         }
 
         return PedidoMapper.mapPedidoToPedidoDTO(saved);
+    }
+
+    /**
+     * Menú pedido socio: APROBADO + activo=true + fila club_productos.disponible=true.
+     * No cambia la política de fila explícita (deuda PROD-AVAIL-002 vs menú opt-out).
+     */
+    private void assertProductoPedidoSocio(Producto producto, Integer clubId) {
+        if (!"APROBADO".equalsIgnoreCase(producto.getEstadoAprobacion())) {
+            throw new IllegalArgumentException("El producto no está aprobado para el menú");
+        }
+        if (!Boolean.TRUE.equals(producto.getActivo())) {
+            throw new IllegalArgumentException("El producto no está activo");
+        }
+        ClubProducto cp = clubProductoRepository.findByClubIdAndProductoId(clubId, producto.getId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "El producto " + producto.getNombre() + " no está configurado para este club"));
+        if (cp.getDisponible() == null || !cp.getDisponible()) {
+            throw new IllegalArgumentException(
+                    "El producto " + producto.getNombre() + " no está disponible en este club");
+        }
     }
 
     private boolean esProductoDisponibleEnClub(Integer clubId, Integer productoId) {
