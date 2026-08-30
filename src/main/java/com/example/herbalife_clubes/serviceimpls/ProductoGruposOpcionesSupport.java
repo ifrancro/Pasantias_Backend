@@ -7,26 +7,33 @@ import com.example.herbalife_clubes.entities.ProductoGrupoOpcion;
 import com.example.herbalife_clubes.entities.ProductoOpcion;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
- * Validación y reemplazo de la definición estructural de grupos/opciones.
- * PUT con {@code gruposOpciones != null} reemplaza la colección completa (cascade + orphanRemoval).
- * Aceptable porque aún no hay pedido_item_opciones ni club_producto_opciones.
+ * Validación y sincronización por identidad de grupos/opciones.
  *
- * UNIQUE (producto_id, nombre) y UNIQUE (grupo_id, nombre): hay que vaciar, flush de DELETE
- * y recién insertar. Si no, Hibernate puede INSERT antes del DELETE y PostgreSQL rechaza
- * el mismo nombre.
+ * <p>PUT con {@code gruposOpciones == null} preserva la definición actual.
+ * {@code gruposOpciones == []} elimina toda la definición.
+ * Con contenido, sincroniza hasta que la BD refleje exactamente el payload final,
+ * conservando IDs de filas sobrevivientes.
  *
- * Deuda futura: cuando existan pedido_item_opciones o club_producto_opciones no se podrán
- * regenerar IDs con reemplazo ciego. Habrá que sincronizar por identidad estable.
+ * <p>Deuda futura (001d-B): pedido_item_opciones guardará snapshots; los FKs no deben
+ * destruir historia si una definición se elimina posteriormente.
  */
 final class ProductoGruposOpcionesSupport {
+
+    private static final int MAX_NOMBRE = 100;
+    private static final String TEMP_PREFIX = "~s~";
 
     private ProductoGruposOpcionesSupport() {
     }
@@ -36,16 +43,338 @@ final class ProductoGruposOpcionesSupport {
     }
 
     static void aplicarSiPresente(
-            Producto producto, List<ProductoGrupoOpcionDTO> gruposDto, Runnable afterDeletes) {
+            Producto producto, List<ProductoGrupoOpcionDTO> gruposDto, Runnable afterFlush) {
         if (gruposDto == null) {
             return;
         }
         validar(gruposDto);
-        vaciar(producto);
-        if (afterDeletes != null) {
-            afterDeletes.run();
+        if (gruposDto.isEmpty()) {
+            vaciar(producto);
+            flush(afterFlush);
+            return;
         }
-        poblar(producto, gruposDto);
+        sincronizar(producto, gruposDto, afterFlush);
+    }
+
+    private static void sincronizar(
+            Producto producto, List<ProductoGrupoOpcionDTO> gruposDto, Runnable afterFlush) {
+        inicializarOpciones(producto);
+        Map<Integer, ProductoGrupoOpcion> gruposPorId = indexGruposPorId(producto);
+        Map<Integer, ProductoOpcion> opcionesPorId = indexOpcionesPorId(producto);
+
+        validarIdsGruposEnPayload(gruposDto, gruposPorId);
+        validarIdsOpcionesEnPayload(gruposDto, opcionesPorId);
+
+        Set<ProductoGrupoOpcion> gruposReclamados = Collections.newSetFromMap(new IdentityHashMap<>());
+        List<GrupoSync> syncs = new ArrayList<>();
+
+        for (ProductoGrupoOpcionDTO gDto : gruposDto) {
+            ProductoGrupoOpcion grupo = resolverGrupo(producto, gDto, gruposPorId, gruposReclamados);
+            validarOpcionesPertenecenAlGrupo(gDto, grupo, opcionesPorId);
+            syncs.add(new GrupoSync(grupo, gDto));
+        }
+
+        eliminarGruposOmitidos(producto, gruposReclamados);
+        flush(afterFlush);
+
+        for (GrupoSync sync : syncs) {
+            sincronizarOpciones(sync.grupo, sync.dto, opcionesPorId, afterFlush);
+        }
+
+        prepararRenombres(
+                syncs,
+                s -> s.grupo.getNombre(),
+                s -> s.dto.getNombre(),
+                (s, nombre) -> s.grupo.setNombre(nombre),
+                s -> s.grupo.getId(),
+                afterFlush);
+
+        for (GrupoSync sync : syncs) {
+            aplicarCamposGrupo(sync.grupo, sync.dto);
+            if (!producto.getGruposOpciones().contains(sync.grupo)) {
+                producto.getGruposOpciones().add(sync.grupo);
+            }
+        }
+    }
+
+    private static void inicializarOpciones(Producto producto) {
+        if (producto.getGruposOpciones() == null) {
+            producto.setGruposOpciones(new ArrayList<>());
+            return;
+        }
+        for (ProductoGrupoOpcion grupo : producto.getGruposOpciones()) {
+            if (grupo.getOpciones() != null) {
+                grupo.getOpciones().size();
+            }
+        }
+    }
+
+    private static Map<Integer, ProductoGrupoOpcion> indexGruposPorId(Producto producto) {
+        Map<Integer, ProductoGrupoOpcion> map = new HashMap<>();
+        if (producto.getGruposOpciones() == null) {
+            return map;
+        }
+        for (ProductoGrupoOpcion grupo : producto.getGruposOpciones()) {
+            if (grupo.getId() != null) {
+                map.put(grupo.getId(), grupo);
+            }
+        }
+        return map;
+    }
+
+    private static Map<Integer, ProductoOpcion> indexOpcionesPorId(Producto producto) {
+        Map<Integer, ProductoOpcion> map = new HashMap<>();
+        if (producto.getGruposOpciones() == null) {
+            return map;
+        }
+        for (ProductoGrupoOpcion grupo : producto.getGruposOpciones()) {
+            if (grupo.getOpciones() == null) {
+                continue;
+            }
+            for (ProductoOpcion opcion : grupo.getOpciones()) {
+                if (opcion.getId() != null) {
+                    map.put(opcion.getId(), opcion);
+                }
+            }
+        }
+        return map;
+    }
+
+    private static void validarIdsGruposEnPayload(
+            List<ProductoGrupoOpcionDTO> gruposDto, Map<Integer, ProductoGrupoOpcion> gruposPorId) {
+        Set<Integer> vistos = new HashSet<>();
+        for (ProductoGrupoOpcionDTO gDto : gruposDto) {
+            Integer id = gDto.getId();
+            if (id == null) {
+                continue;
+            }
+            if (!vistos.add(id)) {
+                throw new IllegalArgumentException("El id de grupo " + id + " está repetido en el payload");
+            }
+            if (!gruposPorId.containsKey(id)) {
+                throw new IllegalArgumentException("El grupo con id " + id + " no pertenece a este producto");
+            }
+        }
+    }
+
+    private static void validarIdsOpcionesEnPayload(
+            List<ProductoGrupoOpcionDTO> gruposDto, Map<Integer, ProductoOpcion> opcionesPorId) {
+        Set<Integer> vistos = new HashSet<>();
+        for (ProductoGrupoOpcionDTO gDto : gruposDto) {
+            for (ProductoOpcionDTO oDto : gDto.getOpciones()) {
+                Integer id = oDto.getId();
+                if (id == null) {
+                    continue;
+                }
+                if (!vistos.add(id)) {
+                    throw new IllegalArgumentException("El id de opción " + id + " está repetido en el payload");
+                }
+                if (!opcionesPorId.containsKey(id)) {
+                    throw new IllegalArgumentException("La opción con id " + id + " no pertenece a este producto");
+                }
+            }
+        }
+    }
+
+    private static void validarOpcionesPertenecenAlGrupo(
+            ProductoGrupoOpcionDTO gDto,
+            ProductoGrupoOpcion grupo,
+            Map<Integer, ProductoOpcion> opcionesPorId) {
+        for (ProductoOpcionDTO oDto : gDto.getOpciones()) {
+            if (oDto.getId() == null) {
+                continue;
+            }
+            ProductoOpcion existente = opcionesPorId.get(oDto.getId());
+            Integer grupoExistenteId = existente.getGrupo() != null ? existente.getGrupo().getId() : null;
+            Integer grupoDestinoId = grupo.getId();
+            if (grupoExistenteId != null && grupoDestinoId != null && !grupoExistenteId.equals(grupoDestinoId)) {
+                throw new IllegalArgumentException(
+                        "La opción con id " + oDto.getId() + " no pertenece al grupo indicado");
+            }
+            if (grupoExistenteId != null && grupoDestinoId == null) {
+                throw new IllegalArgumentException(
+                        "La opción con id " + oDto.getId() + " no puede moverse a otro grupo");
+            }
+        }
+    }
+
+    private static ProductoGrupoOpcion resolverGrupo(
+            Producto producto,
+            ProductoGrupoOpcionDTO gDto,
+            Map<Integer, ProductoGrupoOpcion> gruposPorId,
+            Set<ProductoGrupoOpcion> gruposReclamados) {
+        if (gDto.getId() != null) {
+            ProductoGrupoOpcion grupo = gruposPorId.get(gDto.getId());
+            gruposReclamados.add(grupo);
+            return grupo;
+        }
+
+        String clave = claveNombre(gDto.getNombre());
+        for (ProductoGrupoOpcion candidato : producto.getGruposOpciones()) {
+            if (gruposReclamados.contains(candidato)) {
+                continue;
+            }
+            if (clave.equals(claveNombre(candidato.getNombre()))) {
+                gruposReclamados.add(candidato);
+                return candidato;
+            }
+        }
+
+        ProductoGrupoOpcion nuevo = new ProductoGrupoOpcion();
+        nuevo.setProducto(producto);
+        nuevo.setOpciones(new ArrayList<>());
+        gruposReclamados.add(nuevo);
+        return nuevo;
+    }
+
+    private static void eliminarGruposOmitidos(Producto producto, Set<ProductoGrupoOpcion> gruposReclamados) {
+        producto.getGruposOpciones().removeIf(g -> !gruposReclamados.contains(g));
+    }
+
+    private static void sincronizarOpciones(
+            ProductoGrupoOpcion grupo,
+            ProductoGrupoOpcionDTO gDto,
+            Map<Integer, ProductoOpcion> opcionesPorId,
+            Runnable afterFlush) {
+        if (grupo.getOpciones() == null) {
+            grupo.setOpciones(new ArrayList<>());
+        }
+
+        Set<ProductoOpcion> opcionesReclamadas = Collections.newSetFromMap(new IdentityHashMap<>());
+        List<OpcionSync> syncs = new ArrayList<>();
+
+        for (ProductoOpcionDTO oDto : gDto.getOpciones()) {
+            ProductoOpcion opcion = resolverOpcion(grupo, oDto, opcionesPorId, opcionesReclamadas);
+            syncs.add(new OpcionSync(opcion, oDto, opcion.getId() == null));
+        }
+
+        grupo.getOpciones().removeIf(o -> !opcionesReclamadas.contains(o));
+        flush(afterFlush);
+
+        prepararRenombres(
+                syncs,
+                s -> s.opcion.getNombre(),
+                s -> s.dto.getNombre(),
+                (s, nombre) -> s.opcion.setNombre(nombre),
+                s -> s.opcion.getId(),
+                afterFlush);
+
+        for (OpcionSync sync : syncs) {
+            aplicarCamposOpcion(sync.opcion, sync.dto, sync.nueva);
+            if (!grupo.getOpciones().contains(sync.opcion)) {
+                grupo.getOpciones().add(sync.opcion);
+            }
+        }
+    }
+
+    private static ProductoOpcion resolverOpcion(
+            ProductoGrupoOpcion grupo,
+            ProductoOpcionDTO oDto,
+            Map<Integer, ProductoOpcion> opcionesProductoPorId,
+            Set<ProductoOpcion> opcionesReclamadas) {
+        if (oDto.getId() != null) {
+            ProductoOpcion opcion = opcionesProductoPorId.get(oDto.getId());
+            opcionesReclamadas.add(opcion);
+            return opcion;
+        }
+
+        String clave = claveNombre(oDto.getNombre());
+        for (ProductoOpcion candidato : grupo.getOpciones()) {
+            if (opcionesReclamadas.contains(candidato)) {
+                continue;
+            }
+            if (clave.equals(claveNombre(candidato.getNombre()))) {
+                opcionesReclamadas.add(candidato);
+                return candidato;
+            }
+        }
+
+        ProductoOpcion nuevo = new ProductoOpcion();
+        nuevo.setGrupo(grupo);
+        opcionesReclamadas.add(nuevo);
+        return nuevo;
+    }
+
+    private static void aplicarCamposGrupo(ProductoGrupoOpcion grupo, ProductoGrupoOpcionDTO dto) {
+        grupo.setNombre(dto.getNombre());
+        grupo.setOrden(dto.getOrden() == null ? 0 : dto.getOrden());
+        grupo.setMinSelecciones(dto.getMinSelecciones() == null ? 0 : dto.getMinSelecciones());
+        grupo.setMaxSelecciones(dto.getMaxSelecciones());
+        grupo.setPermiteRepetir(Boolean.TRUE.equals(dto.getPermiteRepetir()));
+    }
+
+    private static void aplicarCamposOpcion(ProductoOpcion opcion, ProductoOpcionDTO dto, boolean nueva) {
+        opcion.setNombre(dto.getNombre());
+        opcion.setOrden(dto.getOrden() == null ? 0 : dto.getOrden());
+        if (nueva) {
+            opcion.setActivo(true);
+        }
+    }
+
+    /**
+     * Evita violaciones UNIQUE al renombrar/intercambiar nombres: primero nombres temporales, flush, luego finales.
+     */
+    private static <T> void prepararRenombres(
+            List<T> items,
+            Function<T, String> leerNombreActual,
+            Function<T, String> leerNombreDestino,
+            java.util.function.BiConsumer<T, String> escribirNombre,
+            Function<T, Integer> leerId,
+            Runnable afterFlush) {
+        boolean necesitaTemp = false;
+        for (T item : items) {
+            String destino = leerNombreDestino.apply(item);
+            String actual = leerNombreActual.apply(item);
+            if (destino == null || destino.equals(actual)) {
+                continue;
+            }
+            for (T otro : items) {
+                if (item == otro) {
+                    continue;
+                }
+                if (destino.equals(leerNombreActual.apply(otro))) {
+                    necesitaTemp = true;
+                    break;
+                }
+            }
+            if (necesitaTemp) {
+                break;
+            }
+        }
+
+        if (!necesitaTemp) {
+            return;
+        }
+
+        int seq = 0;
+        for (T item : items) {
+            String destino = leerNombreDestino.apply(item);
+            String actual = leerNombreActual.apply(item);
+            if (destino == null || destino.equals(actual)) {
+                continue;
+            }
+            Integer id = leerId.apply(item);
+            escribirNombre.accept(item, tempNombre(id != null ? id : --seq));
+        }
+        flush(afterFlush);
+    }
+
+    private static String tempNombre(int id) {
+        String temp = TEMP_PREFIX + id + "~";
+        if (temp.length() > MAX_NOMBRE) {
+            throw new IllegalStateException("Nombre temporal excede longitud máxima");
+        }
+        return temp;
+    }
+
+    private static String claveNombre(String nombre) {
+        return nombre == null ? "" : nombre.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static void flush(Runnable afterFlush) {
+        if (afterFlush != null) {
+            afterFlush.run();
+        }
     }
 
     static void validar(List<ProductoGrupoOpcionDTO> gruposDto) {
@@ -62,7 +391,7 @@ final class ProductoGruposOpcionesSupport {
                 throw new IllegalArgumentException("El nombre del grupo no puede estar vacío");
             }
             grupo.setNombre(nombreGrupo);
-            String claveGrupo = nombreGrupo.toLowerCase(Locale.ROOT);
+            String claveGrupo = claveNombre(nombreGrupo);
             if (!nombresGrupos.add(claveGrupo)) {
                 throw new IllegalArgumentException("Ya existe un grupo con el nombre '" + nombreGrupo + "'");
             }
@@ -103,7 +432,7 @@ final class ProductoGruposOpcionesSupport {
                     throw new IllegalArgumentException("El nombre de la opción no puede estar vacío");
                 }
                 opcion.setNombre(nombreOpcion);
-                String claveOpcion = nombreOpcion.toLowerCase(Locale.ROOT);
+                String claveOpcion = claveNombre(nombreOpcion);
                 if (!nombresOpciones.add(claveOpcion)) {
                     throw new IllegalArgumentException(
                             "La opción '" + nombreOpcion + "' está duplicada en el grupo '" + nombreGrupo + "'");
@@ -158,8 +487,6 @@ final class ProductoGruposOpcionesSupport {
                 opcion.setGrupo(grupo);
                 opcion.setNombre(oDto.getNombre());
                 opcion.setOrden(oDto.getOrden() == null ? 0 : oDto.getOrden());
-                // Edición estructural del anfitrión: las opciones nacen activas.
-                // No se usa DTO.activo (disponibilidad operativa es un ticket posterior).
                 opcion.setActivo(true);
                 grupo.getOpciones().add(opcion);
             }
@@ -234,5 +561,11 @@ final class ProductoGruposOpcionesSupport {
 
     static String norm(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private record GrupoSync(ProductoGrupoOpcion grupo, ProductoGrupoOpcionDTO dto) {
+    }
+
+    private record OpcionSync(ProductoOpcion opcion, ProductoOpcionDTO dto, boolean nueva) {
     }
 }

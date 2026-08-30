@@ -81,10 +81,7 @@ public class Producto {
 
     /**
      * Definición estructural de grupos/opciones. Cascade + orphanRemoval:
-     * PUT con gruposOpciones != null reemplaza la colección completa.
-     * Seguro en este ticket porque no hay pedido_item_opciones ni club_producto_opciones.
-     * Deuda futura: antes de introducir esas FKs hay que dejar de regenerar IDs
-     * y sincronizar por identidad estable.
+     * PUT sincroniza por identidad; elementos omitidos se eliminan.
      * Fetch: EntityGraph JOIN FETCH de esta bag sola (no de opciones a la vez)
      * para evitar MultipleBagFetchException. Orden semántico por {@code orden}.
      */

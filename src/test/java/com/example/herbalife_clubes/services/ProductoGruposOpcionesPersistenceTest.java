@@ -51,8 +51,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * UNIQUE de entidades alineado con V18. ddl-auto=create-drop, Flyway off:
  * igual que el resto de DataJpaTest portables del proyecto.
  *
- * Deuda futura (no implementar aquí): pedido_item_opciones y club_producto_opciones
- * exigirán update por IDs estables, no reemplazo ciego que regenera filas.
+ * Sincronización por identidad estable (001d-A): IDs sobreviven ediciones normales.
+ * Deuda futura (001d-B): pedido_item_opciones guardará snapshots históricos.
  */
 @Tag("postgres")
 @DataJpaTest
@@ -290,6 +290,47 @@ class ProductoGruposOpcionesPersistenceTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @Rollback(false)
+    void syncConservaIdsTrasRenombreYAlta() {
+        Seeded seeded = seedProductoConSabores();
+        Integer grupoId = seeded.grupoId;
+        Integer opcionFrutillaId = seeded.opcionIds.get(0);
+        Integer opcionVainillaId = seeded.opcionIds.get(1);
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+
+        ProductoDTO request = basePut(seeded);
+        request.setGruposOpciones(List.of(
+                grupoConIds(grupoId, "Sabores premium", 0,
+                        opcionConId(opcionFrutillaId, "Frutilla tropical", 0),
+                        opcionConId(opcionVainillaId, "Vainilla", 1),
+                        opcionSinId("Nuevo", 2))));
+
+        ProductoDTO dto = productoService.updateProducto(seeded.productoId, request, seeded.hostId);
+
+        assertEquals(grupoId, dto.getGruposOpciones().get(0).getId());
+        assertEquals(opcionFrutillaId, dto.getGruposOpciones().get(0).getOpciones().stream()
+                .filter(o -> "Frutilla tropical".equals(o.getNombre())).findFirst().orElseThrow().getId());
+        assertEquals(opcionVainillaId, dto.getGruposOpciones().get(0).getOpciones().stream()
+                .filter(o -> "Vainilla".equals(o.getNombre())).findFirst().orElseThrow().getId());
+        assertNotNull(dto.getGruposOpciones().get(0).getOpciones().stream()
+                .filter(o -> "Nuevo".equals(o.getNombre())).findFirst().orElseThrow().getId());
+
+        tx.executeWithoutResult(status -> {
+            entityManager.clear();
+            Producto recargado = productoRepository.findById(seeded.productoId).orElseThrow();
+            ProductoGrupoOpcion grupo = recargado.getGruposOpciones().get(0);
+            assertEquals(grupoId, grupo.getId());
+            assertEquals("Sabores premium", grupo.getNombre());
+            assertEquals(3, grupo.getOpciones().size());
+            assertTrue(grupo.getOpciones().stream().anyMatch(o -> opcionFrutillaId.equals(o.getId())
+                    && "Frutilla tropical".equals(o.getNombre())));
+            assertTrue(grupo.getOpciones().stream().anyMatch(o -> opcionVainillaId.equals(o.getId())));
+            assertEquals(1L, grupo.getOpciones().stream().filter(o -> "Nuevo".equals(o.getNombre())).count());
+        });
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
     void flushNoDejaColeccionDuplicada() {
         Seeded seeded = seedProductoConSabores();
         ProductoDTO request = basePut(seeded);
@@ -400,6 +441,23 @@ class ProductoGruposOpcionesPersistenceTest {
         dto.setNombre(nombre);
         dto.setOrden(orden);
         return dto;
+    }
+
+    private static ProductoGrupoOpcionDTO grupoConIds(
+            Integer id, String nombre, int orden, ProductoOpcionDTO... opciones) {
+        ProductoGrupoOpcionDTO dto = grupo(nombre, orden, opciones);
+        dto.setId(id);
+        return dto;
+    }
+
+    private static ProductoOpcionDTO opcionConId(Integer id, String nombre, int orden) {
+        ProductoOpcionDTO dto = opcion(nombre, orden);
+        dto.setId(id);
+        return dto;
+    }
+
+    private static ProductoOpcionDTO opcionSinId(String nombre, int orden) {
+        return opcion(nombre, orden);
     }
 
     private static ProductoOpcion opcionEntity(ProductoGrupoOpcion grupo, String nombre, int orden) {

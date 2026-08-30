@@ -232,10 +232,10 @@ public class ProductoServiceImpl implements ProductoService {
         return ProductoMapper.mapProductoToProductoDTO(producto, true);
     }
 
-    /**
-     * Fuerza DELETE de grupos/opciones huérfanos antes de INSERT con los mismos nombres UNIQUE.
-     */
-    private void flushDeletesDeGrupos() {
+/**
+ * Fuerza flush de persistencia durante sincronización (DELETE previos, renombres UNIQUE).
+ */
+private void flushDeletesDeGrupos() {
         if (entityManager != null) {
             entityManager.flush();
         }

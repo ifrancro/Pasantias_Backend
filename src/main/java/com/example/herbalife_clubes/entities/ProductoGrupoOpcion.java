@@ -13,9 +13,7 @@ import java.util.List;
 
 /**
  * Grupo de opciones de un producto (p. ej. Sabores, Consistencia).
- * Cascade ALL + orphanRemoval: la definición se reemplaza completa en PUT
- * porque aún no existen pedido_item_opciones ni club_producto_opciones.
- * Deuda futura: esas FKs exigirán sincronización por IDs, no reemplazo ciego.
+ * Sincronización por identidad en PUT: IDs estables para filas sobrevivientes.
  */
 @Entity
 @Table(name = "producto_grupos_opciones",
