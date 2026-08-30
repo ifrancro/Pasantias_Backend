@@ -31,8 +31,8 @@ public class ProductoDTO {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private BigDecimal precioEfectivo;
     /**
-     * Override persistido en {@code club_productos.precio_venta}.
-     * Null = sin override (usar precio base). Solo vistas HOST/ADMIN por club.
+     * Override persistido en {@code club_productos.precio_venta} (solo GLOBAL con contexto club).
+     * LOCAL: siempre null/omitido — el precio de venta vive en {@code productos.precio}.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private BigDecimal precioVentaClub;

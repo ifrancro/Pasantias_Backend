@@ -11,23 +11,38 @@ import static org.junit.jupiter.api.Assertions.*;
 class PrecioEfectivoTest {
 
     @Test
-    void overrideGanaAlPrecioBase() {
-        assertEquals(bd("28.00"), PrecioEfectivo.resolverPrecioEfectivo(producto(bd("25.00")), club(bd("28.00"))));
+    void globalOverrideGanaAlPrecioBase() {
+        assertEquals(bd("28.00"),
+                PrecioEfectivo.resolverPrecioEfectivo(global(bd("25.00")), club(bd("28.00"))));
     }
 
     @Test
-    void overrideNullUsaPrecioBase() {
-        assertEquals(bd("25.00"), PrecioEfectivo.resolverPrecioEfectivo(producto(bd("25.00")), club(null)));
+    void globalOverrideNullUsaPrecioBase() {
+        assertEquals(bd("25.00"),
+                PrecioEfectivo.resolverPrecioEfectivo(global(bd("25.00")), club(null)));
     }
 
     @Test
-    void sinClubProductoUsaPrecioBase() {
-        assertEquals(bd("25.00"), PrecioEfectivo.resolverPrecioEfectivo(producto(bd("25.00")), null));
+    void globalSinClubProductoUsaPrecioBase() {
+        assertEquals(bd("25.00"),
+                PrecioEfectivo.resolverPrecioEfectivo(global(bd("25.00")), null));
     }
 
     @Test
-    void overrideCeroSeResuelveACeroYNoEstaConfigurado() {
-        BigDecimal efectivo = PrecioEfectivo.resolverPrecioEfectivo(producto(bd("25.00")), club(BigDecimal.ZERO));
+    void localIgnoraOverrideAccidentalEnClubProducto() {
+        assertEquals(bd("20.00"),
+                PrecioEfectivo.resolverPrecioEfectivo(local(bd("20.00")), club(bd("32.00"))));
+    }
+
+    @Test
+    void localSinClubProductoUsaProductoPrecio() {
+        assertEquals(bd("32.00"),
+                PrecioEfectivo.resolverPrecioEfectivo(local(bd("32.00")), null));
+    }
+
+    @Test
+    void globalOverrideCeroSeResuelveACeroYNoEstaConfigurado() {
+        BigDecimal efectivo = PrecioEfectivo.resolverPrecioEfectivo(global(bd("25.00")), club(BigDecimal.ZERO));
         assertEquals(0, efectivo.compareTo(BigDecimal.ZERO));
         assertFalse(PrecioEfectivo.estaConfigurado(efectivo));
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
@@ -38,11 +53,19 @@ class PrecioEfectivoTest {
     @Test
     void precioBaseCeroNoEstaConfigurado() {
         assertFalse(PrecioEfectivo.estaConfigurado(
-                PrecioEfectivo.resolverPrecioEfectivo(producto(BigDecimal.ZERO), null)));
+                PrecioEfectivo.resolverPrecioEfectivo(global(BigDecimal.ZERO), null)));
     }
 
-    private static Producto producto(BigDecimal precio) {
+    private static Producto global(BigDecimal precio) {
         Producto producto = new Producto();
+        producto.setTipo("GLOBAL");
+        producto.setPrecio(precio);
+        return producto;
+    }
+
+    private static Producto local(BigDecimal precio) {
+        Producto producto = new Producto();
+        producto.setTipo("LOCAL");
         producto.setPrecio(precio);
         return producto;
     }

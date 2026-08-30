@@ -96,12 +96,39 @@ class PedidoPrecioServiceTest {
     }
 
     @Test
+    void pedidoLocalCongelaProductoPrecioIgnorandoOverride() {
+        stubSocioClub();
+        Producto local = producto(10, "Frappe", bd("20.00"));
+        local.setTipo("LOCAL");
+        local.setEstadoAprobacion("APROBADO");
+        local.setActivo(true);
+        when(productoRepository.findById(10)).thenReturn(Optional.of(local));
+        when(clubProductoRepository.findByClubIdAndProductoId(3, 10))
+                .thenReturn(Optional.of(cp(local, true, bd("32.00"))));
+        when(pedidoRepository.save(any(Pedido.class))).thenAnswer(inv -> {
+            Pedido pedido = inv.getArgument(0);
+            pedido.setId(52);
+            return pedido;
+        });
+
+        PedidoDTO dto = new PedidoDTO();
+        dto.setCantidad(2);
+
+        PedidoDTO creado = pedidoService.createPedido(dto, 1, 3, 10);
+
+        assertEquals(0, bd("20.00").compareTo(creado.getItems().get(0).getPrecioUnitario()));
+        assertEquals(0, bd("40.00").compareTo(creado.getItems().get(0).getSubtotal()));
+    }
+
+    @Test
     void pedidoSocioMultiplesItemsUsaEfectivoDeCadaUno() {
         stubSocioClub();
         Producto a = producto(10, "A", bd("10.00"));
+        a.setTipo("GLOBAL");
         a.setEstadoAprobacion("APROBADO");
         a.setActivo(true);
         Producto b = producto(11, "B", bd("20.00"));
+        b.setTipo("GLOBAL");
         b.setEstadoAprobacion("APROBADO");
         b.setActivo(true);
         when(productoRepository.findById(10)).thenReturn(Optional.of(a));
@@ -225,6 +252,7 @@ class PedidoPrecioServiceTest {
     private Producto stubSocio(BigDecimal precioBase, BigDecimal precioVenta) {
         stubSocioClub();
         Producto producto = producto(10, "Batido", precioBase);
+        producto.setTipo("GLOBAL");
         producto.setEstadoAprobacion("APROBADO");
         producto.setActivo(true);
         when(productoRepository.findById(10)).thenReturn(Optional.of(producto));

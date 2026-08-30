@@ -8,26 +8,44 @@ import java.math.BigDecimal;
 /**
  * Precio de venta autoritativo por club.
  *
- * <p>{@code Producto.precio} = precio BASE / sugerido.
- * {@code ClubProducto.precioVenta} = override comercial opcional.
- * GLOBAL sin fila {@code club_productos} (PROD-AVAIL-002): usa el precio base.
+ * <p>GLOBAL: {@code Producto.precio} = base ADMIN; {@code ClubProducto.precioVenta} = override HOST opcional.
+ * LOCAL: {@code Producto.precio} = único precio de venta; {@code precioVenta} en club_productos se ignora.
  */
 public final class PrecioEfectivo {
 
     public static final String MENSAJE_PRECIO_NO_CONFIGURADO =
             "El producto no tiene un precio de venta configurado";
 
+    public static final String MENSAJE_PRECIO_LOCAL_OBLIGATORIO =
+            "El precio de venta es obligatorio para un producto local";
+
     private PrecioEfectivo() {
     }
 
     /**
-     * {@code precioEfectivo = clubProducto.precioVenta != null ? clubProducto.precioVenta : producto.precio}
+     * LOCAL → {@code producto.precio}.
+     * GLOBAL → {@code clubProducto.precioVenta} si existe; si no, {@code producto.precio}.
+     * Un override accidental en LOCAL se ignora al resolver.
      */
     public static BigDecimal resolverPrecioEfectivo(Producto producto, ClubProducto clubProducto) {
+        if (producto == null) {
+            return null;
+        }
+        if ("LOCAL".equalsIgnoreCase(producto.getTipo())) {
+            return producto.getPrecio();
+        }
         if (clubProducto != null && clubProducto.getPrecioVenta() != null) {
             return clubProducto.getPrecioVenta();
         }
-        return producto != null ? producto.getPrecio() : null;
+        return producto.getPrecio();
+    }
+
+    public static boolean esGlobal(Producto producto) {
+        return producto != null && "GLOBAL".equalsIgnoreCase(producto.getTipo());
+    }
+
+    public static boolean esLocal(Producto producto) {
+        return producto != null && "LOCAL".equalsIgnoreCase(producto.getTipo());
     }
 
     /**

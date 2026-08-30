@@ -7,6 +7,7 @@ import com.example.herbalife_clubes.entities.Hub;
 import com.example.herbalife_clubes.entities.Producto;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.pricing.PrecioEfectivo;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.HubRepository;
@@ -234,15 +235,101 @@ class ProductoPrecioServiceTest {
     }
 
     @Test
-    void socioMenuLocalConOverride() {
+    void socioMenuLocalIgnoraOverrideAccidental() {
         Usuario host = anfitrion(20);
         Producto local = productoLocal(host, "APROBADO", bd("20.00"));
-        stubMenuLocal(local, bd("22.00"));
+        stubMenuLocal(local, bd("32.00"));
 
         ProductoDTO dto = productoService.getProductosByClubPublico(3).get(0);
 
+        assertEquals("LOCAL", dto.getTipo());
         assertEquals(0, bd("20.00").compareTo(dto.getPrecio()));
-        assertEquals(0, bd("22.00").compareTo(dto.getPrecioEfectivo()));
+        assertEquals(0, bd("20.00").compareTo(dto.getPrecioEfectivo()));
+        assertNull(dto.getPrecioVentaClub());
+    }
+
+    @Test
+    void patchLocalEscribeProductoPrecioYLimpiaOverrideAccidental() {
+        Usuario host = anfitrion(20);
+        Club club = club(3, host, hub(1));
+        Producto local = productoLocal(host, "APROBADO", bd("20.00"));
+        ClubProducto relacion = new ClubProducto();
+        relacion.setClub(club);
+        relacion.setProducto(local);
+        relacion.setDisponible(true);
+        relacion.setPrecioVenta(bd("32.00"));
+
+        when(clubRepository.findById(3)).thenReturn(Optional.of(club));
+        when(productoRepository.findById(10)).thenReturn(Optional.of(local));
+        when(clubProductoRepository.findByClubIdAndProductoId(3, 10)).thenReturn(Optional.of(relacion));
+        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(clubProductoRepository.save(any(ClubProducto.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductoDTO dto = productoService.actualizarPrecioVentaEnClub(3, 10, bd("32.00"));
+
+        assertEquals(0, bd("32.00").compareTo(local.getPrecio()));
+        assertNull(relacion.getPrecioVenta());
+        assertEquals("APROBADO", local.getEstadoAprobacion());
+        assertEquals(0, bd("32.00").compareTo(dto.getPrecio()));
+        assertEquals(0, bd("32.00").compareTo(dto.getPrecioEfectivo()));
+        assertNull(dto.getPrecioVentaClub());
+        verify(productoRepository).save(local);
+        verify(clubProductoRepository).save(relacion);
+    }
+
+    @Test
+    void patchLocalNullRechaza400() {
+        Usuario host = anfitrion(20);
+        Club club = club(3, host, hub(1));
+        Producto local = productoLocal(host, "APROBADO", bd("20.00"));
+
+        when(clubRepository.findById(3)).thenReturn(Optional.of(club));
+        when(productoRepository.findById(10)).thenReturn(Optional.of(local));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> productoService.actualizarPrecioVentaEnClub(3, 10, null));
+        assertEquals(PrecioEfectivo.MENSAJE_PRECIO_LOCAL_OBLIGATORIO, ex.getMessage());
+        verify(productoRepository, never()).save(any());
+        verify(clubProductoRepository, never()).save(any());
+    }
+
+    @Test
+    void patchLocalNoCambiaAprobacionNiEscribeClubProductoPrecioVenta() {
+        Usuario host = anfitrion(20);
+        Club club = club(3, host, hub(1));
+        Producto local = productoLocal(host, "APROBADO", bd("20.00"));
+
+        when(clubRepository.findById(3)).thenReturn(Optional.of(club));
+        when(productoRepository.findById(10)).thenReturn(Optional.of(local));
+        when(clubProductoRepository.findByClubIdAndProductoId(3, 10)).thenReturn(Optional.empty());
+        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        productoService.actualizarPrecioVentaEnClub(3, 10, bd("25.00"));
+
+        assertEquals("APROBADO", local.getEstadoAprobacion());
+        verify(clubProductoRepository, never()).save(any());
+    }
+
+    @Test
+    void hostListaLocalNoExponePrecioVentaClub() {
+        Usuario host = anfitrion(20);
+        Club club = club(3, host, hub(1));
+        Producto local = productoLocal(host, "APROBADO", bd("32.00"));
+        ClubProducto cp = new ClubProducto();
+        cp.setDisponible(true);
+        cp.setPrecioVenta(bd("99.00"));
+
+        when(clubRepository.findById(3)).thenReturn(Optional.of(club));
+        when(productoRepository.findByHubIdAndTipoAndEstadoAprobacion(1, "GLOBAL", "APROBADO"))
+                .thenReturn(List.of());
+        when(productoRepository.findByClubCreadorId(3)).thenReturn(List.of(local));
+        when(clubProductoRepository.findByClubIdAndProductoId(3, 10)).thenReturn(Optional.of(cp));
+
+        ProductoDTO dto = productoService.getProductosByClubParaAnfitrion(3).get(0);
+
+        assertEquals(0, bd("32.00").compareTo(dto.getPrecio()));
+        assertEquals(0, bd("32.00").compareTo(dto.getPrecioEfectivo()));
+        assertNull(dto.getPrecioVentaClub());
     }
 
     @Test

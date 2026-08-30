@@ -107,8 +107,8 @@ public class ProductoServiceImpl implements ProductoService {
         // Guardar producto
         Producto savedProducto = productoRepository.save(producto);
 
-        // Producto LOCAL: club_productos.disponible=true. precioVenta queda NULL
-        // (precioEfectivo = Producto.precio hasta que el anfitrión fije override).
+        // Producto LOCAL: club_productos.disponible=true; precioVenta queda NULL.
+        // precioEfectivo = Producto.precio (LOCAL no usa override en club_productos).
         if (clubAnfitrion != null) {
             final Club club = clubAnfitrion;
             clubProductoRepository.findByClubIdAndProductoId(club.getId(), savedProducto.getId())
@@ -724,13 +724,6 @@ public class ProductoServiceImpl implements ProductoService {
             throw new IllegalArgumentException(
                     "Solo se puede cambiar el precio de venta de un producto APROBADO");
         }
-        if ("LOCAL".equalsIgnoreCase(producto.getTipo())) {
-            Integer creadorId = producto.getClubCreador() != null ? producto.getClubCreador().getId() : null;
-            if (creadorId == null || !clubId.equals(creadorId)) {
-                throw new AccessDeniedException(
-                        "No puedes cambiar el precio de un producto local de otro club");
-            }
-        }
         if (producto.getHub() == null || club.getHub() == null
                 || !producto.getHub().getId().equals(club.getHub().getId())) {
             throw new IllegalArgumentException("El producto no pertenece al mismo Hub que el club");
@@ -739,28 +732,70 @@ public class ProductoServiceImpl implements ProductoService {
             throw new IllegalArgumentException("El precio de venta no puede ser negativo");
         }
 
+        if ("LOCAL".equalsIgnoreCase(producto.getTipo())) {
+            return actualizarPrecioLocal(clubId, producto, precioVenta);
+        }
+        return actualizarPrecioGlobal(clubId, club, producto, productoId, precioVenta);
+    }
+
+    /**
+     * LOCAL: único precio en {@code Producto.precio}. Limpia override accidental en club_productos.
+     */
+    private ProductoDTO actualizarPrecioLocal(Integer clubId, Producto producto, BigDecimal precioVenta) {
+        Integer creadorId = producto.getClubCreador() != null ? producto.getClubCreador().getId() : null;
+        if (creadorId == null || !clubId.equals(creadorId)) {
+            throw new AccessDeniedException(
+                    "No puedes cambiar el precio de un producto local de otro club");
+        }
+        if (precioVenta == null) {
+            throw new IllegalArgumentException(PrecioEfectivo.MENSAJE_PRECIO_LOCAL_OBLIGATORIO);
+        }
+
+        producto.setPrecio(precioVenta);
+        productoRepository.save(producto);
+
+        Optional<ClubProducto> clubProductoOpt = clubProductoRepository.findByClubIdAndProductoId(clubId, producto.getId());
+        ClubProducto clubProducto = clubProductoOpt.orElse(null);
+        if (clubProducto != null && clubProducto.getPrecioVenta() != null) {
+            clubProducto.setPrecioVenta(null);
+            clubProducto = clubProductoRepository.save(clubProducto);
+        }
+
+        return mapearPrecioDtoHost(producto, clubProducto);
+    }
+
+    /**
+     * GLOBAL: override comercial en {@code club_productos.precio_venta}. null elimina el override.
+     */
+    private ProductoDTO actualizarPrecioGlobal(
+            Integer clubId, Club club, Producto producto, Integer productoId, BigDecimal precioVenta) {
         Optional<ClubProducto> existente = clubProductoRepository.findByClubIdAndProductoId(clubId, productoId);
         if (existente.isEmpty() && precioVenta == null) {
-            ProductoDTO dto = ProductoMapper.mapProductoToProductoDTO(producto, true);
-            dto.setPrecioEfectivo(PrecioEfectivo.resolverPrecioEfectivo(producto, null));
-            return dto;
+            return mapearPrecioDtoHost(producto, null);
         }
 
         ClubProducto clubProducto = existente.orElseGet(() -> {
             ClubProducto nuevo = new ClubProducto();
             nuevo.setClub(club);
             nuevo.setProducto(producto);
-            // Sin fila previa el menú opt-out considera el producto visible: no ocultarlo.
             nuevo.setDisponible(true);
             return nuevo;
         });
         clubProducto.setPrecioVenta(precioVenta);
         clubProducto = clubProductoRepository.save(clubProducto);
 
+        return mapearPrecioDtoHost(producto, clubProducto);
+    }
+
+    private ProductoDTO mapearPrecioDtoHost(Producto producto, ClubProducto clubProducto) {
         ProductoDTO dto = ProductoMapper.mapProductoToProductoDTO(producto, true);
-        dto.setDisponible(clubProducto.getDisponible());
-        dto.setPrecioVentaClub(clubProducto.getPrecioVenta());
+        dto.setDisponible(clubProducto != null ? clubProducto.getDisponible() : null);
         dto.setPrecioEfectivo(PrecioEfectivo.resolverPrecioEfectivo(producto, clubProducto));
+        if (PrecioEfectivo.esGlobal(producto)) {
+            dto.setPrecioVentaClub(clubProducto != null ? clubProducto.getPrecioVenta() : null);
+        } else {
+            dto.setPrecioVentaClub(null);
+        }
         return dto;
     }
 
@@ -772,7 +807,11 @@ public class ProductoServiceImpl implements ProductoService {
         dto.setPrecioEfectivo(PrecioEfectivo.resolverPrecioEfectivo(producto, cp));
         if (vistaHost) {
             dto.setDisponible(cp != null ? cp.getDisponible() : null);
-            dto.setPrecioVentaClub(cp != null ? cp.getPrecioVenta() : null);
+            if (PrecioEfectivo.esGlobal(producto)) {
+                dto.setPrecioVentaClub(cp != null ? cp.getPrecioVenta() : null);
+            } else {
+                dto.setPrecioVentaClub(null);
+            }
         }
         return dto;
     }
