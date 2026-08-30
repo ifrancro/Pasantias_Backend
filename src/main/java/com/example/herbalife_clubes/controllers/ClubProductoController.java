@@ -1,6 +1,8 @@
 package com.example.herbalife_clubes.controllers;
 
 import com.example.herbalife_clubes.dtos.producto.ProductoConDisponibilidadDTO;
+import com.example.herbalife_clubes.dtos.producto.ProductoDTO;
+import com.example.herbalife_clubes.dtos.producto.PrecioVentaClubRequestDTO;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
@@ -84,6 +86,50 @@ public class ClubProductoController {
         // Si es anfitrión, proceder con el toggle
         ProductoConDisponibilidadDTO producto = productoService.toggleDisponibilidadEnClub(clubId, productoId);
         return ResponseEntity.ok(producto);
+    }
+
+    /**
+     * Override de precio de venta del producto en el club.
+     * Solo modifica club_productos.precio_venta. No toca Producto.precio ni revisión.
+     * {@code precioVenta: null} elimina el override.
+     *
+     * Endpoint: PATCH /api/clubes/{clubId}/productos/{productoId}/precio
+     */
+    @PatchMapping("/{clubId}/productos/{productoId}/precio")
+    public ResponseEntity<ProductoDTO> actualizarPrecioVenta(
+            @PathVariable Integer clubId,
+            @PathVariable Integer productoId,
+            @RequestBody PrecioVentaClubRequestDTO body) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Usuario usuario = usuarioRepository.findByEmail(authentication.getName()).orElse(null);
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        if (!puedeOperarProductosDelClub(usuario, clubId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        ProductoDTO dto = productoService.actualizarPrecioVentaEnClub(
+                clubId, productoId, body != null ? body.getPrecioVenta() : null);
+        return ResponseEntity.ok(dto);
+    }
+
+    private boolean puedeOperarProductosDelClub(Usuario usuario, Integer clubId) {
+        String rol = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
+        if ("ADMIN".equalsIgnoreCase(rol)) {
+            return true;
+        }
+        if (clubRepository.findByIdAndAnfitrionId(clubId, usuario.getId()).isPresent()) {
+            return true;
+        }
+        var clubOpt = clubRepository.findById(clubId);
+        if (clubOpt.isPresent()) {
+            var club = clubOpt.get();
+            return club.getAnfitrion() != null && club.getAnfitrion().getId().equals(usuario.getId());
+        }
+        return false;
     }
 }
 

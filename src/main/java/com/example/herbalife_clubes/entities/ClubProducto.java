@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,6 +31,13 @@ public class ClubProducto {
 
     @Column(name = "disponible")
     private Boolean disponible;
+
+    /**
+     * Override comercial del club. {@code null} = usar {@code Producto.precio}.
+     * No altera {@code disponible} ni dispara revisión.
+     */
+    @Column(name = "precio_venta", precision = 10, scale = 2)
+    private BigDecimal precioVenta;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

@@ -9,6 +9,7 @@ import com.example.herbalife_clubes.entities.Producto;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.ProductoMapper;
+import com.example.herbalife_clubes.pricing.PrecioEfectivo;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.HubRepository;
@@ -106,7 +107,8 @@ public class ProductoServiceImpl implements ProductoService {
         // Guardar producto
         Producto savedProducto = productoRepository.save(producto);
 
-        // Producto LOCAL: crear entrada en club_productos con disponible=true para que anfitrión y socios lo vean
+        // Producto LOCAL: club_productos.disponible=true. precioVenta queda NULL
+        // (precioEfectivo = Producto.precio hasta que el anfitrión fije override).
         if (clubAnfitrion != null) {
             final Club club = clubAnfitrion;
             clubProductoRepository.findByClubIdAndProductoId(club.getId(), savedProducto.getId())
@@ -204,7 +206,9 @@ public class ProductoServiceImpl implements ProductoService {
             producto.setActivo(productoDTO.getActivo());
         }
         validarPrecio(productoDTO.getPrecio());
-        producto.setPrecio(productoDTO.getPrecio() != null ? productoDTO.getPrecio() : BigDecimal.ZERO);
+        if (productoDTO.getPrecio() != null) {
+            producto.setPrecio(productoDTO.getPrecio());
+        }
         producto.setPuntosValor(productoDTO.getPuntosValor() != null ? productoDTO.getPuntosValor() : 0);
         producto.setIngredientes(productoDTO.getIngredientes());
         if (productoDTO.getEsCombo() != null) {
@@ -366,7 +370,7 @@ public class ProductoServiceImpl implements ProductoService {
     public List<ProductoDTO> getProductosByClub(Integer clubId) {
         List<Producto> productos = obtenerProductosMenuClub(clubId);
         return productos.stream()
-                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
+                .map(p -> mapearConPrecioDeClub(p, clubId, ProductoMapper.Vista.INTERNO, true))
                 .collect(Collectors.toList());
     }
 
@@ -385,12 +389,7 @@ public class ProductoServiceImpl implements ProductoService {
         todos.addAll(locales);
 
         return todos.stream()
-                .map(p -> {
-                    ProductoDTO dto = ProductoMapper.mapProductoToProductoDTO(p, true);
-                    Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, p.getId());
-                    dto.setDisponible(cp.map(ClubProducto::getDisponible).orElse(null));
-                    return dto;
-                })
+                .map(p -> mapearConPrecioDeClub(p, clubId, ProductoMapper.Vista.INTERNO, true))
                 .collect(Collectors.toList());
     }
 
@@ -399,7 +398,7 @@ public class ProductoServiceImpl implements ProductoService {
     public List<ProductoDTO> getProductosByClubPublico(Integer clubId) {
         List<Producto> productos = obtenerProductosMenuClub(clubId);
         return productos.stream()
-                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, ProductoMapper.Vista.PUBLICO))
+                .map(p -> mapearConPrecioDeClub(p, clubId, ProductoMapper.Vista.PUBLICO, false))
                 .collect(Collectors.toList());
     }
 
@@ -413,7 +412,7 @@ public class ProductoServiceImpl implements ProductoService {
                 .filter(p -> tipo.equalsIgnoreCase(p.getTipo()))
                 .collect(Collectors.toList());
         return productos.stream()
-                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, true))
+                .map(p -> mapearConPrecioDeClub(p, clubId, ProductoMapper.Vista.INTERNO, true))
                 .collect(Collectors.toList());
     }
 
@@ -439,12 +438,7 @@ public class ProductoServiceImpl implements ProductoService {
                 .collect(Collectors.toList());
 
         return filtrados.stream()
-                .map(p -> {
-                    ProductoDTO dto = ProductoMapper.mapProductoToProductoDTO(p, true);
-                    Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, p.getId());
-                    dto.setDisponible(cp.map(ClubProducto::getDisponible).orElse(null));
-                    return dto;
-                })
+                .map(p -> mapearConPrecioDeClub(p, clubId, ProductoMapper.Vista.INTERNO, true))
                 .collect(Collectors.toList());
     }
 
@@ -458,7 +452,7 @@ public class ProductoServiceImpl implements ProductoService {
                 .filter(p -> tipo.equalsIgnoreCase(p.getTipo()))
                 .collect(Collectors.toList());
         return productos.stream()
-                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, ProductoMapper.Vista.PUBLICO))
+                .map(p -> mapearConPrecioDeClub(p, clubId, ProductoMapper.Vista.PUBLICO, false))
                 .collect(Collectors.toList());
     }
 
@@ -716,6 +710,71 @@ public class ProductoServiceImpl implements ProductoService {
                 .disponible(clubProducto.getDisponible()) // Estado local en el club
                 .createdAt(producto.getCreatedAt())
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public ProductoDTO actualizarPrecioVentaEnClub(Integer clubId, Integer productoId, BigDecimal precioVenta) {
+        Club club = clubRepository.findById(clubId)
+                .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+        Producto producto = productoRepository.findById(productoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
+
+        if (!"APROBADO".equalsIgnoreCase(producto.getEstadoAprobacion())) {
+            throw new IllegalArgumentException(
+                    "Solo se puede cambiar el precio de venta de un producto APROBADO");
+        }
+        if ("LOCAL".equalsIgnoreCase(producto.getTipo())) {
+            Integer creadorId = producto.getClubCreador() != null ? producto.getClubCreador().getId() : null;
+            if (creadorId == null || !clubId.equals(creadorId)) {
+                throw new AccessDeniedException(
+                        "No puedes cambiar el precio de un producto local de otro club");
+            }
+        }
+        if (producto.getHub() == null || club.getHub() == null
+                || !producto.getHub().getId().equals(club.getHub().getId())) {
+            throw new IllegalArgumentException("El producto no pertenece al mismo Hub que el club");
+        }
+        if (precioVenta != null && precioVenta.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El precio de venta no puede ser negativo");
+        }
+
+        Optional<ClubProducto> existente = clubProductoRepository.findByClubIdAndProductoId(clubId, productoId);
+        if (existente.isEmpty() && precioVenta == null) {
+            ProductoDTO dto = ProductoMapper.mapProductoToProductoDTO(producto, true);
+            dto.setPrecioEfectivo(PrecioEfectivo.resolverPrecioEfectivo(producto, null));
+            return dto;
+        }
+
+        ClubProducto clubProducto = existente.orElseGet(() -> {
+            ClubProducto nuevo = new ClubProducto();
+            nuevo.setClub(club);
+            nuevo.setProducto(producto);
+            // Sin fila previa el menú opt-out considera el producto visible: no ocultarlo.
+            nuevo.setDisponible(true);
+            return nuevo;
+        });
+        clubProducto.setPrecioVenta(precioVenta);
+        clubProducto = clubProductoRepository.save(clubProducto);
+
+        ProductoDTO dto = ProductoMapper.mapProductoToProductoDTO(producto, true);
+        dto.setDisponible(clubProducto.getDisponible());
+        dto.setPrecioVentaClub(clubProducto.getPrecioVenta());
+        dto.setPrecioEfectivo(PrecioEfectivo.resolverPrecioEfectivo(producto, clubProducto));
+        return dto;
+    }
+
+    private ProductoDTO mapearConPrecioDeClub(
+            Producto producto, Integer clubId, ProductoMapper.Vista vista, boolean vistaHost) {
+        ProductoDTO dto = ProductoMapper.mapProductoToProductoDTO(producto, vista);
+        Optional<ClubProducto> cpOpt = clubProductoRepository.findByClubIdAndProductoId(clubId, producto.getId());
+        ClubProducto cp = cpOpt.orElse(null);
+        dto.setPrecioEfectivo(PrecioEfectivo.resolverPrecioEfectivo(producto, cp));
+        if (vistaHost) {
+            dto.setDisponible(cp != null ? cp.getDisponible() : null);
+            dto.setPrecioVentaClub(cp != null ? cp.getPrecioVenta() : null);
+        }
+        return dto;
     }
 
     private void assertAdminCatalogo(Integer adminUsuarioId) {

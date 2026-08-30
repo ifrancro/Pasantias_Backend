@@ -109,5 +109,12 @@ public interface ProductoService {
      * @return DTO del producto con el nuevo estado de disponibilidad
      */
     ProductoConDisponibilidadDTO toggleDisponibilidadEnClub(Integer clubId, Integer productoId);
+
+    /**
+     * Override comercial {@code club_productos.precio_venta}. No toca Producto.precio,
+     * estadoAprobacion, revisadoPor, revisadoAt ni disponible.
+     * {@code precioVenta == null} elimina el override.
+     */
+    ProductoDTO actualizarPrecioVentaEnClub(Integer clubId, Integer productoId, java.math.BigDecimal precioVenta);
 }
 

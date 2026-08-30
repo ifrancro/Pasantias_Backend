@@ -22,7 +22,20 @@ public class ProductoDTO {
     private String descripcion;
     private String imagenUrl;
     private String ingredientes; // Privado - no se devuelve en endpoints públicos
+    /** Precio BASE / sugerido del producto ({@code productos.precio}). No es el override del club. */
     private BigDecimal precio;
+    /**
+     * Precio de venta en el club: override si existe, si no el precio base.
+     * Solo se rellena en vistas con contexto de club.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private BigDecimal precioEfectivo;
+    /**
+     * Override persistido en {@code club_productos.precio_venta}.
+     * Null = sin override (usar precio base). Solo vistas HOST/ADMIN por club.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private BigDecimal precioVentaClub;
     private Integer puntosValor;
     private String tipo; // GLOBAL | LOCAL (origen)
     /** true si el producto es un Combo (habilita registro de asistencia). Independiente de tipo. */

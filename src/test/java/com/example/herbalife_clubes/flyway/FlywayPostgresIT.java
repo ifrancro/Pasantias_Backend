@@ -100,8 +100,9 @@ class FlywayPostgresIT {
         assertTrue(indexExists("idx_pedidos_membresia_fecha_id"));
         assertTrue(indexExists("idx_membresias_club_fecha_id"));
         assertTrue(flywayHistoryHasVersion("13"));
-        assertTrue(flywayHistoryHasVersion("14"));
-        assertTrue(columnExists("membresias", "es_cliente_preferente_o_distribuidor"));
+        assertTrue(flywayHistoryHasVersion("18"));
+        assertTrue(flywayHistoryHasVersion("19"));
+        assertTrue(columnExists("club_productos", "precio_venta"));
 
         try (Connection c = open();
              Statement st = c.createStatement();

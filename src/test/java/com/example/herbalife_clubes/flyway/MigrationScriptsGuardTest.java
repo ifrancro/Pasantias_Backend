@@ -131,6 +131,23 @@ class MigrationScriptsGuardTest {
     }
 
     @Test
+    void v19AddsNullablePrecioVentaOnClubProductos() throws Exception {
+        Path v19 = MIGRATIONS.resolve("V19__precio_venta_club_productos.sql");
+        assertTrue(Files.exists(v19), "Falta la migración V19 de precio_venta");
+        String sql = Files.readString(v19, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+        assertTrue(sql.contains("alter table club_productos"));
+        assertTrue(sql.contains("precio_venta"));
+        assertTrue(sql.contains("decimal(10, 2)") || sql.contains("decimal(10,2)"));
+        assertTrue(sql.contains("chk_club_productos_precio_venta"));
+        assertTrue(sql.contains("precio_venta is null or precio_venta >= 0"));
+        assertFalse(sql.contains("not null"), "precio_venta debe ser nullable");
+        assertFalse(sql.contains("default 0"), "No backfill/default a 0");
+        assertFalse(sql.contains("insert into"));
+        assertFalse(sql.contains("drop table"));
+        assertFalse(sql.contains("update productos"));
+    }
+
+    @Test
     void versionsAreUniqueAndIncludeV13AndV14() throws Exception {
         try (Stream<Path> files = Files.list(MIGRATIONS)) {
             List<String> names = files.map(p -> p.getFileName().toString())
@@ -142,6 +159,7 @@ class MigrationScriptsGuardTest {
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V16__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V17__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V18__")));
+            assertTrue(names.stream().anyMatch(n -> n.startsWith("V19__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V2__")));
             assertFalse(names.stream().anyMatch(n -> n.startsWith("V1__")),
                     "No existe V1 histórico; no inventar una sin estrategia");

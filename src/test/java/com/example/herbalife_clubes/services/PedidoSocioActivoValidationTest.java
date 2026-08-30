@@ -105,7 +105,7 @@ class PedidoSocioActivoValidationTest {
         producto.setNombre("Batido");
         producto.setEstadoAprobacion("APROBADO");
         producto.setActivo(activo);
-        producto.setPrecio(BigDecimal.ZERO);
+        producto.setPrecio(BigDecimal.TEN);
         producto.setHub(hub);
 
         ClubProducto cp = new ClubProducto();

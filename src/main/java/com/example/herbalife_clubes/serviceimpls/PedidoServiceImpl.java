@@ -10,6 +10,7 @@ import com.example.herbalife_clubes.entities.*;
 import com.example.herbalife_clubes.exceptions.MaxSaboresExcedidoException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.PedidoMapper;
+import com.example.herbalife_clubes.pricing.PrecioEfectivo;
 import com.example.herbalife_clubes.repositories.*;
 import com.example.herbalife_clubes.entities.Combo;
 import com.example.herbalife_clubes.entities.ComboItem;
@@ -116,7 +117,7 @@ public class PedidoServiceImpl implements PedidoService {
         item.setProducto(producto);
         item.setCantidad(pedidoDTO.getCantidad() != null ? pedidoDTO.getCantidad() : 1);
         item.setNota(pedidoDTO.getObservaciones());
-        item.setPrecioUnitario(obtenerPrecioUnitarioProducto(producto));
+        asignarPrecioEfectivo(item, producto, clubId);
         pedido.getItems().add(item);
         
         // Asignar producto y cantidad directamente al pedido para compatibilidad con BD
@@ -263,7 +264,7 @@ public class PedidoServiceImpl implements PedidoService {
             item.setProducto(producto);
             item.setCantidad(itemDTO.getCantidad() != null ? itemDTO.getCantidad() : 1);
             item.setNota(itemDTO.getNota());
-            item.setPrecioUnitario(obtenerPrecioUnitarioProducto(producto));
+            asignarPrecioEfectivo(item, producto, clubId);
 
             // Vincular combo si se indicó
             if (itemDTO.getComboId() != null) {
@@ -416,7 +417,7 @@ public class PedidoServiceImpl implements PedidoService {
             item.setProducto(producto);
             item.setCantidad(itemDTO.getCantidad());
             item.setNota(itemDTO.getNota());
-            item.setPrecioUnitario(obtenerPrecioUnitarioProducto(producto));
+            asignarPrecioEfectivo(item, producto, club.getId());
 
             // Vincular combo si se indicó
             if (itemDTO.getComboId() != null) {
@@ -472,6 +473,22 @@ public class PedidoServiceImpl implements PedidoService {
         }
     }
 
+    /**
+     * Congela precio efectivo del club. El cliente no define precioUnitario.
+     * Combo: no hay precio de paquete propio (deuda); cada item se cobra al
+     * precio efectivo del producto. Offline: el backend congela al sincronizar,
+     * no al armar el carrito (ORD-SYNC).
+     */
+    private void asignarPrecioEfectivo(PedidoItem item, Producto producto, Integer clubId) {
+        ClubProducto cp = clubProductoRepository.findByClubIdAndProductoId(clubId, producto.getId())
+                .orElse(null);
+        BigDecimal efectivo = PrecioEfectivo.resolverPrecioEfectivo(producto, cp);
+        PrecioEfectivo.assertConfigurado(efectivo);
+        item.setPrecioUnitario(efectivo);
+        int cantidad = item.getCantidad() != null ? item.getCantidad() : 1;
+        item.setSubtotal(efectivo.multiply(BigDecimal.valueOf(cantidad)));
+    }
+
     private boolean esProductoDisponibleEnClub(Integer clubId, Integer productoId) {
         Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, productoId);
         return cp.isEmpty() || Boolean.TRUE.equals(cp.get().getDisponible());
@@ -484,10 +501,6 @@ public class PedidoServiceImpl implements PedidoService {
                     totalItems,
                     "Un combo no puede tener más de 3 sabores/productos. Seleccionaste " + totalItems + " productos.");
         }
-    }
-
-    private BigDecimal obtenerPrecioUnitarioProducto(Producto producto) {
-        return producto != null && producto.getPrecio() != null ? producto.getPrecio() : BigDecimal.ZERO;
     }
 
     @Override
