@@ -102,6 +102,8 @@ class FlywayPostgresIT {
         assertTrue(flywayHistoryHasVersion("13"));
         assertTrue(flywayHistoryHasVersion("18"));
         assertTrue(flywayHistoryHasVersion("19"));
+        assertTrue(flywayHistoryHasVersion("20"));
+        assertTrue(tableExists("pedido_item_opciones"));
         assertTrue(columnExists("club_productos", "precio_venta"));
 
         try (Connection c = open();
@@ -168,6 +170,17 @@ class FlywayPostgresIT {
                      "SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name=? AND column_name=?")) {
             ps.setString(1, tableName);
             ps.setString(2, columnName);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private static boolean tableExists(String tableName) throws Exception {
+        try (Connection c = open();
+             var ps = c.prepareStatement(
+                     "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=?")) {
+            ps.setString(1, tableName);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();
             }

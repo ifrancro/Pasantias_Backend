@@ -1,10 +1,12 @@
 package com.example.herbalife_clubes.dtos.pedido;
 
+import com.example.herbalife_clubes.dtos.pedido.PedidoItemOpcionResponseDTO;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -31,5 +33,10 @@ public class PedidoDTO {
     
     // Lista de items del pedido (pedido_items)
     private List<PedidoItemDTO> items;
+
+    /**
+     * Selecciones del endpoint legacy POST /pedidos (un solo producto).
+     */
+    private List<PedidoItemOpcionResponseDTO> opciones = new ArrayList<>();
 }
 

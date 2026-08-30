@@ -148,6 +148,27 @@ class MigrationScriptsGuardTest {
     }
 
     @Test
+    void v20CreatesPedidoItemOpcionesWithNullableFkAndSnapshots() throws Exception {
+        Path v20 = MIGRATIONS.resolve("V20__pedido_item_opciones.sql");
+        assertTrue(Files.exists(v20), "Falta la migración V20 de pedido_item_opciones");
+        String sql = Files.readString(v20, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+        assertTrue(sql.contains("create table if not exists pedido_item_opciones"));
+        assertTrue(sql.contains("references pedido_items(id) on delete cascade"));
+        assertTrue(sql.contains("references producto_grupos_opciones(id) on delete set null"));
+        assertTrue(sql.contains("references producto_opciones(id) on delete set null"));
+        assertTrue(sql.contains("grupo_nombre_snapshot"));
+        assertTrue(sql.contains("opcion_nombre_snapshot"));
+        assertTrue(sql.contains("grupo_orden_snapshot"));
+        assertTrue(sql.contains("opcion_orden_snapshot"));
+        assertTrue(sql.contains("chk_pio_cantidad"));
+        assertTrue(sql.contains("cantidad > 0"));
+        assertTrue(sql.contains("uq_pio_item_opcion"));
+        assertFalse(sql.contains("precio_extra"));
+        assertFalse(sql.contains("drop table"));
+        assertFalse(sql.contains("insert into"));
+    }
+
+    @Test
     void versionsAreUniqueAndIncludeV13AndV14() throws Exception {
         try (Stream<Path> files = Files.list(MIGRATIONS)) {
             List<String> names = files.map(p -> p.getFileName().toString())
@@ -160,6 +181,7 @@ class MigrationScriptsGuardTest {
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V17__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V18__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V19__")));
+            assertTrue(names.stream().anyMatch(n -> n.startsWith("V20__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V2__")));
             assertFalse(names.stream().anyMatch(n -> n.startsWith("V1__")),
                     "No existe V1 histórico; no inventar una sin estrategia");

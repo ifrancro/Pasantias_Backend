@@ -3,15 +3,22 @@ package com.example.herbalife_clubes.entities;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
+import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "pedido_items")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(exclude = {"pedido", "producto", "combo", "opciones"})
+@ToString(exclude = {"pedido", "producto", "combo", "opciones"})
 public class PedidoItem {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,6 +47,15 @@ public class PedidoItem {
 
     @Column(name = "subtotal", precision = 10, scale = 2)
     private BigDecimal subtotal;
+
+    /**
+     * Selecciones congeladas del ítem. LAZY + batch: no JOIN FETCH junto con Pedido.items
+     * (MultipleBagFetchException).
+     */
+    @OneToMany(mappedBy = "pedidoItem", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OrderBy("grupoOrdenSnapshot ASC, opcionOrdenSnapshot ASC, id ASC")
+    @BatchSize(size = 50)
+    private List<PedidoItemOpcion> opciones = new ArrayList<>();
 
     @PrePersist
     @PreUpdate

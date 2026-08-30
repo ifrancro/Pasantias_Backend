@@ -27,8 +27,7 @@ import java.util.function.Function;
  * Con contenido, sincroniza hasta que la BD refleje exactamente el payload final,
  * conservando IDs de filas sobrevivientes.
  *
- * <p>Deuda futura (001d-B): pedido_item_opciones guardará snapshots; los FKs no deben
- * destruir historia si una definición se elimina posteriormente.
+ * <p>001d-B: pedido_item_opciones guarda snapshots; FKs nullable no destruyen historia.
  */
 final class ProductoGruposOpcionesSupport {
 

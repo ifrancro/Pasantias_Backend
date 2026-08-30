@@ -5,6 +5,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -18,5 +20,7 @@ public class PedidoItemDTO {
     private BigDecimal subtotal;
     private Integer comboId; // ID del combo origen (null si es producto suelto)
     private String comboNombre; // Nombre del combo para visualización
+    /** Selecciones estructuradas (request: grupoId/opcionId/cantidad; response incluye snapshots). */
+    private List<PedidoItemOpcionResponseDTO> opciones = new ArrayList<>();
 }
 

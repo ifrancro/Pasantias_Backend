@@ -22,7 +22,8 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
      * Obtiene todos los pedidos de un club con todas las relaciones cargadas (JOIN FETCH)
      * para evitar problemas de Lazy Loading.
      * Carga: Club, anfitrion, Membresia, Items, Producto y Combo (de cada item).
-     * No carga combo.items.
+     * No incluir {@code items.opciones}: segunda bag → MultipleBagFetchException.
+     * {@code opciones} se cargan LAZY + {@code @BatchSize} al mapear dentro de la TX.
      */
     @Query("SELECT DISTINCT p FROM Pedido p " +
            "LEFT JOIN FETCH p.club c " +
@@ -39,7 +40,8 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
      * Obtiene todos los pedidos de un socio con todas las relaciones cargadas (JOIN FETCH)
      * para evitar problemas de Lazy Loading.
      * Carga: Club, Membresia, Items, Producto y Combo (de cada item).
-     * No carga combo.items.
+     * No incluir {@code items.opciones}: segunda bag → MultipleBagFetchException.
+     * {@code opciones} se cargan LAZY + {@code @BatchSize} al mapear dentro de la TX.
      */
     @Query("SELECT DISTINCT p FROM Pedido p " +
            "LEFT JOIN FETCH p.club c " +

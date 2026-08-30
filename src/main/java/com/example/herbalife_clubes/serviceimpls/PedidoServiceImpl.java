@@ -5,11 +5,13 @@ import com.example.herbalife_clubes.common.PagedResponse;
 import com.example.herbalife_clubes.dtos.pedido.PedidoDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoConItemsDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoItemDTO;
+import com.example.herbalife_clubes.dtos.pedido.PedidoItemOpcionResponseDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoMostradorRequestDTO;
 import com.example.herbalife_clubes.entities.*;
 import com.example.herbalife_clubes.exceptions.MaxSaboresExcedidoException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.PedidoMapper;
+import com.example.herbalife_clubes.pedidos.PedidoItemOpcionesSupport;
 import com.example.herbalife_clubes.pricing.PrecioEfectivo;
 import com.example.herbalife_clubes.repositories.*;
 import com.example.herbalife_clubes.entities.Combo;
@@ -112,12 +114,14 @@ public class PedidoServiceImpl implements PedidoService {
         pedido.setClub(club);
         
         // Compatibilidad: pedido viejo era 1 producto. Creamos 1 item.
-        PedidoItem item = new PedidoItem();
-        item.setPedido(pedido);
-        item.setProducto(producto);
-        item.setCantidad(pedidoDTO.getCantidad() != null ? pedidoDTO.getCantidad() : 1);
-        item.setNota(pedidoDTO.getObservaciones());
-        asignarPrecioEfectivo(item, producto, clubId);
+        PedidoItem item = crearItemPedido(
+                pedido,
+                producto,
+                clubId,
+                pedidoDTO.getCantidad() != null ? pedidoDTO.getCantidad() : 1,
+                pedidoDTO.getObservaciones(),
+                null,
+                pedidoDTO.getOpciones());
         pedido.getItems().add(item);
         
         // Asignar producto y cantidad directamente al pedido para compatibilidad con BD
@@ -258,20 +262,15 @@ public class PedidoServiceImpl implements PedidoService {
 
             assertProductoPedidoSocio(producto, clubId);
             
-            // Crear item
-            PedidoItem item = new PedidoItem();
-            item.setPedido(pedido);
-            item.setProducto(producto);
-            item.setCantidad(itemDTO.getCantidad() != null ? itemDTO.getCantidad() : 1);
-            item.setNota(itemDTO.getNota());
-            asignarPrecioEfectivo(item, producto, clubId);
-
-            // Vincular combo si se indicó
-            if (itemDTO.getComboId() != null) {
-                Combo combo = comboRepository.findById(itemDTO.getComboId()).orElse(null);
-                item.setCombo(combo);
-            }
-
+            // Crear item (cada fila conserva su propia configuración de opciones).
+            PedidoItem item = crearItemPedido(
+                    pedido,
+                    producto,
+                    clubId,
+                    itemDTO.getCantidad() != null ? itemDTO.getCantidad() : 1,
+                    itemDTO.getNota(),
+                    itemDTO.getComboId(),
+                    itemDTO.getOpciones());
             pedido.getItems().add(item);
 
             // Guardar referencia al primer producto para compatibilidad con BD
@@ -412,19 +411,14 @@ public class PedidoServiceImpl implements PedidoService {
             Producto producto = productoRepository.findById(itemDTO.getProductoId())
                     .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + itemDTO.getProductoId()));
 
-            PedidoItem item = new PedidoItem();
-            item.setPedido(pedido);
-            item.setProducto(producto);
-            item.setCantidad(itemDTO.getCantidad());
-            item.setNota(itemDTO.getNota());
-            asignarPrecioEfectivo(item, producto, club.getId());
-
-            // Vincular combo si se indicó
-            if (itemDTO.getComboId() != null) {
-                Combo combo = comboRepository.findById(itemDTO.getComboId()).orElse(null);
-                item.setCombo(combo);
-            }
-
+            PedidoItem item = crearItemPedido(
+                    pedido,
+                    producto,
+                    club.getId(),
+                    itemDTO.getCantidad(),
+                    itemDTO.getNota(),
+                    itemDTO.getComboId(),
+                    itemDTO.getOpciones());
             pedido.getItems().add(item);
 
             if (primerProducto == null) {
@@ -451,6 +445,38 @@ public class PedidoServiceImpl implements PedidoService {
         }
 
         return PedidoMapper.mapPedidoToPedidoDTO(saved);
+    }
+
+    /**
+     * Crea un ítem con precio congelado y selecciones validadas/materializadas en la misma transacción.
+     * Combo: solo trazabilidad (comboId); las opciones de cada producto del combo se resolverán en 001f.
+     * Items de combo sin opciones fallarán si el producto exige grupos obligatorios.
+     */
+    private PedidoItem crearItemPedido(
+            Pedido pedido,
+            Producto producto,
+            Integer clubId,
+            Integer cantidad,
+            String nota,
+            Integer comboId,
+            List<PedidoItemOpcionResponseDTO> opcionesRequest) {
+        PedidoItem item = new PedidoItem();
+        item.setPedido(pedido);
+        item.setProducto(producto);
+        item.setCantidad(cantidad);
+        item.setNota(nota);
+        asignarPrecioEfectivo(item, producto, clubId);
+        if (comboId != null) {
+            Combo combo = comboRepository.findById(comboId).orElse(null);
+            item.setCombo(combo);
+        }
+        List<PedidoItemOpcion> selecciones =
+                PedidoItemOpcionesSupport.validarYMaterializar(producto, opcionesRequest);
+        for (PedidoItemOpcion seleccion : selecciones) {
+            seleccion.setPedidoItem(item);
+            item.getOpciones().add(seleccion);
+        }
+        return item;
     }
 
     /**
@@ -504,6 +530,7 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PedidoDTO getPedido(Integer pedidoId) {
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado con id: " + pedidoId));
@@ -511,6 +538,7 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<PedidoDTO> getPedidosBySocio(Integer membresiaId) {
         // Usar método con JOIN FETCH para cargar items y productos
         List<Pedido> pedidos = pedidoRepository.findByMembresiaIdWithRelations(membresiaId);
@@ -520,6 +548,7 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<PedidoDTO> getPedidosByClub(Integer clubId) {
         System.out.println("[PEDIDO] ===== INICIO LISTAR PEDIDOS POR CLUB =====");
         System.out.println("[PEDIDO] clubId recibido: " + clubId);
