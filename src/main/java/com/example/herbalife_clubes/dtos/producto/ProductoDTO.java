@@ -41,7 +41,10 @@ public class ProductoDTO {
     /** Disponible en el club (tabla club_productos). Solo se rellena cuando se lista por club para anfitrión/admin. */
     private Boolean disponible;
     /**
-     * Definición de grupos/opciones. Null en JSON público (socio) y si el cliente viejo no envía el campo.
+     * Definición de grupos/opciones.
+     * GET público (SOCIO): siempre lista (vacía si el producto no tiene grupos);
+     * dentro de cada grupo solo opciones con activo=true.
+     * GET interno (ADMIN/ANFITRION): definición completa, incluidas inactivas.
      * PUT: null = preservar; [] = borrar todos; con contenido = reemplazar definición completa.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)

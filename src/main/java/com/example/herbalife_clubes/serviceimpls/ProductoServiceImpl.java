@@ -294,7 +294,7 @@ public class ProductoServiceImpl implements ProductoService {
             throw new ResourceNotFoundException("Producto no encontrado con id: " + productoId);
         }
 
-        return ProductoMapper.mapProductoToProductoDTO(producto, false);
+        return ProductoMapper.mapProductoToProductoDTO(producto, ProductoMapper.Vista.PUBLICO);
     }
 
     @Override
@@ -314,7 +314,7 @@ public class ProductoServiceImpl implements ProductoService {
                 .collect(Collectors.toList());
 
         return productos.stream()
-                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, false))
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, ProductoMapper.Vista.PUBLICO))
                 .collect(Collectors.toList());
     }
 
@@ -399,7 +399,7 @@ public class ProductoServiceImpl implements ProductoService {
     public List<ProductoDTO> getProductosByClubPublico(Integer clubId) {
         List<Producto> productos = obtenerProductosMenuClub(clubId);
         return productos.stream()
-                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, false)) // Sin ingredientes
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, ProductoMapper.Vista.PUBLICO))
                 .collect(Collectors.toList());
     }
 
@@ -458,7 +458,7 @@ public class ProductoServiceImpl implements ProductoService {
                 .filter(p -> tipo.equalsIgnoreCase(p.getTipo()))
                 .collect(Collectors.toList());
         return productos.stream()
-                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, false))
+                .map(p -> ProductoMapper.mapProductoToProductoDTO(p, ProductoMapper.Vista.PUBLICO))
                 .collect(Collectors.toList());
     }
 

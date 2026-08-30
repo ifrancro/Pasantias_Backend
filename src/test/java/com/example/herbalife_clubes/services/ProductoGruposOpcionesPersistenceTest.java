@@ -262,6 +262,34 @@ class ProductoGruposOpcionesPersistenceTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @Rollback(false)
+    void getProductoPublicoCargaOpcionesActivasSinLazyNiMultipleBag() {
+        Seeded seeded = seedProductoConSabores();
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            Producto producto = productoRepository.findById(seeded.productoId).orElseThrow();
+            producto.setEstadoAprobacion("APROBADO");
+            producto.getGruposOpciones().get(0).getOpciones().get(1).setActivo(false);
+            productoRepository.saveAndFlush(producto);
+        });
+
+        ProductoDTO publico = assertDoesNotThrow(
+                () -> productoService.getProductoPublico(seeded.productoId),
+                "getProductoPublico no debe lanzar LazyInitializationException ni MultipleBagFetchException");
+        ProductoDTO interno = productoService.getProducto(seeded.productoId);
+
+        assertEquals(List.of("Frutilla"),
+                publico.getGruposOpciones().get(0).getOpciones().stream()
+                        .map(ProductoOpcionDTO::getNombre).toList());
+        assertEquals(2, interno.getGruposOpciones().get(0).getOpciones().size());
+        assertTrue(interno.getGruposOpciones().get(0).getOpciones().stream()
+                .anyMatch(o -> Boolean.FALSE.equals(o.getActivo())));
+        assertNull(publico.getIngredientes());
+        assertNull(publico.getComentarioRevision());
+        assertEquals("proteína", interno.getIngredientes());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
     void flushNoDejaColeccionDuplicada() {
         Seeded seeded = seedProductoConSabores();
         ProductoDTO request = basePut(seeded);

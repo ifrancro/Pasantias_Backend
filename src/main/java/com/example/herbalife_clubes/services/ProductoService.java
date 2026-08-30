@@ -55,16 +55,16 @@ public interface ProductoService {
 
     ProductoDTO updateProducto(Integer productoId, ProductoDTO productoDTO, Integer usuarioId);
     ProductoDTO getProducto(Integer productoId);
-    ProductoDTO getProductoPublico(Integer productoId); // APROBADO + activo; sin ingredientes
+    ProductoDTO getProductoPublico(Integer productoId); // APROBADO + activo; sin ingredientes/revisión; con gruposOpciones públicas
     List<ProductoDTO> getProductos();
-    List<ProductoDTO> getProductosPublicos(); // APROBADO + activo; sin ingredientes
+    List<ProductoDTO> getProductosPublicos(); // APROBADO + activo; sin ingredientes/revisión; con gruposOpciones públicas
     List<ProductoDTO> getProductosByClub(Integer clubId);
     /**
      * Para anfitrión/admin: todos los productos del club (incl. disponible=false) con el campo disponible rellenado.
      * Así el host puede ver y cambiar el toggle sin que los productos desaparezcan.
      */
     List<ProductoDTO> getProductosByClubParaAnfitrion(Integer clubId);
-    List<ProductoDTO> getProductosByClubPublico(Integer clubId); // Sin ingredientes y sin PENDIENTE
+    List<ProductoDTO> getProductosByClubPublico(Integer clubId); // Sin ingredientes/revisión; con gruposOpciones públicas
     /**
      * Productos de un club filtrados por tipo (GLOBAL o LOCAL).
      * Para admin/anfitrión: incluye ingredientes y PENDIENTE.

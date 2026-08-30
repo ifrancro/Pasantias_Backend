@@ -11,6 +11,7 @@ import com.example.herbalife_clubes.entities.ProductoGrupoOpcion;
 import com.example.herbalife_clubes.entities.ProductoOpcion;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.HubRepository;
@@ -358,16 +359,145 @@ class ProductoOpcionesServiceTest {
     }
 
     @Test
-    void socioPublicoNoRecibeGruposNiRevision() {
+    void socioPublicoRecibeGruposSinRevisionNiIngredientes() {
         Producto producto = productoConGrupos(anfitrion(20));
         producto.setEstadoAprobacion("APROBADO");
         when(productoRepository.findById(10)).thenReturn(Optional.of(producto));
 
         ProductoDTO dto = productoService.getProductoPublico(10);
 
-        assertNull(dto.getGruposOpciones());
+        assertNotNull(dto.getGruposOpciones());
+        assertEquals(1, dto.getGruposOpciones().size());
+        ProductoGrupoOpcionDTO sabores = dto.getGruposOpciones().get(0);
+        assertEquals(1, sabores.getId());
+        assertEquals("Sabores", sabores.getNombre());
+        assertEquals(0, sabores.getOrden());
+        assertEquals(1, sabores.getMinSelecciones());
+        assertEquals(2, sabores.getMaxSelecciones());
+        assertTrue(sabores.getPermiteRepetir());
+        assertEquals(List.of("Frutilla", "Vainilla"),
+                sabores.getOpciones().stream().map(ProductoOpcionDTO::getNombre).toList());
         assertNull(dto.getIngredientes());
         assertNull(dto.getComentarioRevision());
+        assertNull(dto.getRevisadoPorUsuarioId());
+        assertNull(dto.getRevisadoPorNombre());
+        assertNull(dto.getRevisadoAt());
+    }
+
+    @Test
+    void socioListadoRecibeDosGruposYOpcionesActivas() {
+        Producto producto = productoAprobadoConDosGrupos();
+        stubMenuLocal(producto);
+
+        List<ProductoDTO> dtos = productoService.getProductosByClubPublico(5);
+
+        assertEquals(1, dtos.size());
+        ProductoDTO dto = dtos.get(0);
+        assertEquals(List.of("Sabores", "Consistencia"),
+                dto.getGruposOpciones().stream().map(ProductoGrupoOpcionDTO::getNombre).toList());
+        ProductoGrupoOpcionDTO sabores = dto.getGruposOpciones().get(0);
+        assertEquals(2, sabores.getId());
+        assertEquals(0, sabores.getOrden());
+        assertEquals(1, sabores.getMinSelecciones());
+        assertEquals(1, sabores.getMaxSelecciones());
+        assertTrue(sabores.getPermiteRepetir());
+        assertEquals(List.of("frutilla", "Cookies"),
+                sabores.getOpciones().stream().map(ProductoOpcionDTO::getNombre).toList());
+        assertEquals(List.of(3, 4),
+                sabores.getOpciones().stream().map(ProductoOpcionDTO::getId).toList());
+        assertNull(dto.getIngredientes());
+        assertNull(dto.getComentarioRevision());
+    }
+
+    @Test
+    void socioListadoNoIncluyeOpcionInactiva() {
+        Producto producto = productoAprobadoConDosGrupos();
+        stubMenuLocal(producto);
+
+        List<ProductoOpcionDTO> opciones = productoService.getProductosByClubPublico(5)
+                .get(0).getGruposOpciones().get(0).getOpciones();
+
+        assertTrue(opciones.stream().noneMatch(o -> "Oculto".equals(o.getNombre())));
+        assertTrue(opciones.stream().allMatch(ProductoOpcionDTO::getActivo));
+    }
+
+    @Test
+    void socioListadoMantieneGrupoSinOpcionesActivas() {
+        Producto producto = productoLocal(anfitrion(20), "APROBADO");
+        ProductoGrupoOpcion sabores = grupoEntity(producto, 2, "Sabores", 0);
+        sabores.setMinSelecciones(1);
+        sabores.setMaxSelecciones(1);
+        sabores.setPermiteRepetir(true);
+        ProductoOpcion inactiva = opcionEntity(sabores, 9, "Oculto", 0);
+        inactiva.setActivo(false);
+        sabores.getOpciones().add(inactiva);
+        producto.getGruposOpciones().add(sabores);
+        stubMenuLocal(producto);
+
+        ProductoGrupoOpcionDTO grupo = productoService.getProductosByClubPublico(5)
+                .get(0).getGruposOpciones().get(0);
+
+        assertEquals("Sabores", grupo.getNombre());
+        assertEquals(1, grupo.getMinSelecciones());
+        assertNotNull(grupo.getOpciones());
+        assertTrue(grupo.getOpciones().isEmpty());
+    }
+
+    @Test
+    void socioListadoProductoViejoSinGruposDevuelveListaVacia() {
+        Producto producto = productoLocal(anfitrion(20), "APROBADO");
+        stubMenuLocal(producto);
+
+        List<ProductoDTO> dtos = productoService.getProductosByClubPublico(5);
+
+        assertEquals(1, dtos.size());
+        assertNotNull(dtos.get(0).getGruposOpciones());
+        assertTrue(dtos.get(0).getGruposOpciones().isEmpty());
+    }
+
+    @Test
+    void socioListadoNoMuestraPendienteNiRechazadoNiInactivo() {
+        Usuario host = anfitrion(20);
+        Club club = clubDelAnfitrion(host);
+        when(clubRepository.findById(5)).thenReturn(Optional.of(club));
+        when(productoRepository.findByHubIdAndTipoAndEstadoAprobacion(1, "GLOBAL", "APROBADO"))
+                .thenReturn(List.of());
+        when(productoRepository.findByClubCreadorIdAndTipoAndEstadoAprobacion(5, "LOCAL", "APROBADO"))
+                .thenReturn(List.of());
+
+        assertTrue(productoService.getProductosByClubPublico(5).isEmpty());
+    }
+
+    @Test
+    void socioGetProductoPublicoFiltraInactivasYAdminLasVe() {
+        Producto producto = productoAprobadoConDosGrupos();
+        when(productoRepository.findById(10)).thenReturn(Optional.of(producto));
+
+        ProductoDTO socio = productoService.getProductoPublico(10);
+        ProductoDTO admin = productoService.getProducto(10);
+
+        assertEquals(List.of("frutilla", "Cookies"),
+                socio.getGruposOpciones().get(0).getOpciones().stream()
+                        .map(ProductoOpcionDTO::getNombre).toList());
+        assertEquals(List.of("frutilla", "Cookies", "Oculto"),
+                admin.getGruposOpciones().get(0).getOpciones().stream()
+                        .map(ProductoOpcionDTO::getNombre).toList());
+        assertFalse(admin.getGruposOpciones().get(0).getOpciones().get(2).getActivo());
+        assertEquals("proteína", admin.getIngredientes());
+        assertNull(socio.getIngredientes());
+        assertNull(socio.getComentarioRevision());
+        assertNull(socio.getRevisadoPorUsuarioId());
+        assertNull(socio.getRevisadoAt());
+    }
+
+    @Test
+    void socioGetProductoNoVisibleMantiene404() {
+        Producto pendiente = productoLocal(anfitrion(20), "PENDIENTE");
+        pendiente.getGruposOpciones().add(grupoEntity(pendiente, 1, "Sabores", 0));
+        when(productoRepository.findById(10)).thenReturn(Optional.of(pendiente));
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> productoService.getProductoPublico(10));
     }
 
     @Test
@@ -392,6 +522,46 @@ class ProductoOpcionesServiceTest {
                 dto.getGruposOpciones().get(0).getOpciones().stream().map(ProductoOpcionDTO::getNombre).toList());
         assertEquals(List.of("A", "Z"),
                 dto.getGruposOpciones().get(1).getOpciones().stream().map(ProductoOpcionDTO::getNombre).toList());
+    }
+
+    private void stubMenuLocal(Producto producto) {
+        Club club = clubDelAnfitrion(anfitrion(20));
+        when(clubRepository.findById(5)).thenReturn(Optional.of(club));
+        when(productoRepository.findByHubIdAndTipoAndEstadoAprobacion(1, "GLOBAL", "APROBADO"))
+                .thenReturn(List.of());
+        when(productoRepository.findByClubCreadorIdAndTipoAndEstadoAprobacion(5, "LOCAL", "APROBADO"))
+                .thenReturn(List.of(producto));
+        when(clubProductoRepository.findByClubIdAndProductoId(5, producto.getId()))
+                .thenReturn(Optional.empty());
+    }
+
+    private static Producto productoAprobadoConDosGrupos() {
+        Producto producto = productoLocal(anfitrion(20), "APROBADO");
+        producto.setIngredientes("proteína");
+        producto.setComentarioRevision("interno");
+        producto.setRevisadoPor(admin(7));
+        producto.setRevisadoAt(LocalDateTime.of(2026, 8, 1, 10, 0));
+
+        ProductoGrupoOpcion sabores = grupoEntity(producto, 2, "Sabores", 0);
+        sabores.setMinSelecciones(1);
+        sabores.setMaxSelecciones(1);
+        sabores.setPermiteRepetir(true);
+        sabores.getOpciones().add(opcionEntity(sabores, 3, "frutilla", 0));
+        sabores.getOpciones().add(opcionEntity(sabores, 4, "Cookies", 1));
+        ProductoOpcion oculta = opcionEntity(sabores, 5, "Oculto", 2);
+        oculta.setActivo(false);
+        sabores.getOpciones().add(oculta);
+
+        ProductoGrupoOpcion consistencia = grupoEntity(producto, 6, "Consistencia", 1);
+        consistencia.setMinSelecciones(1);
+        consistencia.setMaxSelecciones(1);
+        consistencia.setPermiteRepetir(false);
+        consistencia.getOpciones().add(opcionEntity(consistencia, 7, "Cremoso", 0));
+        consistencia.getOpciones().add(opcionEntity(consistencia, 8, "Líquido", 1));
+
+        producto.getGruposOpciones().add(sabores);
+        producto.getGruposOpciones().add(consistencia);
+        return producto;
     }
 
     private void stubCreateAnfitrion() {

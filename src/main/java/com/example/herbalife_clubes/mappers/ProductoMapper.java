@@ -13,19 +13,49 @@ import java.util.Comparator;
 import java.util.List;
 
 public class ProductoMapper {
+
+    /**
+     * Flags independientes de exposición. No reutilizar el mapper ADMIN para SOCIO:
+     * ingredientes/revisión y grupos/opciones se deciden por separado.
+     */
+    public static final class Vista {
+        public static final Vista INTERNO = new Vista(true, true, true, false);
+        public static final Vista PUBLICO = new Vista(false, false, true, true);
+
+        private final boolean incluirIngredientes;
+        private final boolean incluirDatosRevision;
+        private final boolean incluirGruposOpciones;
+        private final boolean filtrarOpcionesInactivas;
+
+        private Vista(
+                boolean incluirIngredientes,
+                boolean incluirDatosRevision,
+                boolean incluirGruposOpciones,
+                boolean filtrarOpcionesInactivas) {
+            this.incluirIngredientes = incluirIngredientes;
+            this.incluirDatosRevision = incluirDatosRevision;
+            this.incluirGruposOpciones = incluirGruposOpciones;
+            this.filtrarOpcionesInactivas = filtrarOpcionesInactivas;
+        }
+    }
+
     /**
      * Mapea Producto a ProductoDTO incluyendo todos los campos (para uso interno/admin)
      */
     public static ProductoDTO mapProductoToProductoDTO(Producto producto) {
-        return mapProductoToProductoDTO(producto, true);
+        return mapProductoToProductoDTO(producto, Vista.INTERNO);
     }
 
     /**
-     * Mapea Producto a ProductoDTO con opción de incluir ingredientes
-     * @param producto Producto a mapear
-     * @param incluirIngredientes Si es false, no incluye ingredientes (para endpoints públicos)
+     * Compatibilidad: {@code true} = vista interna (ADMIN/ANFITRION);
+     * {@code false} = vista pública (SOCIO): sin ingredientes ni revisión,
+     * con gruposOpciones y solo opciones activas.
      */
     public static ProductoDTO mapProductoToProductoDTO(Producto producto, boolean incluirIngredientes) {
+        return mapProductoToProductoDTO(producto, incluirIngredientes ? Vista.INTERNO : Vista.PUBLICO);
+    }
+
+    public static ProductoDTO mapProductoToProductoDTO(Producto producto, Vista vista) {
         ProductoDTO dto = new ProductoDTO();
         dto.setId(producto.getId());
         dto.setHubId(producto.getHub() != null ? producto.getHub().getId() : null);
@@ -35,7 +65,7 @@ public class ProductoMapper {
         dto.setNombre(producto.getNombre());
         dto.setDescripcion(producto.getDescripcion());
         dto.setImagenUrl(producto.getImagenUrl());
-        if (incluirIngredientes) {
+        if (vista.incluirIngredientes) {
             dto.setIngredientes(producto.getIngredientes());
         }
         dto.setPrecio(producto.getPrecio());
@@ -45,19 +75,26 @@ public class ProductoMapper {
         dto.setEstadoAprobacion(producto.getEstadoAprobacion());
         dto.setActivo(producto.getActivo());
         dto.setCreatedAt(producto.getCreatedAt());
-        if (incluirIngredientes) {
+        if (vista.incluirDatosRevision) {
             dto.setComentarioRevision(producto.getComentarioRevision());
             if (producto.getRevisadoPor() != null) {
                 dto.setRevisadoPorUsuarioId(producto.getRevisadoPor().getId());
                 dto.setRevisadoPorNombre(nombreCompleto(producto.getRevisadoPor()));
             }
             dto.setRevisadoAt(producto.getRevisadoAt());
-            dto.setGruposOpciones(mapGrupos(producto));
+        }
+        if (vista.incluirGruposOpciones) {
+            dto.setGruposOpciones(mapGrupos(producto, vista.filtrarOpcionesInactivas));
         }
         return dto;
     }
 
-    private static List<ProductoGrupoOpcionDTO> mapGrupos(Producto producto) {
+    /**
+     * grupos: orden ASC, id ASC. opciones: orden ASC, id ASC.
+     * Si filtrarInactivas, solo ProductoOpcion.activo == true; el grupo se mantiene
+     * aunque quede con opciones vacías.
+     */
+    private static List<ProductoGrupoOpcionDTO> mapGrupos(Producto producto, boolean filtrarInactivas) {
         List<ProductoGrupoOpcion> grupos = producto.getGruposOpciones() == null
                 ? List.of()
                 : new ArrayList<>(producto.getGruposOpciones());
@@ -81,6 +118,9 @@ public class ProductoMapper {
                     .thenComparing(o -> o.getId() == null ? Integer.MAX_VALUE : o.getId()));
             List<ProductoOpcionDTO> oDtos = new ArrayList<>();
             for (ProductoOpcion opcion : opciones) {
+                if (filtrarInactivas && !Boolean.TRUE.equals(opcion.getActivo())) {
+                    continue;
+                }
                 ProductoOpcionDTO oDto = new ProductoOpcionDTO();
                 oDto.setId(opcion.getId());
                 oDto.setNombre(opcion.getNombre());
@@ -117,4 +157,3 @@ public class ProductoMapper {
         return producto;
     }
 }
-
