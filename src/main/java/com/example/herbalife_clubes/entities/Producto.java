@@ -58,6 +58,16 @@ public class Producto {
     @Column(name = "estado_aprobacion", length = 50)
     private String estadoAprobacion;
 
+    @Column(name = "comentario_revision", columnDefinition = "TEXT")
+    private String comentarioRevision;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "revisado_por_usuario_id")
+    private Usuario revisadoPor;
+
+    @Column(name = "revisado_at")
+    private LocalDateTime revisadoAt;
+
     @Column(name = "activo")
     private Boolean activo;
 

@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.dtos.producto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -26,6 +27,15 @@ public class ProductoDTO {
     /** true si el producto es un Combo (habilita registro de asistencia). Independiente de tipo. */
     private Boolean esCombo;
     private String estadoAprobacion; // APROBADO | PENDIENTE | RECHAZADO
+    /** Solo ADMIN/ANFITRION. Omitido en JSON público (socio). */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String comentarioRevision;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer revisadoPorUsuarioId;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String revisadoPorNombre;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private LocalDateTime revisadoAt;
     private Boolean activo;
     /** Disponible en el club (tabla club_productos). Solo se rellena cuando se lista por club para anfitrión/admin. */
     private Boolean disponible;

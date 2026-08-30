@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ProductoRepositoryEntityGraphTest {
 
-    private static final Set<String> REQUIRED_PATHS = Set.of("hub", "clubCreador");
+    private static final Set<String> REQUIRED_PATHS = Set.of("hub", "clubCreador", "revisadoPor");
 
     @Test
     void consultasQueAlimentanProductoMapperCarganHubYClubCreador() throws Exception {
@@ -31,9 +31,9 @@ class ProductoRepositoryEntityGraphTest {
     private static void assertGraph(String methodName, Class<?>... paramTypes) throws Exception {
         Method method = ProductoRepository.class.getMethod(methodName, paramTypes);
         EntityGraph graph = method.getAnnotation(EntityGraph.class);
-        assertNotNull(graph, methodName + " debe declarar @EntityGraph(hub, clubCreador)");
+        assertNotNull(graph, methodName + " debe declarar @EntityGraph(hub, clubCreador, revisadoPor)");
         Set<String> paths = Set.of(graph.attributePaths());
         assertTrue(paths.containsAll(REQUIRED_PATHS),
-                methodName + " debe cargar hub y clubCreador, no " + paths);
+                methodName + " debe cargar hub, clubCreador y revisadoPor, no " + paths);
     }
 }

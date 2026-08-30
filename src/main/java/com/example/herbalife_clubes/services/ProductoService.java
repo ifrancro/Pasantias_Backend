@@ -36,9 +36,24 @@ public interface ProductoService {
      * @param estadoAprobacion Nuevo estado (APROBADO | RECHAZADO)
      * @return ProductoDTO actualizado
      */
-    ProductoDTO cambiarEstadoAprobacion(Integer productoId, String estadoAprobacion);
-    
-    ProductoDTO updateProducto(Integer productoId, ProductoDTO productoDTO);
+    /**
+     * Cambia el estado de aprobación de un producto (solo ADMIN).
+     *
+     * @param productoId ID del producto
+     * @param estadoAprobacion Nuevo estado (APROBADO | RECHAZADO)
+     * @param comentario Obligatorio si RECHAZADO; opcional si APROBADO
+     * @param adminUsuarioId ID del ADMIN autenticado
+     */
+    ProductoDTO cambiarEstadoAprobacion(
+            Integer productoId, String estadoAprobacion, String comentario, Integer adminUsuarioId);
+
+    /**
+     * Reenvía un producto LOCAL RECHAZADO a PENDIENTE. Solo el anfitrión propietario.
+     * Conserva comentarioRevision; limpia revisadoPor y revisadoAt.
+     */
+    ProductoDTO reenviarProducto(Integer productoId, Integer anfitrionUsuarioId);
+
+    ProductoDTO updateProducto(Integer productoId, ProductoDTO productoDTO, Integer usuarioId);
     ProductoDTO getProducto(Integer productoId);
     ProductoDTO getProductoPublico(Integer productoId); // Sin ingredientes y sin PENDIENTE
     List<ProductoDTO> getProductos();

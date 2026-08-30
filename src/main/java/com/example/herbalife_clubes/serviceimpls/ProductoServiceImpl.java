@@ -17,10 +17,12 @@ import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.services.ProductoService;
 import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -176,10 +178,13 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     @Transactional
-    public ProductoDTO updateProducto(Integer productoId, ProductoDTO productoDTO) {
+    public ProductoDTO updateProducto(Integer productoId, ProductoDTO productoDTO, Integer usuarioId) {
+        Usuario usuario = usuarioRepository.findById(usuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + usuarioId));
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
-        
+        assertPuedeEditarProducto(usuario, producto);
+
         producto.setNombre(productoDTO.getNombre());
         producto.setDescripcion(productoDTO.getDescripcion());
         producto.setImagenUrl(productoDTO.getImagenUrl());
@@ -191,9 +196,11 @@ public class ProductoServiceImpl implements ProductoService {
         if (productoDTO.getEsCombo() != null) {
             producto.setEsCombo(productoDTO.getEsCombo());
         }
-        
-        Producto updatedProducto = productoRepository.save(producto);
-        return ProductoMapper.mapProductoToProductoDTO(updatedProducto);
+        // RECHAZADO no pasa a PENDIENTE aquí: el anfitrión usa /reenviar.
+        // APROBADO no vuelve a revisión en este ticket (PROD-OPTIONS-001b).
+
+        productoRepository.save(producto);
+        return ProductoMapper.mapProductoToProductoDTO(producto, true);
     }
 
     private void validarPrecio(BigDecimal precio) {
@@ -387,18 +394,69 @@ public class ProductoServiceImpl implements ProductoService {
 
     @Override
     @Transactional
-    public ProductoDTO cambiarEstadoAprobacion(Integer productoId, String estadoAprobacion) {
-        // Validar que el estado sea válido
-        if (!"APROBADO".equalsIgnoreCase(estadoAprobacion) && !"RECHAZADO".equalsIgnoreCase(estadoAprobacion)) {
+    public ProductoDTO cambiarEstadoAprobacion(
+            Integer productoId, String estadoAprobacion, String comentario, Integer adminUsuarioId) {
+        if (estadoAprobacion == null || estadoAprobacion.isBlank()) {
             throw new IllegalArgumentException("El estado de aprobación debe ser APROBADO o RECHAZADO");
         }
-        
+        String estado = estadoAprobacion.trim().toUpperCase();
+        if (!"APROBADO".equals(estado) && !"RECHAZADO".equals(estado)) {
+            throw new IllegalArgumentException("El estado de aprobación debe ser APROBADO o RECHAZADO");
+        }
+
+        Usuario admin = usuarioRepository.findById(adminUsuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + adminUsuarioId));
+        if (!esAdmin(usuarioRol(admin))) {
+            throw new AccessDeniedException("Solo un administrador puede revisar productos");
+        }
+
         Producto producto = productoRepository.findById(productoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
-        
-        producto.setEstadoAprobacion(estadoAprobacion.toUpperCase());
-        Producto updatedProducto = productoRepository.save(producto);
-        return ProductoMapper.mapProductoToProductoDTO(updatedProducto, true);
+
+        String comentarioTrim = comentario != null ? comentario.trim() : "";
+        if ("RECHAZADO".equals(estado)) {
+            if (comentarioTrim.isEmpty()) {
+                throw new IllegalArgumentException("El comentario es obligatorio al rechazar un producto");
+            }
+            producto.setComentarioRevision(comentarioTrim);
+        } else {
+            producto.setComentarioRevision(comentarioTrim.isEmpty() ? null : comentarioTrim);
+        }
+
+        producto.setEstadoAprobacion(estado);
+        producto.setRevisadoPor(admin);
+        producto.setRevisadoAt(LocalDateTime.now());
+        productoRepository.save(producto);
+        return ProductoMapper.mapProductoToProductoDTO(producto, true);
+    }
+
+    @Override
+    @Transactional
+    public ProductoDTO reenviarProducto(Integer productoId, Integer anfitrionUsuarioId) {
+        Usuario usuario = usuarioRepository.findById(anfitrionUsuarioId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con id: " + anfitrionUsuarioId));
+        if (!esAnfitrion(usuarioRol(usuario))) {
+            throw new AccessDeniedException("Solo el anfitrión propietario puede reenviar un producto");
+        }
+
+        Producto producto = productoRepository.findById(productoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + productoId));
+
+        if (!"LOCAL".equalsIgnoreCase(producto.getTipo())) {
+            throw new IllegalArgumentException("Solo se puede reenviar un producto LOCAL");
+        }
+        if (!esPropietarioLocal(usuario, producto)) {
+            throw new AccessDeniedException("No puedes reenviar un producto de otro club");
+        }
+        if (!"RECHAZADO".equalsIgnoreCase(producto.getEstadoAprobacion())) {
+            throw new IllegalArgumentException("Solo se puede reenviar un producto RECHAZADO");
+        }
+
+        producto.setEstadoAprobacion("PENDIENTE");
+        producto.setRevisadoPor(null);
+        producto.setRevisadoAt(null);
+        productoRepository.save(producto);
+        return ProductoMapper.mapProductoToProductoDTO(producto, true);
     }
 
     @Override
@@ -574,6 +632,40 @@ public class ProductoServiceImpl implements ProductoService {
                 .disponible(clubProducto.getDisponible()) // Estado local en el club
                 .createdAt(producto.getCreatedAt())
                 .build();
+    }
+
+    private void assertPuedeEditarProducto(Usuario usuario, Producto producto) {
+        String rol = usuarioRol(usuario);
+        if (esAdmin(rol)) {
+            return;
+        }
+        if (esAnfitrion(rol) && esPropietarioLocal(usuario, producto)) {
+            return;
+        }
+        throw new AccessDeniedException("No tienes permiso para editar este producto");
+    }
+
+    private static boolean esPropietarioLocal(Usuario usuario, Producto producto) {
+        if (!"LOCAL".equalsIgnoreCase(producto.getTipo())) {
+            return false;
+        }
+        Club club = producto.getClubCreador();
+        if (club == null || club.getAnfitrion() == null || usuario.getId() == null) {
+            return false;
+        }
+        return usuario.getId().equals(club.getAnfitrion().getId());
+    }
+
+    private static String usuarioRol(Usuario usuario) {
+        return usuario.getRol() != null ? usuario.getRol().getNombre() : "";
+    }
+
+    private static boolean esAdmin(String rol) {
+        return "ADMIN".equalsIgnoreCase(rol);
+    }
+
+    private static boolean esAnfitrion(String rol) {
+        return "ANFITRION".equalsIgnoreCase(rol);
     }
 }
 

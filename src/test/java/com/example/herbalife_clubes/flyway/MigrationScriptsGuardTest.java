@@ -93,6 +93,23 @@ class MigrationScriptsGuardTest {
     }
 
     @Test
+    void v17AddsNullableRevisionColumnsOnProductos() throws Exception {
+        Path v17 = MIGRATIONS.resolve("V17__revision_productos.sql");
+        assertTrue(Files.exists(v17), "Falta la migración V17 de revisión de productos");
+        String sql = Files.readString(v17, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+        assertTrue(sql.contains("alter table productos"));
+        assertTrue(sql.contains("comentario_revision"));
+        assertTrue(sql.contains("revisado_por_usuario_id"));
+        assertTrue(sql.contains("revisado_at"));
+        assertTrue(sql.contains("if not exists"));
+        assertTrue(sql.contains("references usuarios(id)"));
+        assertFalse(sql.contains("comentario_revision text not null"),
+                "comentario_revision debe ser nullable");
+        assertFalse(sql.contains("insert into"));
+        assertFalse(sql.contains("drop table"));
+    }
+
+    @Test
     void versionsAreUniqueAndIncludeV13AndV14() throws Exception {
         try (Stream<Path> files = Files.list(MIGRATIONS)) {
             List<String> names = files.map(p -> p.getFileName().toString())
@@ -101,6 +118,8 @@ class MigrationScriptsGuardTest {
                     .toList();
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V13__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V14__")));
+            assertTrue(names.stream().anyMatch(n -> n.startsWith("V16__")));
+            assertTrue(names.stream().anyMatch(n -> n.startsWith("V17__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V2__")));
             assertFalse(names.stream().anyMatch(n -> n.startsWith("V1__")),
                     "No existe V1 histórico; no inventar una sin estrategia");

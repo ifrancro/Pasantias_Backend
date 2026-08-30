@@ -2,6 +2,7 @@ package com.example.herbalife_clubes.mappers;
 
 import com.example.herbalife_clubes.dtos.producto.ProductoDTO;
 import com.example.herbalife_clubes.entities.Producto;
+import com.example.herbalife_clubes.entities.Usuario;
 
 public class ProductoMapper {
     /**
@@ -36,7 +37,22 @@ public class ProductoMapper {
         dto.setEstadoAprobacion(producto.getEstadoAprobacion());
         dto.setActivo(producto.getActivo());
         dto.setCreatedAt(producto.getCreatedAt());
+        if (incluirIngredientes) {
+            dto.setComentarioRevision(producto.getComentarioRevision());
+            if (producto.getRevisadoPor() != null) {
+                dto.setRevisadoPorUsuarioId(producto.getRevisadoPor().getId());
+                dto.setRevisadoPorNombre(nombreCompleto(producto.getRevisadoPor()));
+            }
+            dto.setRevisadoAt(producto.getRevisadoAt());
+        }
         return dto;
+    }
+
+    private static String nombreCompleto(Usuario usuario) {
+        String nombre = usuario.getNombre() != null ? usuario.getNombre().trim() : "";
+        String apellido = usuario.getApellido() != null ? usuario.getApellido().trim() : "";
+        String completo = (nombre + " " + apellido).trim();
+        return completo.isEmpty() ? null : completo;
     }
 
     public static Producto mapProductoDTOToProducto(ProductoDTO dto) {

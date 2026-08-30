@@ -12,34 +12,34 @@ import java.util.Optional;
 public interface ProductoRepository extends JpaRepository<Producto, Integer> {
 
     @Override
-    @EntityGraph(attributePaths = {"hub", "clubCreador"})
+    @EntityGraph(attributePaths = {"hub", "clubCreador", "clubCreador.anfitrion", "revisadoPor"})
     List<Producto> findAll();
 
     @Override
-    @EntityGraph(attributePaths = {"hub", "clubCreador"})
+    @EntityGraph(attributePaths = {"hub", "clubCreador", "clubCreador.anfitrion", "revisadoPor"})
     Optional<Producto> findById(Integer id);
 
-    @EntityGraph(attributePaths = {"hub", "clubCreador"})
+    @EntityGraph(attributePaths = {"hub", "clubCreador", "clubCreador.anfitrion", "revisadoPor"})
     List<Producto> findByHubId(Integer hubId);
 
-    @EntityGraph(attributePaths = {"hub", "clubCreador"})
+    @EntityGraph(attributePaths = {"hub", "clubCreador", "clubCreador.anfitrion", "revisadoPor"})
     List<Producto> findByHubIdAndActivoTrue(Integer hubId);
 
-    @EntityGraph(attributePaths = {"hub", "clubCreador"})
+    @EntityGraph(attributePaths = {"hub", "clubCreador", "clubCreador.anfitrion", "revisadoPor"})
     List<Producto> findByClubCreadorId(Integer clubCreadorId);
 
-    @EntityGraph(attributePaths = {"hub", "clubCreador"})
+    @EntityGraph(attributePaths = {"hub", "clubCreador", "clubCreador.anfitrion", "revisadoPor"})
     List<Producto> findByEstadoAprobacion(String estadoAprobacion);
 
-    @EntityGraph(attributePaths = {"hub", "clubCreador"})
+    @EntityGraph(attributePaths = {"hub", "clubCreador", "clubCreador.anfitrion", "revisadoPor"})
     List<Producto> findByEstadoAprobacionNot(String estadoAprobacion); // Para excluir PENDIENTE
 
-    @EntityGraph(attributePaths = {"hub", "clubCreador"})
+    @EntityGraph(attributePaths = {"hub", "clubCreador", "clubCreador.anfitrion", "revisadoPor"})
     List<Producto> findByEstadoAprobacionAndClubCreadorId(String estadoAprobacion, Integer clubCreadorId);
 
-    @EntityGraph(attributePaths = {"hub", "clubCreador"})
+    @EntityGraph(attributePaths = {"hub", "clubCreador", "clubCreador.anfitrion", "revisadoPor"})
     List<Producto> findByHubIdAndTipoAndEstadoAprobacion(Integer hubId, String tipo, String estadoAprobacion);
 
-    @EntityGraph(attributePaths = {"hub", "clubCreador"})
+    @EntityGraph(attributePaths = {"hub", "clubCreador", "clubCreador.anfitrion", "revisadoPor"})
     List<Producto> findByClubCreadorIdAndTipoAndEstadoAprobacion(Integer clubCreadorId, String tipo, String estadoAprobacion);
 }

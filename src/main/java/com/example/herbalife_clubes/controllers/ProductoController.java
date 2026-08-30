@@ -200,7 +200,11 @@ public class ProductoController {
 
     @PutMapping("{id}")
     public ResponseEntity<ProductoDTO> updateProducto(@PathVariable Integer id, @RequestBody ProductoDTO productoDTO) {
-        ProductoDTO updatedProductoDTO = productoService.updateProducto(id, productoDTO);
+        Usuario usuario = usuarioAutenticadoOrNull();
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        ProductoDTO updatedProductoDTO = productoService.updateProducto(id, productoDTO, usuario.getId());
         return ResponseEntity.ok(updatedProductoDTO);
     }
 
@@ -218,40 +222,38 @@ public class ProductoController {
 
     /**
      * Cambia el estado de aprobación de un producto (solo ADMIN).
-     * 
-     * @param id ID del producto
-     * @param estadoAprobacion Nuevo estado (APROBADO | RECHAZADO)
-     * @return ProductoDTO actualizado
+     * URL sin cambios. {@code comentario} opcional en APROBADO; obligatorio en RECHAZADO.
      */
     @PatchMapping("{id}/estado-aprobacion")
     public ResponseEntity<ProductoDTO> cambiarEstadoAprobacion(
             @PathVariable Integer id,
-            @RequestParam String estadoAprobacion) {
-        
-        // Validar autenticación
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getName() == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+            @RequestParam String estadoAprobacion,
+            @RequestParam(required = false) String comentario) {
 
-        // Obtener usuario autenticado
-        String email = authentication.getName();
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElse(null);
-
+        Usuario usuario = usuarioAutenticadoOrNull();
         if (usuario == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-
-        // Validar que el rol sea ADMIN
         String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
         if (!"ADMIN".equalsIgnoreCase(rolNombre)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        // Cambiar estado de aprobación
-        ProductoDTO productoDTO = productoService.cambiarEstadoAprobacion(id, estadoAprobacion);
+        ProductoDTO productoDTO = productoService.cambiarEstadoAprobacion(
+                id, estadoAprobacion, comentario, usuario.getId());
         return ResponseEntity.ok(productoDTO);
+    }
+
+    /**
+     * Reenvía un producto LOCAL RECHAZADO a PENDIENTE. Solo el anfitrión propietario.
+     */
+    @PatchMapping("{id}/reenviar")
+    public ResponseEntity<ProductoDTO> reenviarProducto(@PathVariable Integer id) {
+        Usuario usuario = usuarioAutenticadoOrNull();
+        if (usuario == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(productoService.reenviarProducto(id, usuario.getId()));
     }
 
     /**
@@ -338,6 +340,14 @@ public class ProductoController {
         } catch (IOException e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    private Usuario usuarioAutenticadoOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return null;
+        }
+        return usuarioRepository.findByEmail(authentication.getName()).orElse(null);
     }
 }
 
