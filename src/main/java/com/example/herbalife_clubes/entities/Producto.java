@@ -85,6 +85,8 @@ public class Producto {
      * Seguro en este ticket porque no hay pedido_item_opciones ni club_producto_opciones.
      * Deuda futura: antes de introducir esas FKs hay que dejar de regenerar IDs
      * y sincronizar por identidad estable.
+     * Fetch: EntityGraph JOIN FETCH de esta bag sola (no de opciones a la vez)
+     * para evitar MultipleBagFetchException. Orden semántico por {@code orden}.
      */
     @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("orden ASC, id ASC")

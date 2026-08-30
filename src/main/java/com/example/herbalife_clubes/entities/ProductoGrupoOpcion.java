@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import org.hibernate.annotations.BatchSize;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,8 +50,13 @@ public class ProductoGrupoOpcion {
     @Column(name = "permite_repetir", nullable = false)
     private Boolean permiteRepetir;
 
-    @OneToMany(mappedBy = "grupo", cascade = CascadeType.ALL, orphanRemoval = true)
+    /**
+     * LAZY + batch: no va en el EntityGraph junto con gruposOpciones
+     * (MultipleBagFetchException). Se inicializa al mapear dentro de la TX.
+     */
+    @OneToMany(mappedBy = "grupo", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("orden ASC, id ASC")
+    @BatchSize(size = 50)
     private List<ProductoOpcion> opciones = new ArrayList<>();
 
     @PrePersist

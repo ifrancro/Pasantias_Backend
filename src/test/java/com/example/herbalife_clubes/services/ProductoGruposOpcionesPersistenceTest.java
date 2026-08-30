@@ -233,6 +233,35 @@ class ProductoGruposOpcionesPersistenceTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @Rollback(false)
+    void findAllConDosGruposNoLanzaMultipleBagFetch() {
+        Seeded seeded = seedProductoConSabores();
+        ProductoDTO request = basePut(seeded);
+        request.setGruposOpciones(List.of(
+                grupo("Sabores", 0, opcion("Frutilla", 0), opcion("Vainilla", 1)),
+                grupo("Consistencia", 1, opcion("Cremoso", 0), opcion("Líquido", 1))));
+        productoService.updateProducto(seeded.productoId, request, seeded.hostId);
+
+        List<ProductoDTO> dtos = assertDoesNotThrow(
+                () -> productoService.getProductos(),
+                "findAll + mapper no debe lanzar MultipleBagFetchException");
+
+        ProductoDTO dto = dtos.stream()
+                .filter(p -> seeded.productoId.equals(p.getId()))
+                .findFirst()
+                .orElseThrow();
+        assertEquals(List.of("Sabores", "Consistencia"),
+                dto.getGruposOpciones().stream().map(ProductoGrupoOpcionDTO::getNombre).toList());
+        assertEquals(List.of("Frutilla", "Vainilla"),
+                dto.getGruposOpciones().get(0).getOpciones().stream()
+                        .map(ProductoOpcionDTO::getNombre).toList());
+        assertEquals(List.of("Cremoso", "Líquido"),
+                dto.getGruposOpciones().get(1).getOpciones().stream()
+                        .map(ProductoOpcionDTO::getNombre).toList());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
     void flushNoDejaColeccionDuplicada() {
         Seeded seeded = seedProductoConSabores();
         ProductoDTO request = basePut(seeded);

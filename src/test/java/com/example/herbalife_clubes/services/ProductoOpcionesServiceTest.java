@@ -332,6 +332,32 @@ class ProductoOpcionesServiceTest {
     }
 
     @Test
+    void getProductosListaConDosGruposYOpciones() {
+        Producto producto = productoLocal(anfitrion(20), "PENDIENTE");
+        ProductoGrupoOpcion sabores = grupoEntity(producto, 1, "Sabores", 0);
+        sabores.getOpciones().add(opcionEntity(sabores, 1, "Frutilla", 0));
+        sabores.getOpciones().add(opcionEntity(sabores, 2, "Vainilla", 1));
+        ProductoGrupoOpcion consistencia = grupoEntity(producto, 2, "Consistencia", 1);
+        consistencia.getOpciones().add(opcionEntity(consistencia, 3, "Cremoso", 0));
+        consistencia.getOpciones().add(opcionEntity(consistencia, 4, "Líquido", 1));
+        producto.getGruposOpciones().add(sabores);
+        producto.getGruposOpciones().add(consistencia);
+        when(productoRepository.findAll()).thenReturn(List.of(producto));
+
+        List<ProductoDTO> dtos = assertDoesNotThrow(() -> productoService.getProductos());
+
+        assertEquals(1, dtos.size());
+        assertEquals(List.of("Sabores", "Consistencia"),
+                dtos.get(0).getGruposOpciones().stream().map(ProductoGrupoOpcionDTO::getNombre).toList());
+        assertEquals(List.of("Frutilla", "Vainilla"),
+                dtos.get(0).getGruposOpciones().get(0).getOpciones()
+                        .stream().map(ProductoOpcionDTO::getNombre).toList());
+        assertEquals(List.of("Cremoso", "Líquido"),
+                dtos.get(0).getGruposOpciones().get(1).getOpciones()
+                        .stream().map(ProductoOpcionDTO::getNombre).toList());
+    }
+
+    @Test
     void socioPublicoNoRecibeGruposNiRevision() {
         Producto producto = productoConGrupos(anfitrion(20));
         producto.setEstadoAprobacion("APROBADO");
