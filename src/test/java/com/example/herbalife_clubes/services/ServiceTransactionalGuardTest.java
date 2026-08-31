@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.services;
 
+import com.example.herbalife_clubes.serviceimpls.AsistenciaServiceImpl;
 import com.example.herbalife_clubes.serviceimpls.ClubServiceImpl;
 import com.example.herbalife_clubes.serviceimpls.MembresiaServiceImpl;
 import com.example.herbalife_clubes.serviceimpls.PedidoServiceImpl;
@@ -20,6 +21,7 @@ class ServiceTransactionalGuardTest {
         assertTransactional(ProductoServiceImpl.class);
         assertTransactional(MembresiaServiceImpl.class);
         assertTransactional(PedidoServiceImpl.class);
+        assertTransactional(AsistenciaServiceImpl.class);
     }
 
     private void assertTransactional(Class<?> serviceClass) {

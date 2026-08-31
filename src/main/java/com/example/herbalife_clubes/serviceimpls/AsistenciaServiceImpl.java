@@ -136,6 +136,7 @@ public class AsistenciaServiceImpl implements AsistenciaService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public List<AsistenciaDTO> listarAsistenciasBySocio(Integer membresiaId) {
         List<Asistencia> asistencias = asistenciaRepository.findByMembresiaId(membresiaId);
         return asistencias.stream()
@@ -144,6 +145,7 @@ public class AsistenciaServiceImpl implements AsistenciaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<AsistenciaDTO> listarAsistenciasByClub(Integer clubId) {
         List<Asistencia> asistencias = asistenciaRepository.findByClubId(clubId);
         return asistencias.stream()
@@ -152,6 +154,7 @@ public class AsistenciaServiceImpl implements AsistenciaService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<AsistenciaDTO> listarTodasAsistencias() {
         List<Asistencia> asistencias = asistenciaRepository.findAll();
         return asistencias.stream()
