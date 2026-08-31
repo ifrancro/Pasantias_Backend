@@ -14,6 +14,7 @@ import com.example.herbalife_clubes.repositories.MembresiaRepository;
 import com.example.herbalife_clubes.repositories.RolRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.AsistenciaServiceImpl;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
@@ -22,6 +23,8 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -33,7 +36,9 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -49,7 +54,8 @@ import static org.mockito.Mockito.doNothing;
 @TestPropertySource(properties = {
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.flyway.enabled=false",
-        "spring.jpa.open-in-view=false"
+        "spring.jpa.open-in-view=false",
+        "attendance.max-distance-meters=100"
 })
 @Testcontainers(disabledWithoutDocker = true)
 @EnabledIf("dockerAvailable")
@@ -85,6 +91,11 @@ class AsistenciaListadoPersistenceTest {
     private ComboConsumoService comboConsumoService;
     @MockitoBean
     private MembresiaLogroService membresiaLogroService;
+
+    @AfterEach
+    void clearSecurity() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -135,8 +146,11 @@ class AsistenciaListadoPersistenceTest {
         Seed seed = seedSinAsistencia();
         doNothing().when(comboConsumoService).validarComboConsumidoAntesDeAsistencia(seed.membresiaId());
         doNothing().when(membresiaLogroService).evaluarLogrosAutomaticamente(seed.membresiaId());
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(seed.socioEmail(), "n/a", Collections.emptyList()));
 
-        AsistenciaDTO creada = asistenciaService.registrarAsistencia(seed.membresiaId(), seed.clubId(), null);
+        AsistenciaDTO creada = asistenciaService.registrarAsistencia(
+                seed.membresiaId(), seed.clubId(), null, -17.3935, -66.1570, null);
 
         assertNotNull(creada.getId());
         assertEquals("CONFIRMADA", creada.getEstado());
@@ -184,7 +198,7 @@ class AsistenciaListadoPersistenceTest {
         membresia.setRachaActual(1);
         membresia.setRachaMaxima(1);
         membresia = membresiaRepository.save(membresia);
-        return new Seed(n, membresia.getId(), club.getId());
+        return new Seed(n, membresia.getId(), club.getId(), socio.getEmail());
     }
 
     private static Rol rol(String nombre) {
@@ -219,9 +233,11 @@ class AsistenciaListadoPersistenceTest {
         c.setNombreClub("Club AS-" + n);
         c.setEstado("ACTIVO");
         c.setPrefijoSocio("AS" + n);
+        c.setLat(BigDecimal.valueOf(-17.3935));
+        c.setLng(BigDecimal.valueOf(-66.1570));
         return c;
     }
 
-    private record Seed(int n, Integer membresiaId, Integer clubId) {
+    private record Seed(int n, Integer membresiaId, Integer clubId, String socioEmail) {
     }
 }

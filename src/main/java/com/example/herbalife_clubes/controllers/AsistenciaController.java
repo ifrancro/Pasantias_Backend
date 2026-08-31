@@ -18,8 +18,12 @@ public class AsistenciaController {
     @PostMapping("/registrar")
     public ResponseEntity<AsistenciaDTO> registrarAsistencia(@RequestParam Integer membresiaId,
                                                                @RequestParam Integer clubId,
+                                                               @RequestParam(required = false) Double latitud,
+                                                               @RequestParam(required = false) Double longitud,
+                                                               @RequestParam(required = false) Double precisionMetros,
                                                                @RequestParam(required = false) String qrClub) {
-        AsistenciaDTO asistenciaDTO = asistenciaService.registrarAsistencia(membresiaId, clubId, qrClub);
+        AsistenciaDTO asistenciaDTO = asistenciaService.registrarAsistencia(
+                membresiaId, clubId, qrClub, latitud, longitud, precisionMetros);
         return new ResponseEntity<>(asistenciaDTO, HttpStatus.CREATED);
     }
 
