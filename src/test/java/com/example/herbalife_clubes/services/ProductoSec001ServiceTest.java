@@ -257,7 +257,7 @@ class ProductoSec001ServiceTest {
 
     @Test
     void menuPublicoMuestraAprobadoActivoDisponible() {
-        stubMenuClub(productoGlobal(true), true);
+        stubMenuClub(productoGlobalConPrecio(true, new BigDecimal("25.00")), true);
 
         List<ProductoDTO> dtos = productoService.getProductosByClubPublico(3);
 
@@ -331,12 +331,10 @@ class ProductoSec001ServiceTest {
     }
 
     @Test
-    void menuPublicoOptOutSinFilaSigueMostrandoGlobalActivo() {
-        stubMenuClub(productoGlobal(true), null);
+    void menuPublicoOptInSinFilaNoMuestraGlobal() {
+        stubMenuClub(productoGlobalConPrecio(true, new BigDecimal("25.00")), null);
 
-        List<ProductoDTO> dtos = productoService.getProductosByClubPublico(3);
-
-        assertEquals(1, dtos.size());
+        assertTrue(productoService.getProductosByClubPublico(3).isEmpty());
     }
 
     private void stubMenuClub(Producto producto, Boolean disponible) {
@@ -362,6 +360,12 @@ class ProductoSec001ServiceTest {
             when(clubProductoRepository.findByClubIdAndProductoId(3, producto.getId()))
                     .thenReturn(Optional.of(cp));
         }
+    }
+
+    private static Producto productoGlobalConPrecio(boolean activo, BigDecimal precio) {
+        Producto producto = productoGlobal(activo);
+        producto.setPrecio(precio);
+        return producto;
     }
 
     private static Usuario admin() {

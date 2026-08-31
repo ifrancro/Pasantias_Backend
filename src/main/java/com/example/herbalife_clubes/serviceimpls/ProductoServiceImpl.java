@@ -10,6 +10,7 @@ import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.ProductoMapper;
 import com.example.herbalife_clubes.pricing.PrecioEfectivo;
+import com.example.herbalife_clubes.productos.ProductAvailabilityRejections;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.HubRepository;
@@ -323,16 +324,21 @@ private void flushDeletesDeGrupos() {
     }
 
     /**
-     * Incluye producto si no existe fila en club_productos o si existe y disponible=true (opt-out).
-     * Deuda PROD-AVAIL-002: el pedido socio exige fila explícita; el menú no.
+     * Menú socio/público: opt-in explícito (ClubProducto.disponible=true) y precio efectivo &gt; 0.
      */
-    private List<Producto> filtrarPorDisponibilidadEnClub(List<Producto> productos, Integer clubId) {
+    private List<Producto> filtrarMenuSocioEnClub(List<Producto> productos, Integer clubId) {
         return productos.stream()
-                .filter(p -> {
-                    Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, p.getId());
-                    return cp.isEmpty() || Boolean.TRUE.equals(cp.get().getDisponible());
-                })
+                .filter(p -> esVisibleAlSocioEnClub(p, clubId))
                 .collect(Collectors.toList());
+    }
+
+    private boolean esVisibleAlSocioEnClub(Producto producto, Integer clubId) {
+        Optional<ClubProducto> cpOpt = clubProductoRepository.findByClubIdAndProductoId(clubId, producto.getId());
+        if (cpOpt.isEmpty() || !Boolean.TRUE.equals(cpOpt.get().getDisponible())) {
+            return false;
+        }
+        BigDecimal efectivo = PrecioEfectivo.resolverPrecioEfectivo(producto, cpOpt.get());
+        return PrecioEfectivo.estaConfigurado(efectivo);
     }
 
     /**
@@ -354,11 +360,11 @@ private void flushDeletesDeGrupos() {
     }
 
     /**
-     * Productos del menú del club filtrando por disponibilidad (para socios y vista pública).
-     * Requiere APROBADO + activo=true. Respeta opt-out de club_productos (PROD-AVAIL-002).
+     * Productos del menú del club filtrando por disponibilidad explícita y precio (PROD-AVAIL-002).
+     * Requiere APROBADO + activo=true + ClubProducto.disponible=true + precio efectivo &gt; 0.
      */
     private List<Producto> obtenerProductosMenuClub(Integer clubId) {
-        return filtrarPorDisponibilidadEnClub(
+        return filtrarMenuSocioEnClub(
                 obtenerProductosMenuClubSinFiltrarDisponibilidad(clubId).stream()
                         .filter(ProductoServiceImpl::esVisibleEnMenuPublico)
                         .collect(Collectors.toList()),
@@ -693,7 +699,14 @@ private void flushDeletesDeGrupos() {
                 });
         
         // Toggle del estado disponible (solo en club_productos, NO toca el activo global)
-        clubProducto.setDisponible(!clubProducto.getDisponible());
+        boolean actualmenteDisponible = Boolean.TRUE.equals(clubProducto.getDisponible());
+        if (!actualmenteDisponible) {
+            BigDecimal efectivo = PrecioEfectivo.resolverPrecioEfectivo(producto, clubProducto);
+            if (!PrecioEfectivo.estaConfigurado(efectivo)) {
+                ProductAvailabilityRejections.throwPriceRequired();
+            }
+        }
+        clubProducto.setDisponible(!actualmenteDisponible);
         clubProducto = clubProductoRepository.save(clubProducto);
         
         // Construir y devolver el DTO

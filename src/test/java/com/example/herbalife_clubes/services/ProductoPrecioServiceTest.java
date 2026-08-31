@@ -226,12 +226,10 @@ class ProductoPrecioServiceTest {
     }
 
     @Test
-    void socioMenuGlobalSinFilaUsaPrecioBase() {
+    void socioMenuGlobalSinFilaNoAparece() {
         stubMenuGlobalSinFila(productoGlobal(bd("25.00")));
 
-        ProductoDTO dto = productoService.getProductosByClubPublico(3).get(0);
-
-        assertEquals(0, bd("25.00").compareTo(dto.getPrecioEfectivo()));
+        assertTrue(productoService.getProductosByClubPublico(3).isEmpty());
     }
 
     @Test
@@ -333,13 +331,10 @@ class ProductoPrecioServiceTest {
     }
 
     @Test
-    void socioMenuProductoViejoConPrecioCero() {
+    void socioMenuProductoViejoConPrecioCeroNoAparece() {
         stubMenuGlobal(productoGlobal(BigDecimal.ZERO), null, true);
 
-        ProductoDTO dto = productoService.getProductosByClubPublico(3).get(0);
-
-        assertEquals(0, BigDecimal.ZERO.compareTo(dto.getPrecio()));
-        assertEquals(0, BigDecimal.ZERO.compareTo(dto.getPrecioEfectivo()));
+        assertTrue(productoService.getProductosByClubPublico(3).isEmpty());
     }
 
     @Test

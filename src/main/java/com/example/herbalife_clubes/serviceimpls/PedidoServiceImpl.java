@@ -567,7 +567,6 @@ public class PedidoServiceImpl implements PedidoService {
 
     /**
      * Menú pedido socio: APROBADO + activo=true + fila club_productos.disponible=true.
-     * No cambia la política de fila explícita (deuda PROD-AVAIL-002 vs menú opt-out).
      */
     private void assertProductoPedidoSocio(Producto producto, Integer clubId) {
         if (!"APROBADO".equalsIgnoreCase(producto.getEstadoAprobacion())) {
@@ -586,6 +585,15 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     /**
+     * Menú pedido socio/mostrador: fila club_productos explícita con disponible=true.
+     */
+    private boolean esProductoDisponibleEnClub(Integer clubId, Integer productoId) {
+        return clubProductoRepository.findByClubIdAndProductoId(clubId, productoId)
+                .map(cp -> Boolean.TRUE.equals(cp.getDisponible()))
+                .orElse(false);
+    }
+
+    /**
      * Congela precio efectivo del club para productos sueltos. Componentes de combo usan precio 0.
      */
     private void asignarPrecioEfectivo(PedidoItem item, Producto producto, Integer clubId) {
@@ -598,11 +606,6 @@ public class PedidoServiceImpl implements PedidoService {
         item.setPrecioUnitario(efectivo);
         int cantidad = item.getCantidad() != null ? item.getCantidad() : 1;
         item.setSubtotal(efectivo.multiply(BigDecimal.valueOf(cantidad)));
-    }
-
-    private boolean esProductoDisponibleEnClub(Integer clubId, Integer productoId) {
-        Optional<ClubProducto> cp = clubProductoRepository.findByClubIdAndProductoId(clubId, productoId);
-        return cp.isEmpty() || Boolean.TRUE.equals(cp.get().getDisponible());
     }
 
     @Override

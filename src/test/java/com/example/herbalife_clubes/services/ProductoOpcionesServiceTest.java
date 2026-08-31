@@ -526,13 +526,18 @@ class ProductoOpcionesServiceTest {
 
     private void stubMenuLocal(Producto producto) {
         Club club = clubDelAnfitrion(anfitrion(20));
+        if (producto.getPrecio() == null || producto.getPrecio().compareTo(BigDecimal.ZERO) <= 0) {
+            producto.setPrecio(new BigDecimal("25.00"));
+        }
         when(clubRepository.findById(5)).thenReturn(Optional.of(club));
         when(productoRepository.findByHubIdAndTipoAndEstadoAprobacion(1, "GLOBAL", "APROBADO"))
                 .thenReturn(List.of());
         when(productoRepository.findByClubCreadorIdAndTipoAndEstadoAprobacion(5, "LOCAL", "APROBADO"))
                 .thenReturn(List.of(producto));
+        ClubProducto cp = new ClubProducto();
+        cp.setDisponible(true);
         when(clubProductoRepository.findByClubIdAndProductoId(5, producto.getId()))
-                .thenReturn(Optional.empty());
+                .thenReturn(Optional.of(cp));
     }
 
     private static Producto productoAprobadoConDosGrupos() {
