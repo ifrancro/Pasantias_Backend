@@ -16,7 +16,8 @@ import com.example.herbalife_clubes.entities.ProductoGrupoOpcion;
 import com.example.herbalife_clubes.entities.ProductoOpcion;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
-import com.example.herbalife_clubes.exceptions.ConflictException;
+import com.example.herbalife_clubes.exceptions.OrderCreationRejectedException;
+import com.example.herbalife_clubes.pedidos.OrderCreationRejections;
 import com.example.herbalife_clubes.pedidos.PedidoComboSupport;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.ClubRepository;
@@ -174,8 +175,10 @@ class PedidoSocioOwnershipPersistenceTest {
         PedidoDTO deA = crearConClientOrderId(seed.socioA(), clientOrderId, request);
         long countAntes = countPedidos();
 
-        assertThrows(ConflictException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> crearConClientOrderIdAs(seed.socioB(), clientOrderId, requestItemSimple(seed.socioB()), seed.socioB().email()));
+
+        assertEquals(OrderCreationRejections.ORDER_CLIENT_ID_CONFLICT, ex.getErrorCode());
 
         assertEquals(countAntes, countPedidos());
         assertEquals(deA.getId(), pedidoRepository.findByClientOrderId(clientOrderId).orElseThrow().getId());

@@ -3,6 +3,7 @@ package com.example.herbalife_clubes.pedidos;
 import com.example.herbalife_clubes.dtos.pedido.PedidoComboComponenteRequestDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoComboRequestDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoItemOpcionResponseDTO;
+import com.example.herbalife_clubes.exceptions.OrderCreationRejectedException;
 import com.example.herbalife_clubes.entities.*;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.ComboRepository;
@@ -127,7 +128,7 @@ class PedidoComboSupportTest {
                 componente(2, List.of()),
                 componente(99, List.of())));
 
-        assertThrows(IllegalArgumentException.class, () -> support.materializar(pedido, request, 3));
+        assertThrows(OrderCreationRejectedException.class, () -> support.materializar(pedido, request, 3));
     }
 
     @Test
@@ -138,7 +139,7 @@ class PedidoComboSupportTest {
         request.setCantidad(1);
         request.setComponentes(List.of(componente(7, List.of())));
 
-        assertThrows(IllegalArgumentException.class, () -> support.materializar(pedido, request, 3));
+        assertThrows(OrderCreationRejectedException.class, () -> support.materializar(pedido, request, 3));
     }
 
     @Test
@@ -150,7 +151,7 @@ class PedidoComboSupportTest {
         request.setCantidad(1);
         request.setComponentes(List.of(componente(7, List.of()), componente(2, List.of())));
 
-        assertThrows(IllegalArgumentException.class, () -> support.materializar(pedido, request, 3));
+        assertThrows(OrderCreationRejectedException.class, () -> support.materializar(pedido, request, 3));
     }
 
     @Test
@@ -162,7 +163,7 @@ class PedidoComboSupportTest {
         request.setCantidad(1);
         request.setComponentes(List.of(componente(7, List.of()), componente(2, List.of())));
 
-        assertThrows(IllegalArgumentException.class, () -> support.materializar(pedido, request, 3));
+        assertThrows(OrderCreationRejectedException.class, () -> support.materializar(pedido, request, 3));
     }
 
     @Test
@@ -174,7 +175,7 @@ class PedidoComboSupportTest {
         request.setCantidad(1);
         request.setComponentes(List.of(componente(7, List.of()), componente(2, List.of())));
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> support.materializar(pedido, request, 3));
         assertEquals(PedidoComboSupport.MENSAJE_PRECIO_COMBO_INVALIDO, ex.getMessage());
     }

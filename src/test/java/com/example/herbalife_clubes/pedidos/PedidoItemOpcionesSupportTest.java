@@ -1,6 +1,7 @@
 package com.example.herbalife_clubes.pedidos;
 
 import com.example.herbalife_clubes.dtos.pedido.PedidoItemOpcionResponseDTO;
+import com.example.herbalife_clubes.exceptions.OrderCreationRejectedException;
 import com.example.herbalife_clubes.entities.Producto;
 import com.example.herbalife_clubes.entities.ProductoGrupoOpcion;
 import com.example.herbalife_clubes.entities.ProductoOpcion;
@@ -23,7 +24,7 @@ class PedidoItemOpcionesSupportTest {
     @Test
     void productoSinGruposRechazaOpcionesEnPayload() {
         Producto producto = productoBase();
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> PedidoItemOpcionesSupport.validarYMaterializar(producto,
                         List.of(sel(3, 6, 1))));
         assertTrue(ex.getMessage().contains("no tiene grupos"));
@@ -44,7 +45,7 @@ class PedidoItemOpcionesSupportTest {
     @Test
     void maxExcedidoRechaza400() {
         Producto producto = productoConSaboresYConsistencia();
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> PedidoItemOpcionesSupport.validarYMaterializar(producto, List.of(
                         sel(3, 6, 2),
                         sel(3, 7, 2))));
@@ -54,7 +55,7 @@ class PedidoItemOpcionesSupportTest {
     @Test
     void minNoCumplidoRechaza400() {
         Producto producto = productoConSaboresYConsistencia();
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> PedidoItemOpcionesSupport.validarYMaterializar(producto, List.of(
                         sel(4, 9, 1))));
         assertTrue(ex.getMessage().contains("al menos"));
@@ -64,7 +65,7 @@ class PedidoItemOpcionesSupportTest {
     void repeatFalseCantidadDosRechaza400() {
         Producto producto = productoConSaboresYConsistencia();
         producto.getGruposOpciones().get(1).setMaxSelecciones(2);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> PedidoItemOpcionesSupport.validarYMaterializar(producto, List.of(
                         sel(3, 6, 1),
                         sel(4, 9, 2))));
@@ -75,7 +76,7 @@ class PedidoItemOpcionesSupportTest {
     void opcionInactivaRechaza400() {
         Producto producto = productoConSaboresYConsistencia();
         opcion(producto, 3, 7).setActivo(false);
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> PedidoItemOpcionesSupport.validarYMaterializar(producto, List.of(
                         sel(3, 6, 1),
                         sel(3, 7, 1),
@@ -86,7 +87,7 @@ class PedidoItemOpcionesSupportTest {
     @Test
     void opcionIdRepetidoRechaza400() {
         Producto producto = productoConSaboresYConsistencia();
-        assertThrows(IllegalArgumentException.class,
+        assertThrows(OrderCreationRejectedException.class,
                 () -> PedidoItemOpcionesSupport.validarYMaterializar(producto, List.of(
                         sel(3, 6, 1),
                         sel(3, 6, 1),
@@ -96,7 +97,7 @@ class PedidoItemOpcionesSupportTest {
     @Test
     void opcionDeOtroGrupoRechaza400() {
         Producto producto = productoConSaboresYConsistencia();
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> PedidoItemOpcionesSupport.validarYMaterializar(producto, List.of(
                         sel(3, 9, 1),
                         sel(4, 9, 1))));
@@ -122,7 +123,7 @@ class PedidoItemOpcionesSupportTest {
     void grupoRequeridoSinOpcionesActivasSuficientesRechaza400() {
         Producto producto = productoConSaboresYConsistencia();
         producto.getGruposOpciones().get(0).getOpciones().forEach(o -> o.setActivo(false));
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> PedidoItemOpcionesSupport.validarYMaterializar(producto, List.of()));
         assertTrue(ex.getMessage().contains("opciones disponibles"));
     }

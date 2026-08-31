@@ -13,6 +13,8 @@ import com.example.herbalife_clubes.entities.PedidoItem;
 import com.example.herbalife_clubes.entities.Producto;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.exceptions.OrderCreationRejectedException;
+import com.example.herbalife_clubes.pedidos.OrderCreationRejections;
 import com.example.herbalife_clubes.pricing.PrecioEfectivo;
 import com.example.herbalife_clubes.pedidos.PedidoComboSupport;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
@@ -177,8 +179,9 @@ class PedidoPrecioServiceTest {
     void precioEfectivoCeroRechazaPedidoSocio() {
         stubSocio(bd("25.00"), BigDecimal.ZERO);
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> pedidoService.createPedido(new PedidoDTO(), 1, 3, 10));
+        assertEquals(OrderCreationRejections.ORDER_PRODUCT_UNAVAILABLE, ex.getErrorCode());
         assertEquals(PrecioEfectivo.MENSAJE_PRECIO_NO_CONFIGURADO, ex.getMessage());
         verify(pedidoRepository, never()).save(any());
     }
@@ -247,8 +250,9 @@ class PedidoPrecioServiceTest {
         request.setTipoPago("EFECTIVO");
         request.setItems(List.of(item(10, 1, null)));
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> pedidoService.createPedidoMostrador(request));
+        assertEquals(OrderCreationRejections.ORDER_PRODUCT_UNAVAILABLE, ex.getErrorCode());
         assertEquals(PrecioEfectivo.MENSAJE_PRECIO_NO_CONFIGURADO, ex.getMessage());
         verify(pedidoRepository, never()).save(any());
     }

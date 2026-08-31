@@ -17,7 +17,8 @@ import com.example.herbalife_clubes.entities.ProductoGrupoOpcion;
 import com.example.herbalife_clubes.entities.ProductoOpcion;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
-import com.example.herbalife_clubes.exceptions.ConflictException;
+import com.example.herbalife_clubes.exceptions.OrderCreationRejectedException;
+import com.example.herbalife_clubes.pedidos.OrderCreationRejections;
 import com.example.herbalife_clubes.pedidos.PedidoComboSupport;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.ClubRepository;
@@ -158,10 +159,10 @@ class PedidoClientOrderIdPersistenceTest {
         PedidoConItemsDTO request = requestItemSimple(seed);
         request.setClientOrderId("550e8400e29b41d4a716446655440002");
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> crearPedido(seed, request));
 
-        assertTrue(ex.getMessage().contains("clientOrderId"));
+        assertEquals(OrderCreationRejections.ORDER_INVALID_REQUEST, ex.getErrorCode());
         assertEquals(countAntes, countPedidos());
     }
 
@@ -242,10 +243,10 @@ class PedidoClientOrderIdPersistenceTest {
         crearConClientOrderId(seed1, clientOrderId, request);
         long countAntes = countPedidos();
 
-        ConflictException ex = assertThrows(ConflictException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> crearConClientOrderIdAs(seed2, clientOrderId, request, seed2.socioEmail()));
 
-        assertTrue(ex.getMessage().contains("clientOrderId"));
+        assertEquals(OrderCreationRejections.ORDER_CLIENT_ID_CONFLICT, ex.getErrorCode());
         assertEquals(countAntes, countPedidos());
     }
 
@@ -273,10 +274,10 @@ class PedidoClientOrderIdPersistenceTest {
         PedidoConItemsDTO request = requestItemSimple(seed);
         request.setClientOrderId("no-es-un-uuid");
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> crearPedido(seed, request));
 
-        assertTrue(ex.getMessage().contains("clientOrderId"));
+        assertEquals(OrderCreationRejections.ORDER_INVALID_REQUEST, ex.getErrorCode());
         assertEquals(countAntes, countPedidos());
     }
 

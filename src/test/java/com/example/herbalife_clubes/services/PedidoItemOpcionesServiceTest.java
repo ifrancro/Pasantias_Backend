@@ -15,6 +15,8 @@ import com.example.herbalife_clubes.entities.ProductoGrupoOpcion;
 import com.example.herbalife_clubes.entities.ProductoOpcion;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.exceptions.OrderCreationRejectedException;
+import com.example.herbalife_clubes.pedidos.OrderCreationRejections;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.ComboRepository;
@@ -146,8 +148,9 @@ class PedidoItemOpcionesServiceTest {
         bad.setOpciones(List.of(sel(4, 9, 1)));
         request.setItems(List.of(ok, bad));
 
-        assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> pedidoService.createPedidoConItems(request, 1, 3));
+        assertEquals(OrderCreationRejections.ORDER_OPTION_INVALID, ex.getErrorCode());
     }
 
     @Test

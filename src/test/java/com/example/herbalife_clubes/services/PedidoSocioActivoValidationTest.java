@@ -8,6 +8,8 @@ import com.example.herbalife_clubes.entities.Membresia;
 import com.example.herbalife_clubes.entities.Pedido;
 import com.example.herbalife_clubes.entities.Producto;
 import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.exceptions.OrderCreationRejectedException;
+import com.example.herbalife_clubes.pedidos.OrderCreationRejections;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.ComboRepository;
@@ -70,9 +72,9 @@ class PedidoSocioActivoValidationTest {
     void pedidoSocioConActivoFalseSeRechaza() {
         stubSocioClubProducto(false, true);
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        OrderCreationRejectedException ex = assertThrows(OrderCreationRejectedException.class,
                 () -> pedidoService.createPedido(new PedidoDTO(), 1, 3, 10));
-        assertTrue(ex.getMessage().toLowerCase().contains("activo"));
+        assertEquals(OrderCreationRejections.ORDER_PRODUCT_UNAVAILABLE, ex.getErrorCode());
         verify(pedidoRepository, never()).save(any());
     }
 
