@@ -62,6 +62,14 @@ public class Pedido {
     @Column(name = "client_order_id", length = 36)
     private String clientOrderId;
 
+    /** Puntos congelados al crear el pedido. NULL = pedido histórico previo a POINTS-ORDER-001. */
+    @Column(name = "puntos_ganados")
+    private Integer puntosGanados;
+
+    /** Si este pedido ya incrementó membresia.puntos_acumulados al entregarse. */
+    @Column(name = "puntos_acreditados", nullable = false)
+    private Boolean puntosAcreditados = false;
+
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PedidoItem> items = new ArrayList<>();
 
@@ -80,6 +88,9 @@ public class Pedido {
         }
         if (tipoConsumo == null) {
             tipoConsumo = TipoConsumo.EN_LUGAR;
+        }
+        if (puntosAcreditados == null) {
+            puntosAcreditados = false;
         }
         // Poblar producto_id y cantidad desde el primer item para compatibilidad con BD
         if (items != null && !items.isEmpty()) {

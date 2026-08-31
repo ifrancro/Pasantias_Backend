@@ -14,6 +14,7 @@ import com.example.herbalife_clubes.mappers.PedidoMapper;
 import com.example.herbalife_clubes.pedidos.OrderCreationRejections;
 import com.example.herbalife_clubes.pedidos.PedidoComboSupport;
 import com.example.herbalife_clubes.pedidos.PedidoItemOpcionesSupport;
+import com.example.herbalife_clubes.pedidos.PedidoPuntosSupport;
 import com.example.herbalife_clubes.pricing.PrecioEfectivo;
 import com.example.herbalife_clubes.repositories.*;
 import com.example.herbalife_clubes.entities.Combo;
@@ -142,6 +143,11 @@ public class PedidoServiceImpl implements PedidoService {
         // (la BD tiene producto_id y cantidad en la tabla pedidos)
         pedido.setProducto(producto);
         pedido.setCantidad(pedidoDTO.getCantidad() != null ? pedidoDTO.getCantidad() : 1);
+
+        int cantidadPedido = pedido.getCantidad() != null ? pedido.getCantidad() : 1;
+        int puntosProducto = producto.getPuntosValor() != null ? producto.getPuntosValor() : 0;
+        pedido.setPuntosGanados(puntosProducto * cantidadPedido);
+        pedido.setPuntosAcreditados(false);
 
         // enums
         pedido.setEstado(EstadoPedido.RECIBIDO);
@@ -342,6 +348,9 @@ public class PedidoServiceImpl implements PedidoService {
             pedido.setProducto(primerProducto);
             pedido.setCantidad(cantidadTotal);
         }
+
+        pedido.setPuntosGanados(PedidoPuntosSupport.calcularPuntosGanados(pedido));
+        pedido.setPuntosAcreditados(false);
         
         System.out.println("[PEDIDO] ANTES DE GUARDAR:");
         System.out.println("[PEDIDO]   - items.size(): " + pedido.getItems().size());
@@ -454,7 +463,6 @@ public class PedidoServiceImpl implements PedidoService {
 
         Producto primerProducto = null;
         int cantidadTotal = 0;
-        int puntosGanados = 0;
 
         if (request.getCombos() != null) {
             for (PedidoComboRequestDTO comboReq : request.getCombos()) {
@@ -464,9 +472,6 @@ public class PedidoServiceImpl implements PedidoService {
                     primerProducto = pedidoCombo.getItems().get(0).getProducto();
                 }
                 cantidadTotal += comboReq.getCantidad() != null ? comboReq.getCantidad() : 0;
-                puntosGanados += pedidoCombo.getPuntosValorSnapshot() != null
-                        ? pedidoCombo.getPuntosValorSnapshot() * comboReq.getCantidad()
-                        : 0;
             }
         }
 
@@ -500,8 +505,6 @@ public class PedidoServiceImpl implements PedidoService {
                     primerProducto = producto;
                 }
                 cantidadTotal += itemDTO.getCantidad();
-                int puntosValor = producto.getPuntosValor() != null ? producto.getPuntosValor() : 0;
-                puntosGanados += (puntosValor * itemDTO.getCantidad());
             }
         }
 
@@ -510,15 +513,12 @@ public class PedidoServiceImpl implements PedidoService {
         }
         pedido.setProducto(primerProducto);
         pedido.setCantidad(cantidadTotal);
+        pedido.setPuntosGanados(PedidoPuntosSupport.calcularPuntosGanados(pedido));
+        pedido.setPuntosAcreditados(false);
 
         Pedido saved = pedidoRepository.save(pedido);
-
-        // Si es socio, acumular puntos por venta en mostrador.
-        if (membresia != null && puntosGanados > 0) {
-            int actuales = membresia.getPuntosAcumulados() != null ? membresia.getPuntosAcumulados() : 0;
-            membresia.setPuntosAcumulados(actuales + puntosGanados);
-            membresiaRepository.save(membresia);
-        }
+        acreditarPuntosSiCorresponde(saved);
+        pedidoRepository.save(saved);
 
         return PedidoMapper.mapPedidoToPedidoDTO(saved);
     }
@@ -774,9 +774,11 @@ public class PedidoServiceImpl implements PedidoService {
     @Transactional
     public PedidoDTO actualizarEstado(Integer pedidoId, String estado, Integer tiempoEstimadoMinutos) {
         Usuario usuario = requireAuthenticatedUsuario();
-        Pedido pedido = pedidoRepository.findById(pedidoId)
+        Pedido pedido = pedidoRepository.findByIdForUpdate(pedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado con id: " + pedidoId));
         assertHostManagesPedido(pedido, usuario);
+
+        EstadoPedido estadoAnterior = pedido.getEstado();
 
         EstadoPedido nuevoEstado;
         try {
@@ -799,15 +801,45 @@ public class PedidoServiceImpl implements PedidoService {
         }
         
         pedido.setEstado(nuevoEstado);
+
+        if (EstadoPedido.ENTREGADO.equals(nuevoEstado) && !EstadoPedido.ENTREGADO.equals(estadoAnterior)) {
+            acreditarPuntosSiCorresponde(pedido);
+        }
+
         Pedido updatedPedido = pedidoRepository.save(pedido);
         return PedidoMapper.mapPedidoToPedidoDTO(updatedPedido);
+    }
+
+    /**
+     * Acredita puntos de compra al socio cuando el pedido se entrega.
+     * Idempotente vía {@code puntosAcreditados}; membresía bloqueada con PESSIMISTIC_WRITE.
+     */
+    private void acreditarPuntosSiCorresponde(Pedido pedido) {
+        if (pedido.getMembresia() == null || Boolean.TRUE.equals(pedido.getPuntosAcreditados())) {
+            return;
+        }
+
+        int puntos = PedidoPuntosSupport.resolverPuntosParaAcreditacion(pedido);
+        pedido.setPuntosAcreditados(true);
+
+        if (puntos <= 0) {
+            return;
+        }
+
+        Integer membresiaId = pedido.getMembresia().getId();
+        Membresia membresia = membresiaRepository.findByIdForUpdate(membresiaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
+
+        int actuales = membresia.getPuntosAcumulados() != null ? membresia.getPuntosAcumulados() : 0;
+        membresia.setPuntosAcumulados(actuales + puntos);
+        membresiaRepository.save(membresia);
     }
 
     @Override
     @Transactional
     public PedidoDTO cancelarPedido(Integer pedidoId) {
         Usuario usuario = requireAuthenticatedUsuario();
-        Pedido pedido = pedidoRepository.findById(pedidoId)
+        Pedido pedido = pedidoRepository.findByIdForUpdate(pedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado con id: " + pedidoId));
         assertSocioOwnsPedido(pedido, usuario);
 

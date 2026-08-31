@@ -3,8 +3,10 @@ package com.example.herbalife_clubes.repositories;
 import com.example.herbalife_clubes.entities.Membresia;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -33,6 +35,10 @@ public interface MembresiaRepository extends JpaRepository<Membresia, Integer> {
 
     @EntityGraph(attributePaths = {"usuario", "club", "nivel", "referidoPorMembresia.usuario"})
     Optional<Membresia> findByNumeroSocio(String numeroSocio);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT m FROM Membresia m WHERE m.id = :id")
+    Optional<Membresia> findByIdForUpdate(@Param("id") Integer id);
 
     @EntityGraph(attributePaths = {"usuario", "club", "nivel", "referidoPorMembresia.usuario"})
     List<Membresia> findByReferidoPorMembresiaId(Integer referidoPorMembresiaId);

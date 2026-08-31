@@ -110,11 +110,6 @@ public class AsistenciaServiceImpl implements AsistenciaService {
 
         Asistencia savedAsistencia = asistenciaRepository.save(asistencia);
 
-        recalcularPuntosAcumulados(membresiaId);
-
-        membresia = membresiaRepository.findById(membresiaId)
-                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
-
         evaluarLogrosPorAsistencias(membresiaId);
 
         return AsistenciaMapper.mapAsistenciaToAsistenciaDTO(savedAsistencia);
@@ -134,17 +129,6 @@ public class AsistenciaServiceImpl implements AsistenciaService {
                 || !usuario.getId().equals(membresia.getUsuario().getId())) {
             throw new AccessDeniedException(MSG_MEMBRESIA_FORBIDDEN);
         }
-    }
-
-    private void recalcularPuntosAcumulados(Integer membresiaId) {
-        Membresia membresia = membresiaRepository.findById(membresiaId)
-                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
-
-        List<Asistencia> asistencias = asistenciaRepository.findByMembresiaId(membresiaId);
-        Integer totalAsistencias = asistencias.size();
-
-        membresia.setPuntosAcumulados(totalAsistencias);
-        membresiaRepository.save(membresia);
     }
 
     private void evaluarLogrosPorAsistencias(Integer membresiaId) {
