@@ -13,6 +13,7 @@ import com.example.herbalife_clubes.entities.ProductoGrupoOpcion;
 import com.example.herbalife_clubes.entities.ProductoOpcion;
 import com.example.herbalife_clubes.entities.Rol;
 import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.pedidos.PedidoComboSupport;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.HubRepository;
@@ -58,7 +59,7 @@ import static org.junit.jupiter.api.Assertions.*;
 })
 @Testcontainers(disabledWithoutDocker = true)
 @EnabledIf("dockerAvailable")
-@Import(PedidoServiceImpl.class)
+@Import({PedidoServiceImpl.class, PedidoComboSupport.class})
 class PedidoItemOpcionesPersistenceTest {
 
     @Container
@@ -121,6 +122,11 @@ class PedidoItemOpcionesPersistenceTest {
         });
 
         tx.executeWithoutResult(status -> {
+            // ddl-auto no replica ON DELETE SET NULL de V20; aplicar el mismo efecto que prod.
+            entityManager.createNativeQuery(
+                            "UPDATE pedido_item_opciones SET opcion_id = NULL WHERE opcion_id = :id")
+                    .setParameter("id", seeded.opcionId)
+                    .executeUpdate();
             entityManager.createNativeQuery("DELETE FROM producto_opciones WHERE id = :id")
                     .setParameter("id", seeded.opcionId)
                     .executeUpdate();

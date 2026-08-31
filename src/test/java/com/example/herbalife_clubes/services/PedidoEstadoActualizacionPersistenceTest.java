@@ -53,6 +53,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -73,6 +74,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @EnabledIf("dockerAvailable")
 @Import({PedidoServiceImpl.class, PedidoComboSupport.class})
 class PedidoEstadoActualizacionPersistenceTest {
+
+    private static final AtomicInteger SEQ = new AtomicInteger(0);
 
     @Container
     @ServiceConnection
@@ -272,49 +275,57 @@ class PedidoEstadoActualizacionPersistenceTest {
     }
 
     private Seed seedBase() {
+        int n = SEQ.incrementAndGet();
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         return tx.execute(status -> {
             Rol rol = rolRepository.save(rol("SOCIO"));
-            Usuario socio = usuarioRepository.save(usuario(rol, "estado-socio@test.com"));
+            Usuario socio = usuarioRepository.save(usuario(rol, "estado-socio-" + n + "@test.com"));
             Rol rolHost = rolRepository.save(rol("ANFITRION"));
-            Usuario host = usuarioRepository.save(usuario(rolHost, "estado-host@test.com"));
-            Hub hub = hubRepository.save(hub(host));
-            Club club = clubRepository.save(club(hub, host));
+            Usuario host = usuarioRepository.save(usuario(rolHost, "estado-host-" + n + "@test.com"));
+            Hub hub = hubRepository.save(hub(host, n));
+            Club club = clubRepository.save(club(hub, host, n));
 
             Membresia membresia = new Membresia();
             membresia.setUsuario(socio);
             membresia.setClub(club);
-            membresia.setNumeroSocio("E-1");
+            membresia.setNumeroSocio("E-" + n);
             membresia.setEstado("ACTIVA");
             membresia = membresiaRepository.save(membresia);
 
             Producto te = saveProducto(club, hub, "Té", BigDecimal.valueOf(15), false);
             Producto batido = saveProducto(club, hub, "Batido", BigDecimal.valueOf(20), true);
+            batido = reloadProductoConGrupos(batido.getId());
+
+            ProductoGrupoOpcion sabores = findGrupo(batido, "Sabores");
+            ProductoOpcion frutilla = findOpcion(sabores, "Frutilla");
+            assertNotNull(sabores.getId());
+            assertNotNull(frutilla.getId());
 
             return new Seed(
                     membresia.getId(),
                     club.getId(),
                     te.getId(),
                     batido.getId(),
-                    batido.getGruposOpciones().get(0).getId(),
-                    batido.getGruposOpciones().get(0).getOpciones().get(0).getId());
+                    sabores.getId(),
+                    frutilla.getId());
         });
     }
 
     private SeedCombo seedComboModerno() {
+        int n = SEQ.incrementAndGet();
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         return tx.execute(status -> {
             Rol rol = rolRepository.save(rol("SOCIO"));
-            Usuario socio = usuarioRepository.save(usuario(rol, "estado-combo-socio@test.com"));
+            Usuario socio = usuarioRepository.save(usuario(rol, "estado-combo-socio-" + n + "@test.com"));
             Rol rolHost = rolRepository.save(rol("ANFITRION"));
-            Usuario host = usuarioRepository.save(usuario(rolHost, "estado-combo-host@test.com"));
-            Hub hub = hubRepository.save(hub(host));
-            Club club = clubRepository.save(club(hub, host));
+            Usuario host = usuarioRepository.save(usuario(rolHost, "estado-combo-host-" + n + "@test.com"));
+            Hub hub = hubRepository.save(hub(host, n));
+            Club club = clubRepository.save(club(hub, host, n));
 
             Membresia membresia = new Membresia();
             membresia.setUsuario(socio);
             membresia.setClub(club);
-            membresia.setNumeroSocio("EC-1");
+            membresia.setNumeroSocio("EC-" + n);
             membresia.setEstado("ACTIVA");
             membresia = membresiaRepository.save(membresia);
 
@@ -335,6 +346,17 @@ class PedidoEstadoActualizacionPersistenceTest {
             batido.getGruposOpciones().add(consistencia);
             batido = productoRepository.saveAndFlush(batido);
 
+            batido = reloadProductoConGrupos(batido.getId());
+            ProductoGrupoOpcion sabores = findGrupo(batido, "Sabores");
+            ProductoGrupoOpcion consistenciaManaged = findGrupo(batido, "Consistencia");
+            ProductoOpcion frutilla = findOpcion(sabores, "Frutilla");
+            ProductoOpcion cremosoManaged = findOpcion(consistenciaManaged, "Cremoso");
+
+            assertNotNull(sabores.getId(), "grupoSaboresId");
+            assertNotNull(frutilla.getId(), "opcionFrutillaId");
+            assertNotNull(consistenciaManaged.getId(), "grupoConsistenciaId");
+            assertNotNull(cremosoManaged.getId(), "opcionCremosoId");
+
             Combo combo = new Combo();
             combo.setClub(club);
             combo.setNombre("Combo desayuno");
@@ -347,8 +369,6 @@ class PedidoEstadoActualizacionPersistenceTest {
             combo.getItems().add(comboItem(combo, batido, 1));
             combo = comboRepository.saveAndFlush(combo);
 
-            ProductoGrupoOpcion sabores = batido.getGruposOpciones().get(0);
-
             return new SeedCombo(
                     membresia.getId(),
                     club.getId(),
@@ -357,10 +377,30 @@ class PedidoEstadoActualizacionPersistenceTest {
                     aloe.getId(),
                     batido.getId(),
                     sabores.getId(),
-                    sabores.getOpciones().get(0).getId(),
-                    consistencia.getId(),
-                    cremoso.getId());
+                    frutilla.getId(),
+                    consistenciaManaged.getId(),
+                    cremosoManaged.getId());
         });
+    }
+
+    private Producto reloadProductoConGrupos(Integer productoId) {
+        entityManager.flush();
+        entityManager.clear();
+        return productoRepository.findById(productoId).orElseThrow();
+    }
+
+    private static ProductoGrupoOpcion findGrupo(Producto producto, String nombre) {
+        return producto.getGruposOpciones().stream()
+                .filter(g -> nombre.equals(g.getNombre()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Grupo no encontrado: " + nombre));
+    }
+
+    private static ProductoOpcion findOpcion(ProductoGrupoOpcion grupo, String nombre) {
+        return grupo.getOpciones().stream()
+                .filter(o -> nombre.equals(o.getNombre()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Opción no encontrada: " + nombre));
     }
 
     private Producto saveProducto(Club club, Hub hub, String nombre, BigDecimal precio, boolean conGrupos) {
@@ -439,21 +479,21 @@ class PedidoEstadoActualizacionPersistenceTest {
         return u;
     }
 
-    private static Hub hub(Usuario admin) {
+    private static Hub hub(Usuario admin, int n) {
         Hub h = new Hub();
         h.setAdmin(admin);
-        h.setNombre("Hub");
+        h.setNombre("Hub EST-" + n);
         h.setEstado("ACTIVO");
         return h;
     }
 
-    private static Club club(Hub hub, Usuario host) {
+    private static Club club(Hub hub, Usuario host, int n) {
         Club c = new Club();
         c.setHub(hub);
         c.setAnfitrion(host);
-        c.setNombreClub("Club EST");
+        c.setNombreClub("Club EST-" + n);
         c.setEstado("ACTIVO");
-        c.setPrefijoSocio("E");
+        c.setPrefijoSocio("E" + n);
         return c;
     }
 
