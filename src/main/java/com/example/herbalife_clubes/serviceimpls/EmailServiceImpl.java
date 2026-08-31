@@ -111,10 +111,10 @@ public class EmailServiceImpl implements EmailService {
             bodyIntro + "</p>" +
             // Código OTP centrado, sin cajas
             "<table cellpadding=\"0\" cellspacing=\"0\" style=\"margin:0 auto 24px;\"><tr>" + codeDigits + "</tr></table>" +
-            // Divisor con reloj
+            // Divisor
             "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:0 0 18px;\"><tr>" +
             "<td style=\"border-top:1px solid #E4E8EE;\"></td>" +
-            "<td width=\"24\" style=\"text-align:center;color:#A9B4C4;font-size:14px;\">&#8987;</td>" +
+            "<td width=\"16\"></td>" +
             "<td style=\"border-top:1px solid #E4E8EE;\"></td>" +
             "</tr></table>" +
             "<p style=\"color:#3C4C66;font-size:15px;margin:0 0 28px;\">Este código expira en <strong>15 minutos</strong>.</p>" +
