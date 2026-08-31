@@ -2,6 +2,7 @@ package com.example.herbalife_clubes.services;
 
 import com.example.herbalife_clubes.serviceimpls.ClubServiceImpl;
 import com.example.herbalife_clubes.serviceimpls.MembresiaServiceImpl;
+import com.example.herbalife_clubes.serviceimpls.PedidoServiceImpl;
 import com.example.herbalife_clubes.serviceimpls.ProductoServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ class ServiceTransactionalGuardTest {
         assertTransactional(ClubServiceImpl.class);
         assertTransactional(ProductoServiceImpl.class);
         assertTransactional(MembresiaServiceImpl.class);
+        assertTransactional(PedidoServiceImpl.class);
     }
 
     private void assertTransactional(Class<?> serviceClass) {

@@ -716,6 +716,7 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     @Override
+    @Transactional
     public PedidoDTO actualizarEstado(Integer pedidoId, String estado, Integer tiempoEstimadoMinutos) {
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado con id: " + pedidoId));
@@ -746,6 +747,7 @@ public class PedidoServiceImpl implements PedidoService {
     }
 
     @Override
+    @Transactional
     public PedidoDTO cancelarPedido(Integer pedidoId) {
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado con id: " + pedidoId));
