@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.serviceimpls;
 
+import com.example.herbalife_clubes.clubes.ClubLocationValidator;
 import com.example.herbalife_clubes.dtos.club.ClubDTO;
 import com.example.herbalife_clubes.entities.Club;
 import com.example.herbalife_clubes.entities.Hub;
@@ -44,7 +45,9 @@ public class ClubServiceImpl implements ClubService {
                 .orElseThrow(() -> new ResourceNotFoundException("Hub no encontrado con id: " + hubId));
         Usuario anfitrion = usuarioRepository.findById(anfitrionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Anfitrión no encontrado con id: " + anfitrionId));
-        
+
+        ClubLocationValidator.validateRequired(clubDTO.getLat(), clubDTO.getLng());
+
         Club club = ClubMapper.mapClubDTOToClub(clubDTO);
         club.setHub(hub);
         club.setAnfitrion(anfitrion);
@@ -63,7 +66,9 @@ public class ClubServiceImpl implements ClubService {
     public ClubDTO updateClub(Integer clubId, ClubDTO clubDTO) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
-        
+
+        ClubLocationValidator.validateRequired(clubDTO.getLat(), clubDTO.getLng());
+
         club.setNombreClub(clubDTO.getNombreClub());
         club.setDireccion(clubDTO.getDireccion());
         club.setHorario(clubDTO.getHorario());
@@ -108,7 +113,9 @@ public class ClubServiceImpl implements ClubService {
     public ClubDTO aprobarClub(Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
-        
+
+        ClubLocationValidator.validateStoredForApproval(club.getLat(), club.getLng());
+
         // Cambiar el estado del club a ACTIVO para que se habilite directamente
         club.setEstado("ACTIVO");
         clubRepository.save(club);
@@ -162,6 +169,9 @@ public class ClubServiceImpl implements ClubService {
     public ClubDTO activarClub(Integer clubId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+
+        ClubLocationValidator.validateStoredForActivation(club.getLat(), club.getLng());
+
         club.setEstado("ACTIVO");
         clubRepository.save(club);
         return ClubMapper.mapClubToClubDTO(club);

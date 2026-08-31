@@ -15,6 +15,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -100,6 +101,8 @@ class ClubServiceWriteMappingTest {
         ClubDTO request = new ClubDTO();
         request.setNombreClub("Nuevo nombre");
         request.setPrefijoSocio("SC");
+        request.setLat(new BigDecimal("-17.3935"));
+        request.setLng(new BigDecimal("-66.1570"));
 
         ClubDTO dto = clubService.updateClub(1, request);
 

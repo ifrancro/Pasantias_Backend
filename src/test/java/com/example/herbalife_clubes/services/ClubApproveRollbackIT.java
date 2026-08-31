@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -151,6 +152,8 @@ class ClubApproveRollbackIT {
             club.setNombreClub("Club pendiente");
             club.setEstado("PENDIENTE");
             club.setPrefijoSocio("PD");
+            club.setLat(new BigDecimal("-17.3935"));
+            club.setLng(new BigDecimal("-66.1570"));
             club = clubRepository.save(club);
             return new SeededClub(club.getId(), host.getId());
         });

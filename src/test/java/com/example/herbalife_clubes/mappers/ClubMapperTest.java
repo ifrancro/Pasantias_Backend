@@ -6,6 +6,8 @@ import com.example.herbalife_clubes.entities.Hub;
 import com.example.herbalife_clubes.entities.Usuario;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 public class ClubMapperTest {
@@ -59,6 +61,8 @@ public class ClubMapperTest {
         club.setHorario("Lun-Sab");
         club.setEstado("ACTIVO");
         club.setPrefijoSocio("SC");
+        club.setLat(new BigDecimal("-17.3935"));
+        club.setLng(new BigDecimal("-66.1570"));
         club.setHub(hub);
         club.setAnfitrion(anfitrion);
         return club;
