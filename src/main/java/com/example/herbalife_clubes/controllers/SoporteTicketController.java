@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.controllers;
 
+import com.example.herbalife_clubes.dtos.soporteticket.CrearSoporteTicketRequest;
 import com.example.herbalife_clubes.dtos.soporteticket.ResponderTicketRequest;
 import com.example.herbalife_clubes.dtos.soporteticket.SoporteTicketDTO;
 import com.example.herbalife_clubes.entities.Usuario;
@@ -11,12 +12,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/soporte-tickets")
+@Validated
 public class SoporteTicketController {
     @Autowired
     private SoporteTicketService ticketService;
@@ -25,51 +29,45 @@ public class SoporteTicketController {
     private UsuarioRepository usuarioRepository;
 
     /**
-     * Crear ticket. Solo ANFITRION y ADMIN.
+     * Crear ticket para el usuario autenticado.
      * El usuario del ticket se toma del token (usuario autenticado); no se acepta usuarioId en la petición.
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ANFITRION', 'ADMIN')")
-    public ResponseEntity<SoporteTicketDTO> createTicket(@RequestBody SoporteTicketDTO ticketDTO) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getName() == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        Usuario usuario = usuarioRepository.findByEmail(authentication.getName())
-                .orElse(null);
-        if (usuario == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        Integer usuarioId = usuario.getId();
-        SoporteTicketDTO savedTicketDTO = ticketService.createTicket(ticketDTO, usuarioId);
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<SoporteTicketDTO> createTicket(@Valid @RequestBody CrearSoporteTicketRequest request) {
+        Usuario usuario = getAuthenticatedUsuarioOrNull();
+        if (usuario == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        SoporteTicketDTO savedTicketDTO = ticketService.createTicket(request, usuario.getId());
         return new ResponseEntity<>(savedTicketDTO, HttpStatus.CREATED);
     }
 
     @GetMapping("{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<SoporteTicketDTO> getTicket(@PathVariable Integer id) {
-        SoporteTicketDTO ticketDTO = ticketService.getTicket(id);
+        Usuario usuario = getAuthenticatedUsuarioOrNull();
+        if (usuario == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        SoporteTicketDTO ticketDTO = ticketService.getTicketAuthorized(id, usuario);
         return ResponseEntity.ok(ticketDTO);
     }
 
     /**
-     * Listar tickets de un usuario. Solo ANFITRION y ADMIN.
-     * ANFITRION solo puede consultar sus propios tickets (usuarioId debe coincidir con el del token).
+     * Listar tickets del usuario autenticado.
+     */
+    @GetMapping("/mios")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<SoporteTicketDTO>> getMyTickets() {
+        Usuario usuario = getAuthenticatedUsuarioOrNull();
+        if (usuario == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        List<SoporteTicketDTO> tickets = ticketService.getMyTickets(usuario.getId());
+        return ResponseEntity.ok(tickets);
+    }
+
+    /**
+     * Listar tickets de un usuario arbitrario. Solo ADMIN.
      */
     @GetMapping("/usuario/{usuarioId}")
-    @PreAuthorize("hasAnyRole('ANFITRION', 'ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<SoporteTicketDTO>> getTicketsByUsuario(@PathVariable Integer usuarioId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getName() == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        Usuario currentUser = usuarioRepository.findByEmail(authentication.getName()).orElse(null);
-        if (currentUser == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        boolean isAdmin = currentUser.getRol() != null && "ADMIN".equalsIgnoreCase(currentUser.getRol().getNombre());
-        if (!isAdmin && !currentUser.getId().equals(usuarioId)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
-        }
         List<SoporteTicketDTO> tickets = ticketService.getTicketsByUsuario(usuarioId);
         return ResponseEntity.ok(tickets);
     }
@@ -108,5 +106,13 @@ public class SoporteTicketController {
     public ResponseEntity<SoporteTicketDTO> cambiarEstado(@PathVariable Integer id, @RequestParam String estado) {
         SoporteTicketDTO ticketDTO = ticketService.cambiarEstado(id, estado);
         return ResponseEntity.ok(ticketDTO);
+    }
+
+    private Usuario getAuthenticatedUsuarioOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return null;
+        }
+        return usuarioRepository.findByEmail(authentication.getName()).orElse(null);
     }
 }
