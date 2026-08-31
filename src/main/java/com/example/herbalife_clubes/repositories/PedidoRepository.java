@@ -12,9 +12,12 @@ import org.springframework.stereotype.Repository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
+    Optional<Pedido> findByClientOrderId(String clientOrderId);
+
     List<Pedido> findByMembresiaId(Integer membresiaId);
     List<Pedido> findByClubId(Integer clubId);
     

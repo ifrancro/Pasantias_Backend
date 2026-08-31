@@ -14,6 +14,8 @@ public class PedidoConItemsDTO {
     private String tipoConsumo; // PARA_RECOGER | EN_LUGAR
     private Integer tiempoEstimadoMinutos; // Tiempo estimado de preparación en minutos
     private String observaciones;
+    /** UUID v4 opcional del cliente para idempotencia de creación (ORD-SYNC-001). */
+    private String clientOrderId;
     private List<PedidoItemDTO> items; // Productos sueltos
     /** Combos con composición fija y opciones configurables por componente. */
     private List<PedidoComboRequestDTO> combos;

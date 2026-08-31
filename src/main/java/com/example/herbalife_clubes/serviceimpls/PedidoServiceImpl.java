@@ -9,6 +9,7 @@ import com.example.herbalife_clubes.dtos.pedido.PedidoItemDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoItemOpcionResponseDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoMostradorRequestDTO;
 import com.example.herbalife_clubes.entities.*;
+import com.example.herbalife_clubes.exceptions.ConflictException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.PedidoMapper;
 import com.example.herbalife_clubes.pedidos.PedidoComboSupport;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -208,6 +210,14 @@ public class PedidoServiceImpl implements PedidoService {
         if (!tieneItems && !tieneCombos) {
             throw new IllegalArgumentException("El pedido debe tener al menos un producto suelto o un combo");
         }
+
+        String clientOrderId = normalizeAndValidateClientOrderId(pedidoDTO.getClientOrderId());
+        if (clientOrderId != null) {
+            Optional<Pedido> existing = pedidoRepository.findByClientOrderId(clientOrderId);
+            if (existing.isPresent()) {
+                return mapExistingPedidoForIdempotentRetry(existing.get(), membresiaId, clubId);
+            }
+        }
         
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
@@ -232,6 +242,7 @@ public class PedidoServiceImpl implements PedidoService {
         Pedido pedido = new Pedido();
         pedido.setMembresia(membresia);
         pedido.setClub(club);
+        pedido.setClientOrderId(clientOrderId);
         // horarioDeseado fue eliminado - ahora se usa tiempoEstimadoMinutos
         pedido.setObservaciones(pedidoDTO.getObservaciones());
         pedido.setEstado(EstadoPedido.RECIBIDO);
@@ -759,6 +770,48 @@ public class PedidoServiceImpl implements PedidoService {
         pedido.setEstado(EstadoPedido.CANCELADO);
         Pedido updatedPedido = pedidoRepository.save(pedido);
         return PedidoMapper.mapPedidoToPedidoDTO(updatedPedido);
+    }
+
+    /**
+     * Normaliza y valida clientOrderId (UUID canónico). Null/blank → legacy sin idempotencia.
+     * Solo acepta representación canónica (ignorando mayúsculas/minúsculas); persiste lowercase.
+     */
+    private String normalizeAndValidateClientOrderId(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        if (trimmed.length() > 36) {
+            throw new IllegalArgumentException("clientOrderId inválido: longitud máxima 36 caracteres");
+        }
+        try {
+            UUID parsed = UUID.fromString(trimmed);
+            String canonical = parsed.toString();
+            if (!canonical.equalsIgnoreCase(trimmed)) {
+                throw new IllegalArgumentException("clientOrderId debe ser un UUID válido");
+            }
+            return canonical;
+        } catch (IllegalArgumentException e) {
+            if ("clientOrderId debe ser un UUID válido".equals(e.getMessage())
+                    || e.getMessage().startsWith("clientOrderId inválido")) {
+                throw e;
+            }
+            throw new IllegalArgumentException("clientOrderId debe ser un UUID válido");
+        }
+    }
+
+    /**
+     * Retry idempotente: devuelve el pedido existente solo si membresía y club coinciden.
+     * No filtra datos de otro usuario/club.
+     */
+    private PedidoDTO mapExistingPedidoForIdempotentRetry(Pedido existing, Integer membresiaId, Integer clubId) {
+        Integer existingMembresiaId = existing.getMembresia() != null ? existing.getMembresia().getId() : null;
+        Integer existingClubId = existing.getClub() != null ? existing.getClub().getId() : null;
+        if (!membresiaId.equals(existingMembresiaId) || !clubId.equals(existingClubId)) {
+            throw new ConflictException(
+                    "clientOrderId ya está asociado a un pedido de otra membresía o club");
+        }
+        return PedidoMapper.mapPedidoToPedidoDTO(existing);
     }
 }
 

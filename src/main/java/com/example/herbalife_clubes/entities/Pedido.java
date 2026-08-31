@@ -58,6 +58,10 @@ public class Pedido {
     @Column(name = "cantidad", nullable = true)
     private Integer cantidad;
 
+    /** UUID v4 generado por el cliente para idempotencia de POST /pedidos/con-items. */
+    @Column(name = "client_order_id", length = 36)
+    private String clientOrderId;
+
     @OneToMany(mappedBy = "pedido", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PedidoItem> items = new ArrayList<>();
 

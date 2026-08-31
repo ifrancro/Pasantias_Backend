@@ -11,5 +11,6 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Inte
     List<Notificacion> findByUsuarioId(Integer usuarioId);
     List<Notificacion> findByHubId(Integer hubId);
     List<Notificacion> findByClubId(Integer clubId);
+    long countByPedidoId(Integer pedidoId);
 }
 

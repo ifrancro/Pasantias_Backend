@@ -190,6 +190,22 @@ class MigrationScriptsGuardTest {
     }
 
     @Test
+    void v22AddsNullableClientOrderIdWithPartialUniqueIndex() throws Exception {
+        Path v22 = MIGRATIONS.resolve("V22__pedidos_client_order_id.sql");
+        assertTrue(Files.exists(v22), "Falta la migración V22 de client_order_id");
+        String sql = Files.readString(v22, StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+        assertTrue(sql.contains("alter table pedidos"));
+        assertTrue(sql.contains("client_order_id"));
+        assertTrue(sql.contains("varchar(36)"));
+        assertTrue(sql.contains("if not exists"));
+        assertTrue(sql.contains("uq_pedidos_client_order_id"));
+        assertTrue(sql.contains("where client_order_id is not null"));
+        assertFalse(sql.contains("unique(membresia_id, client_order_id"));
+        assertFalse(sql.contains("insert into"));
+        assertFalse(sql.contains("drop table"));
+    }
+
+    @Test
     void versionsAreUniqueAndIncludeV13AndV14() throws Exception {
         try (Stream<Path> files = Files.list(MIGRATIONS)) {
             List<String> names = files.map(p -> p.getFileName().toString())
@@ -204,6 +220,7 @@ class MigrationScriptsGuardTest {
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V19__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V20__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V21__")));
+            assertTrue(names.stream().anyMatch(n -> n.startsWith("V22__")));
             assertTrue(names.stream().anyMatch(n -> n.startsWith("V2__")));
             assertFalse(names.stream().anyMatch(n -> n.startsWith("V1__")),
                     "No existe V1 histórico; no inventar una sin estrategia");
