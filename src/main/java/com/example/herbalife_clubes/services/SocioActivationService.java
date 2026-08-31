@@ -24,11 +24,11 @@ public interface SocioActivationService {
                                       Boolean esClientePreferenteODistribuidor);
     
     /**
-     * Genera el número de socio único.
-     * Formato: C{clubId}-{leftPad(membresiaId, 6)}
-     * 
+     * Genera el número de socio legible.
+     * Formato: {PREFIJO_CLUB}-{MEMBRESIA_ID_PADDED_8} (ej. CV-00000123)
+     *
      * @param clubId ID del club
-     * @param membresiaId ID de la membresía (ya guardada)
+     * @param membresiaId ID de la membresía (ya persistida)
      * @return Número de socio único
      */
     String generarNumeroSocio(Integer clubId, Integer membresiaId);

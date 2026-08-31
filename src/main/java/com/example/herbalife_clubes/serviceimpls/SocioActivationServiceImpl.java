@@ -12,13 +12,13 @@ import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.MembresiaRepository;
 import com.example.herbalife_clubes.repositories.RolRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
+import com.example.herbalife_clubes.membresias.MemberCodeGenerator;
 import com.example.herbalife_clubes.services.SocioActivationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -142,10 +142,10 @@ public class SocioActivationServiceImpl implements SocioActivationService {
         membresia.setEstado("ACTIVA");
         // puntosAcumulados y fechaRegistro se establecen en @PrePersist
 
-        // Guardar membresía para obtener el ID
-        membresia = membresiaRepository.save(membresia);
+        // Guardar membresía para obtener el ID (misma transacción)
+        membresia = membresiaRepository.saveAndFlush(membresia);
 
-        // 7. Generar numero_socio único
+        // 7. Generar numero_socio legible
         String numeroSocio = generarNumeroSocio(clubId, membresia.getId());
         membresia.setNumeroSocio(numeroSocio);
         membresia = membresiaRepository.save(membresia);
@@ -220,53 +220,7 @@ public class SocioActivationServiceImpl implements SocioActivationService {
     public String generarNumeroSocio(Integer clubId, Integer membresiaId) {
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
-
-        String prefijo = normalizarPrefijo(club.getPrefijoSocio());
-        if (prefijo == null || !prefijo.matches("^[A-Z]{2}$")) {
-            prefijo = extraerPrefijoDesdeNombre(club.getNombreClub());
-        }
-        // fallback legacy
-        if (prefijo == null || prefijo.isBlank()) {
-            prefijo = "C" + clubId;
-        }
-
-        String paddedId = String.format("%06d", membresiaId);
-        String numeroSocio = prefijo + "-" + paddedId;
-        
-        // Verificar unicidad (por si acaso, aunque es muy improbable que haya colisión)
-        Optional<Membresia> existente = membresiaRepository.findByNumeroSocio(numeroSocio);
-        int intentos = 0;
-        while (existente.isPresent() && intentos < 10) {
-            // Si hay colisión (muy improbable), agregar un sufijo
-            numeroSocio = prefijo + "-" + paddedId + "-" + intentos;
-            existente = membresiaRepository.findByNumeroSocio(numeroSocio);
-            intentos++;
-        }
-        
-        if (intentos >= 10) {
-            throw new RuntimeException("No se pudo generar un número de socio único después de múltiples intentos");
-        }
-        
-        return numeroSocio;
-    }
-
-    private String normalizarPrefijo(String prefijo) {
-        if (prefijo == null) {
-            return null;
-        }
-        String n = prefijo.trim().toUpperCase(Locale.ROOT);
-        return n.isBlank() ? null : n;
-    }
-
-    private String extraerPrefijoDesdeNombre(String nombreClub) {
-        if (nombreClub == null || nombreClub.isBlank()) {
-            return null;
-        }
-        String soloLetras = nombreClub.replaceAll("[^A-Za-z]", "").toUpperCase(Locale.ROOT);
-        if (soloLetras.length() < 2) {
-            return null;
-        }
-        return soloLetras.substring(0, 2);
+        return MemberCodeGenerator.generate(club.getPrefijoSocio(), membresiaId);
     }
 
     @Override

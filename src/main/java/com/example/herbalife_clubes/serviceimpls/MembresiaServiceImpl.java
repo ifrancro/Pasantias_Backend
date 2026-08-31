@@ -11,6 +11,7 @@ import com.example.herbalife_clubes.entities.NivelSocio;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.MembresiaMapper;
+import com.example.herbalife_clubes.membresias.MemberCodeGenerator;
 import com.example.herbalife_clubes.repositories.AsistenciaRepository;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.MembresiaRepository;
@@ -34,7 +35,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -94,20 +94,21 @@ public class MembresiaServiceImpl implements MembresiaService {
             membresia.setReferidoPorMembresia(referidoPorMembresia);
         }
         
-        // Generar número de socio único si no se proporciona
-        if (membresia.getNumeroSocio() == null || membresia.getNumeroSocio().isBlank()) {
-            membresia.setNumeroSocio("SOC-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
-        }
-        
+        // Backend es la única fuente del código; ignorar valor enviado por el cliente.
+        membresia.setNumeroSocio(null);
+
         if (membresia.getPuntosAcumulados() == null) {
             membresia.setPuntosAcumulados(0);
         }
-        
+
         if (membresia.getEstado() == null) {
             membresia.setEstado("ACTIVA");
         }
-        
-        Membresia savedMembresia = membresiaRepository.save(membresia);
+
+        Membresia savedMembresia = membresiaRepository.saveAndFlush(membresia);
+        String numeroSocio = MemberCodeGenerator.generate(club.getPrefijoSocio(), savedMembresia.getId());
+        savedMembresia.setNumeroSocio(numeroSocio);
+        savedMembresia = membresiaRepository.save(savedMembresia);
         membresiaLogroService.evaluarLogrosAutomaticamente(savedMembresia.getId());
         if (referidoPorMembresiaId != null) {
             membresiaLogroService.evaluarLogrosAutomaticamente(referidoPorMembresiaId);

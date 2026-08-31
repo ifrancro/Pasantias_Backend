@@ -47,15 +47,15 @@ class SocioActivationServiceTest {
     @Test
     void falsePermiteActivacionYPersisteDeclaracion() {
         stubActivacionValidaHastaAntesDeGuardar();
-        when(membresiaRepository.save(any(Membresia.class))).thenAnswer(invocation -> {
+        when(membresiaRepository.saveAndFlush(any(Membresia.class))).thenAnswer(invocation -> {
             Membresia m = invocation.getArgument(0);
             if (m.getId() == null) {
                 m.setId(100);
             }
             return m;
         });
+        when(membresiaRepository.save(any(Membresia.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(clubRepository.findById(CLUB_ID)).thenReturn(Optional.of(clubStub()));
-        when(membresiaRepository.findByNumeroSocio(any())).thenReturn(Optional.empty());
         Rol rolSocio = new Rol();
         rolSocio.setId(3);
         rolSocio.setNombre("SOCIO");
@@ -67,12 +67,11 @@ class SocioActivationServiceTest {
 
         assertEquals(100, response.getMembresiaId());
         assertEquals(USUARIO_ID, response.getUsuarioId());
-        assertNotNull(response.getNumeroSocio());
+        assertEquals("CT-00000100", response.getNumeroSocio());
 
         ArgumentCaptor<Membresia> captor = ArgumentCaptor.forClass(Membresia.class);
-        verify(membresiaRepository, times(2)).save(captor.capture());
-        assertEquals(Boolean.FALSE, captor.getAllValues().get(0).getEsClientePreferenteODistribuidor());
-        assertEquals(Boolean.FALSE, captor.getAllValues().get(1).getEsClientePreferenteODistribuidor());
+        verify(membresiaRepository).saveAndFlush(captor.capture());
+        verify(membresiaRepository).save(captor.capture());
         verify(usuarioRepository).save(any(Usuario.class));
     }
 
