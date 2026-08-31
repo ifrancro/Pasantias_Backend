@@ -2,10 +2,18 @@ package com.example.herbalife_clubes.services;
 
 import com.example.herbalife_clubes.common.PagedResponse;
 import com.example.herbalife_clubes.dtos.pedido.PedidoDTO;
+import com.example.herbalife_clubes.entities.Club;
 import com.example.herbalife_clubes.entities.EstadoPedido;
+import com.example.herbalife_clubes.entities.Membresia;
 import com.example.herbalife_clubes.entities.Pedido;
+import com.example.herbalife_clubes.entities.Usuario;
+import com.example.herbalife_clubes.repositories.ClubRepository;
+import com.example.herbalife_clubes.repositories.MembresiaRepository;
 import com.example.herbalife_clubes.repositories.PedidoRepository;
+import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.PedidoServiceImpl;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -16,22 +24,53 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class PedidoPaginationServiceTest {
 
+    private static final String HOST_EMAIL = "host@test.com";
+    private static final int HOST_USER_ID = 99;
+
     @Mock
     private PedidoRepository pedidoRepository;
+    @Mock
+    private ClubRepository clubRepository;
+    @Mock
+    private MembresiaRepository membresiaRepository;
+    @Mock
+    private UsuarioRepository usuarioRepository;
 
     @InjectMocks
     private PedidoServiceImpl pedidoService;
+
+    @BeforeEach
+    void setUpAuth() {
+        Usuario host = new Usuario();
+        host.setId(HOST_USER_ID);
+        host.setEmail(HOST_EMAIL);
+        lenient().when(usuarioRepository.findByEmail(HOST_EMAIL)).thenReturn(Optional.of(host));
+        lenient().when(clubRepository.findByIdAndAnfitrionId(eq(1), eq(HOST_USER_ID)))
+                .thenReturn(Optional.of(new Club()));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(HOST_EMAIL, "n/a", Collections.emptyList()));
+    }
+
+    @AfterEach
+    void clearSecurity() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void clubPageUsesPageableAndBatchLoadOnce() {
@@ -126,6 +165,18 @@ class PedidoPaginationServiceTest {
 
     @Test
     void capsSizeToMax() {
+        Usuario socio = new Usuario();
+        socio.setId(7);
+        socio.setEmail("socio@test.com");
+        when(usuarioRepository.findByEmail("socio@test.com")).thenReturn(Optional.of(socio));
+        Membresia membresia = new Membresia();
+        Usuario owner = new Usuario();
+        owner.setId(7);
+        membresia.setUsuario(owner);
+        when(membresiaRepository.findById(5)).thenReturn(Optional.of(membresia));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("socio@test.com", "n/a", Collections.emptyList()));
+
         when(pedidoRepository.findIdsByMembresiaId(
                 eq(5), eq(false), any(EstadoPedido.class),
                 eq(false), any(LocalDateTime.class),
@@ -158,8 +209,8 @@ class PedidoPaginationServiceTest {
         when(p.getEstado()).thenReturn(null);
         when(p.getFechaPedido()).thenReturn(null);
         when(p.getObservaciones()).thenReturn(null);
-        when(p.getTipoPago()).thenReturn(null);
         when(p.getTiempoEstimadoMinutos()).thenReturn(null);
+        when(p.getPedidoCombos()).thenReturn(List.of());
         return p;
     }
 }

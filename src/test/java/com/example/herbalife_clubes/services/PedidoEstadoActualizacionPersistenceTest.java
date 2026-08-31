@@ -119,6 +119,7 @@ class PedidoEstadoActualizacionPersistenceTest {
     void casoA_productoSencilloRecibidoAPreparando() {
         Seed seed = seedBase();
         Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
 
         PedidoDTO dto = pedidoService.actualizarEstado(pedidoId, "PREPARANDO", 8);
 
@@ -134,6 +135,7 @@ class PedidoEstadoActualizacionPersistenceTest {
     void casoB_productoConOpcionesDevuelveOpcionesAlCambiarEstado() {
         Seed seed = seedBase();
         Integer pedidoId = crearPedidoConOpciones(seed);
+        authenticateHost(seed.clubId());
 
         PedidoDTO dto = pedidoService.actualizarEstado(pedidoId, "PREPARANDO", 10);
 
@@ -150,6 +152,7 @@ class PedidoEstadoActualizacionPersistenceTest {
     void casoC_comboModernoRecibidoAPreparandoDevuelveCombosYOpciones() {
         SeedCombo seed = seedComboModerno();
         Integer pedidoId = crearPedidoComboModerno(seed);
+        authenticateHost(seed.clubId());
 
         PedidoDTO dto = pedidoService.actualizarEstado(pedidoId, "PREPARANDO", 8);
 
@@ -182,6 +185,7 @@ class PedidoEstadoActualizacionPersistenceTest {
     void casoD_y_E_flujoPreparandoListoEntregado() {
         Seed seed = seedBase();
         Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
 
         pedidoService.actualizarEstado(pedidoId, "PREPARANDO", 5);
         assertEstadoPersistido(pedidoId, EstadoPedido.PREPARANDO, 5);
@@ -201,6 +205,7 @@ class PedidoEstadoActualizacionPersistenceTest {
     void cancelarPedidoComboModernoDevuelveDtoCompleto() {
         SeedCombo seed = seedComboModerno();
         Integer pedidoId = crearPedidoComboModerno(seed);
+        authenticateSocio(seed.membresiaId());
 
         PedidoDTO dto = pedidoService.cancelarPedido(pedidoId);
 
@@ -215,6 +220,7 @@ class PedidoEstadoActualizacionPersistenceTest {
     void actualizarEstadoPersisteSoloSiOperacionCompletaExitosa() {
         Seed seed = seedBase();
         Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
 
         PedidoDTO dto = pedidoService.actualizarEstado(pedidoId, "PREPARANDO", 12);
 
@@ -522,6 +528,12 @@ class PedidoEstadoActualizacionPersistenceTest {
         Membresia membresia = membresiaRepository.findById(membresiaId).orElseThrow();
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(membresia.getUsuario().getEmail(), "n/a", Collections.emptyList()));
+    }
+
+    private void authenticateHost(Integer clubId) {
+        Club club = clubRepository.findById(clubId).orElseThrow();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(club.getAnfitrion().getEmail(), "n/a", Collections.emptyList()));
     }
 
     private record Seed(

@@ -46,6 +46,8 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class PedidoServiceImpl implements PedidoService {
     private static final String MSG_MEMBRESIA_FORBIDDEN = "No tienes permisos para usar esta membresía.";
+    private static final String MSG_PEDIDO_FORBIDDEN = "No tienes permisos para acceder a este pedido.";
+    private static final String MSG_CLUB_FORBIDDEN = "No tienes permisos para acceder a este club.";
 
     private static final Set<String> TIPOS_PAGO_VALIDOS = Set.of(
             "EFECTIVO", "TRANSFERENCIA", "QR", "TARJETA", "OTRO"
@@ -589,14 +591,18 @@ public class PedidoServiceImpl implements PedidoService {
     @Override
     @Transactional(readOnly = true)
     public PedidoDTO getPedido(Integer pedidoId) {
+        Usuario usuario = requireAuthenticatedUsuario();
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado con id: " + pedidoId));
+        assertPedidoReadableByUsuario(pedido, usuario);
         return PedidoMapper.mapPedidoToPedidoDTO(pedido);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<PedidoDTO> getPedidosBySocio(Integer membresiaId) {
+        Usuario usuario = requireAuthenticatedUsuario();
+        assertMembresiaReadableByUsuario(membresiaId, usuario);
         // Usar método con JOIN FETCH para cargar items y productos
         List<Pedido> pedidos = pedidoRepository.findByMembresiaIdWithRelations(membresiaId);
         return pedidos.stream()
@@ -607,6 +613,8 @@ public class PedidoServiceImpl implements PedidoService {
     @Override
     @Transactional(readOnly = true)
     public List<PedidoDTO> getPedidosByClub(Integer clubId) {
+        Usuario usuario = requireAuthenticatedUsuario();
+        assertClubManagedByAnfitrion(clubId, usuario);
         System.out.println("[PEDIDO] ===== INICIO LISTAR PEDIDOS POR CLUB =====");
         System.out.println("[PEDIDO] clubId recibido: " + clubId);
         
@@ -661,6 +669,8 @@ public class PedidoServiceImpl implements PedidoService {
     @Transactional(readOnly = true)
     public PagedResponse<PedidoDTO> getPedidosByClubPaginados(
             Integer clubId, int page, int size, String estado, LocalDateTime desde, LocalDateTime hasta) {
+        Usuario usuario = requireAuthenticatedUsuario();
+        assertClubManagedByAnfitrion(clubId, usuario);
         validateDateRange(desde, hasta);
         EstadoPedido estadoFiltro = parseEstadoOptional(estado);
         Pageable pageable = PageParams.of(
@@ -683,6 +693,8 @@ public class PedidoServiceImpl implements PedidoService {
     @Transactional(readOnly = true)
     public PagedResponse<PedidoDTO> getPedidosBySocioPaginados(
             Integer membresiaId, int page, int size, String estado, LocalDateTime desde, LocalDateTime hasta) {
+        Usuario usuario = requireAuthenticatedUsuario();
+        assertMembresiaReadableByUsuario(membresiaId, usuario);
         validateDateRange(desde, hasta);
         EstadoPedido estadoFiltro = parseEstadoOptional(estado);
         Pageable pageable = PageParams.of(
@@ -741,9 +753,11 @@ public class PedidoServiceImpl implements PedidoService {
     @Override
     @Transactional
     public PedidoDTO actualizarEstado(Integer pedidoId, String estado, Integer tiempoEstimadoMinutos) {
+        Usuario usuario = requireAuthenticatedUsuario();
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado con id: " + pedidoId));
-        
+        assertHostManagesPedido(pedido, usuario);
+
         EstadoPedido nuevoEstado;
         try {
             nuevoEstado = EstadoPedido.valueOf(estado.toUpperCase());
@@ -772,9 +786,11 @@ public class PedidoServiceImpl implements PedidoService {
     @Override
     @Transactional
     public PedidoDTO cancelarPedido(Integer pedidoId) {
+        Usuario usuario = requireAuthenticatedUsuario();
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pedido no encontrado con id: " + pedidoId));
-        
+        assertSocioOwnsPedido(pedido, usuario);
+
         if (EstadoPedido.ENTREGADO.equals(pedido.getEstado()) || EstadoPedido.CANCELADO.equals(pedido.getEstado())) {
             throw new IllegalArgumentException("No se puede cancelar un pedido que ya está " + pedido.getEstado().name());
         }
@@ -840,6 +856,49 @@ public class PedidoServiceImpl implements PedidoService {
                 || !usuario.getId().equals(membresia.getUsuario().getId())) {
             throw new AccessDeniedException(MSG_MEMBRESIA_FORBIDDEN);
         }
+    }
+
+    private void assertMembresiaReadableByUsuario(Integer membresiaId, Usuario usuario) {
+        Membresia membresia = membresiaRepository.findById(membresiaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
+        assertMembresiaOwnedByUsuario(membresia, usuario);
+    }
+
+    private void assertClubManagedByAnfitrion(Integer clubId, Usuario usuario) {
+        if (usuario.getId() == null
+                || clubRepository.findByIdAndAnfitrionId(clubId, usuario.getId()).isEmpty()) {
+            throw new AccessDeniedException(MSG_CLUB_FORBIDDEN);
+        }
+    }
+
+    private void assertPedidoReadableByUsuario(Pedido pedido, Usuario usuario) {
+        if (isPedidoOwnedBySocio(pedido, usuario)) {
+            return;
+        }
+        if (pedido.getClub() != null && pedido.getClub().getId() != null && usuario.getId() != null
+                && clubRepository.findByIdAndAnfitrionId(pedido.getClub().getId(), usuario.getId()).isPresent()) {
+            return;
+        }
+        throw new AccessDeniedException(MSG_PEDIDO_FORBIDDEN);
+    }
+
+    private void assertSocioOwnsPedido(Pedido pedido, Usuario usuario) {
+        if (!isPedidoOwnedBySocio(pedido, usuario)) {
+            throw new AccessDeniedException(MSG_PEDIDO_FORBIDDEN);
+        }
+    }
+
+    private void assertHostManagesPedido(Pedido pedido, Usuario usuario) {
+        if (pedido.getClub() == null || pedido.getClub().getId() == null || usuario.getId() == null
+                || clubRepository.findByIdAndAnfitrionId(pedido.getClub().getId(), usuario.getId()).isEmpty()) {
+            throw new AccessDeniedException(MSG_PEDIDO_FORBIDDEN);
+        }
+    }
+
+    private static boolean isPedidoOwnedBySocio(Pedido pedido, Usuario usuario) {
+        Membresia membresia = pedido.getMembresia();
+        return membresia != null && membresia.getUsuario() != null && usuario.getId() != null
+                && usuario.getId().equals(membresia.getUsuario().getId());
     }
 }
 

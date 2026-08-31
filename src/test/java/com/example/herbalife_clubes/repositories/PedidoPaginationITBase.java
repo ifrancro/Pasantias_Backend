@@ -17,12 +17,15 @@ import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.mappers.PedidoMapper;
 import com.example.herbalife_clubes.services.PedidoService;
 import org.hibernate.Hibernate;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
@@ -31,6 +34,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -69,11 +73,17 @@ abstract class PedidoPaginationITBase {
     @Autowired
     PlatformTransactionManager transactionManager;
 
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @Rollback(false)
     void membresiaSinPedidosYFiltrosNullNoLanza() {
         Fixture seed = seed(false);
+        authenticate(seed.vacioEmail());
 
         PagedResponse<PedidoDTO> page = assertDoesNotThrow(() ->
                 pedidoService.getPedidosBySocioPaginados(
@@ -88,6 +98,7 @@ abstract class PedidoPaginationITBase {
     @Rollback(false)
     void membresiaConPedidosYFiltrosNullDevuelveTodosOrdenados() {
         Fixture seed = seed(true);
+        authenticate(seed.socioEmail());
 
         PagedResponse<PedidoDTO> page = assertDoesNotThrow(() ->
                 pedidoService.getPedidosBySocioPaginados(
@@ -104,6 +115,7 @@ abstract class PedidoPaginationITBase {
     @Rollback(false)
     void filtraPorEstadoRecibido() {
         Fixture seed = seed(true);
+        authenticate(seed.socioEmail());
 
         PagedResponse<PedidoDTO> page = pedidoService.getPedidosBySocioPaginados(
                 seed.membresiaId(), 0, 20, "RECIBIDO", null, null);
@@ -117,6 +129,7 @@ abstract class PedidoPaginationITBase {
     @Rollback(false)
     void filtraSoloDesde() {
         Fixture seed = seed(true);
+        authenticate(seed.socioEmail());
 
         PagedResponse<PedidoDTO> page = pedidoService.getPedidosBySocioPaginados(
                 seed.membresiaId(), 0, 20, null, DESDE_SOLO, null);
@@ -130,6 +143,7 @@ abstract class PedidoPaginationITBase {
     @Rollback(false)
     void filtraSoloHasta() {
         Fixture seed = seed(true);
+        authenticate(seed.socioEmail());
 
         PagedResponse<PedidoDTO> page = pedidoService.getPedidosBySocioPaginados(
                 seed.membresiaId(), 0, 20, null, null, HASTA_SOLO);
@@ -143,6 +157,7 @@ abstract class PedidoPaginationITBase {
     @Rollback(false)
     void filtraRangoDesdeYHasta() {
         Fixture seed = seed(true);
+        authenticate(seed.socioEmail());
 
         PagedResponse<PedidoDTO> page = pedidoService.getPedidosBySocioPaginados(
                 seed.membresiaId(), 0, 20, null, DESDE_SOLO, HASTA_RANGO);
@@ -156,6 +171,7 @@ abstract class PedidoPaginationITBase {
     @Rollback(false)
     void paginadoPorClubUsaLaMismaConstruccionDeFiltros() {
         Fixture seed = seed(true);
+        authenticate(seed.hostEmail());
 
         PagedResponse<PedidoDTO> sinFiltros = assertDoesNotThrow(() ->
                 pedidoService.getPedidosByClubPaginados(seed.clubId(), 0, 20, null, null, null));
@@ -178,6 +194,7 @@ abstract class PedidoPaginationITBase {
     @Rollback(false)
     void itemSinComboMapeaComboNull() {
         Fixture seed = seed(true);
+        authenticate(seed.socioEmail());
 
         PedidoDTO dto = pedidoService.getPedidosBySocioPaginados(
                 seed.membresiaId(), 0, 20, null, null, null)
@@ -311,8 +328,16 @@ abstract class PedidoPaginationITBase {
                     combo.getId(),
                     pedidoA,
                     pedidoB,
-                    pedidoC);
+                    pedidoC,
+                    socio.getEmail(),
+                    admin.getEmail(),
+                    vacio.getEmail());
         });
+    }
+
+    private static void authenticate(String email) {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(email, "n/a", Collections.emptyList()));
     }
 
     private Integer savePedido(
@@ -369,6 +394,9 @@ abstract class PedidoPaginationITBase {
             Integer comboId,
             Integer pedidoAId,
             Integer pedidoBId,
-            Integer pedidoCId) {
+            Integer pedidoCId,
+            String socioEmail,
+            String hostEmail,
+            String vacioEmail) {
     }
 }
