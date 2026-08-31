@@ -1,6 +1,8 @@
 package com.example.herbalife_clubes.serviceimpls;
 
 import com.example.herbalife_clubes.clubes.ClubLocationValidator;
+import com.example.herbalife_clubes.clubes.ClubPrefixRejections;
+import com.example.herbalife_clubes.clubes.ClubPrefixValidator;
 import com.example.herbalife_clubes.dtos.club.ClubDTO;
 import com.example.herbalife_clubes.entities.Club;
 import com.example.herbalife_clubes.entities.Hub;
@@ -21,7 +23,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.stream.Collectors;
 
 @Service
@@ -47,12 +48,13 @@ public class ClubServiceImpl implements ClubService {
                 .orElseThrow(() -> new ResourceNotFoundException("Anfitrión no encontrado con id: " + anfitrionId));
 
         ClubLocationValidator.validateRequired(clubDTO.getLat(), clubDTO.getLng());
+        String prefijoNormalizado = ClubPrefixValidator.requireValidNormalized(clubDTO.getPrefijoSocio());
+        assertPrefijoUnicoEnHub(prefijoNormalizado, hubId, null);
 
         Club club = ClubMapper.mapClubDTOToClub(clubDTO);
         club.setHub(hub);
         club.setAnfitrion(anfitrion);
-        club.setPrefijoSocio(normalizarPrefijo(club.getPrefijoSocio()));
-        validarPrefijoSocio(club.getPrefijoSocio(), hubId, null);
+        club.setPrefijoSocio(prefijoNormalizado);
         if (club.getEstado() == null) {
             club.setEstado("PENDIENTE");
         }
@@ -68,14 +70,14 @@ public class ClubServiceImpl implements ClubService {
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
 
         ClubLocationValidator.validateRequired(clubDTO.getLat(), clubDTO.getLng());
+        String prefijoNormalizado = ClubPrefixValidator.requireValidNormalized(clubDTO.getPrefijoSocio());
+        assertPrefijoUnicoEnHub(prefijoNormalizado, club.getHub() != null ? club.getHub().getId() : null, clubId);
 
         club.setNombreClub(clubDTO.getNombreClub());
         club.setDireccion(clubDTO.getDireccion());
         club.setHorario(clubDTO.getHorario());
         club.setLat(clubDTO.getLat());
         club.setLng(clubDTO.getLng());
-        String prefijoNormalizado = normalizarPrefijo(clubDTO.getPrefijoSocio());
-        validarPrefijoSocio(prefijoNormalizado, club.getHub() != null ? club.getHub().getId() : null, clubId);
         club.setPrefijoSocio(prefijoNormalizado);
         
         clubRepository.save(club);
@@ -115,6 +117,7 @@ public class ClubServiceImpl implements ClubService {
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
 
         ClubLocationValidator.validateStoredForApproval(club.getLat(), club.getLng());
+        ClubPrefixValidator.validateStoredForApproval(club.getPrefijoSocio());
 
         // Cambiar el estado del club a ACTIVO para que se habilite directamente
         club.setEstado("ACTIVO");
@@ -171,6 +174,7 @@ public class ClubServiceImpl implements ClubService {
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
 
         ClubLocationValidator.validateStoredForActivation(club.getLat(), club.getLng());
+        ClubPrefixValidator.validateStoredForActivation(club.getPrefijoSocio());
 
         club.setEstado("ACTIVO");
         clubRepository.save(club);
@@ -219,22 +223,7 @@ public class ClubServiceImpl implements ClubService {
         return ClubMapper.mapClubToClubDTO(club);
     }
 
-    private String normalizarPrefijo(String prefijo) {
-        if (prefijo == null) {
-            return null;
-        }
-        String normalizado = prefijo.trim().toUpperCase(Locale.ROOT);
-        return normalizado.isBlank() ? null : normalizado;
-    }
-
-    private void validarPrefijoSocio(String prefijoSocio, Integer hubId, Integer clubIdActual) {
-        if (prefijoSocio == null) {
-            return; // opcional
-        }
-        if (!prefijoSocio.matches("^[A-Z]{2}$")) {
-            throw new IllegalArgumentException(
-                    "El prefijo de socio debe ser exactamente 2 letras mayúsculas (A-Z). Recibido: '" + prefijoSocio + "'");
-        }
+    private void assertPrefijoUnicoEnHub(String prefijoSocio, Integer hubId, Integer clubIdActual) {
         if (hubId == null) {
             throw new IllegalArgumentException("No se puede validar prefijo sin hub asociado");
         }
@@ -242,7 +231,7 @@ public class ClubServiceImpl implements ClubService {
                 ? clubRepository.existsByHubIdAndPrefijoSocioIgnoreCase(hubId, prefijoSocio)
                 : clubRepository.existsByHubIdAndPrefijoSocioIgnoreCaseAndIdNot(hubId, prefijoSocio, clubIdActual);
         if (existe) {
-            throw new IllegalArgumentException("Ya existe un club con el prefijo '" + prefijoSocio + "' en este Hub");
+            ClubPrefixRejections.throwPrefixConflict();
         }
     }
 }

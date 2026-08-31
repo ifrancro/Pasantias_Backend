@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -146,6 +147,8 @@ class ClubLocationServiceTest {
     void updateConCoordenadasValidasOk() {
         Club loaded = clubLoaded("PENDIENTE", VALID_LAT, VALID_LNG);
         when(clubRepository.findById(1)).thenReturn(Optional.of(loaded));
+        when(clubRepository.existsByHubIdAndPrefijoSocioIgnoreCaseAndIdNot(anyInt(), any(), anyInt()))
+                .thenReturn(false);
         when(clubRepository.save(any(Club.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ClubDTO request = clubDto(bd("-17.4"), bd("-66.2"));
@@ -192,6 +195,8 @@ class ClubLocationServiceTest {
     void updateHistoricoSinUbicacionPuedeCorregirse() {
         Club loaded = clubLoaded("PENDIENTE", null, null);
         when(clubRepository.findById(1)).thenReturn(Optional.of(loaded));
+        when(clubRepository.existsByHubIdAndPrefijoSocioIgnoreCaseAndIdNot(anyInt(), any(), anyInt()))
+                .thenReturn(false);
         when(clubRepository.save(any(Club.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ClubDTO request = clubDto(VALID_LAT, VALID_LNG);
@@ -368,6 +373,7 @@ class ClubLocationServiceTest {
         host.setId(2);
         when(hubRepository.findById(1)).thenReturn(Optional.of(hub));
         when(usuarioRepository.findById(2)).thenReturn(Optional.of(host));
+        lenient().when(clubRepository.existsByHubIdAndPrefijoSocioIgnoreCase(anyInt(), any())).thenReturn(false);
     }
 
     private static Club clubLoaded(String estado, BigDecimal lat, BigDecimal lng) {
@@ -396,6 +402,13 @@ class ClubLocationServiceTest {
         dto.setNombreClub("Club Test");
         dto.setLat(lat);
         dto.setLng(lng);
+        dto.setPrefijoSocio("CV");
+        return dto;
+    }
+
+    private static ClubDTO clubDto(BigDecimal lat, BigDecimal lng, String prefijoSocio) {
+        ClubDTO dto = clubDto(lat, lng);
+        dto.setPrefijoSocio(prefijoSocio);
         return dto;
     }
 

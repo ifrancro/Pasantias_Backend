@@ -163,6 +163,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getHttpStatus()).body(body);
     }
 
+    @ExceptionHandler(ClubPrefixRejectedException.class)
+    public ResponseEntity<Map<String, Object>> handleClubPrefixRejected(ClubPrefixRejectedException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", ex.getErrorCode());
+        body.put("message", ex.getMessage());
+        return ResponseEntity.status(ex.getHttpStatus()).body(body);
+    }
+
     @ExceptionHandler(MaxSaboresExcedidoException.class)
     public ResponseEntity<Map<String, Object>> handleMaxSabores(MaxSaboresExcedidoException ex) {
         Map<String, Object> body = new HashMap<>();
