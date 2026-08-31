@@ -33,6 +33,7 @@ import com.example.herbalife_clubes.repositories.RolRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.PedidoServiceImpl;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
@@ -42,6 +43,8 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.context.TestPropertySource;
@@ -56,6 +59,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -109,6 +113,11 @@ class PedidoClientOrderIdPersistenceTest {
     @Autowired private ClubProductoRepository clubProductoRepository;
     @Autowired private EntityManager entityManager;
     @Autowired private PlatformTransactionManager transactionManager;
+
+    @AfterEach
+    void clearSecurity() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -234,7 +243,7 @@ class PedidoClientOrderIdPersistenceTest {
         long countAntes = countPedidos();
 
         ConflictException ex = assertThrows(ConflictException.class,
-                () -> crearConClientOrderId(seed2, clientOrderId, request));
+                () -> crearConClientOrderIdAs(seed2, clientOrderId, request, seed2.socioEmail()));
 
         assertTrue(ex.getMessage().contains("clientOrderId"));
         assertEquals(countAntes, countPedidos());
@@ -333,8 +342,12 @@ class PedidoClientOrderIdPersistenceTest {
     }
 
     private PedidoDTO crearConClientOrderId(SeedBase seed, String clientOrderId, PedidoConItemsDTO request) {
+        return crearConClientOrderIdAs(seed, clientOrderId, request, seed.socioEmail());
+    }
+
+    private PedidoDTO crearConClientOrderIdAs(SeedBase seed, String clientOrderId, PedidoConItemsDTO request, String email) {
         request.setClientOrderId(clientOrderId);
-        return crearPedido(seed, request);
+        return crearPedidoAs(seed, request, email);
     }
 
     private PedidoDTO crearSinClientOrderId(Seed seed, PedidoConItemsDTO request) {
@@ -343,6 +356,12 @@ class PedidoClientOrderIdPersistenceTest {
     }
 
     private PedidoDTO crearPedido(SeedBase seed, PedidoConItemsDTO request) {
+        return crearPedidoAs(seed, request, seed.socioEmail());
+    }
+
+    private PedidoDTO crearPedidoAs(SeedBase seed, PedidoConItemsDTO request, String email) {
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(email, "n/a", Collections.emptyList()));
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         return tx.execute(status -> pedidoService.createPedidoConItems(
                 request, seed.membresiaId(), seed.clubId()));
@@ -432,7 +451,7 @@ class PedidoClientOrderIdPersistenceTest {
             membresia = membresiaRepository.save(membresia);
 
             Producto producto = saveProducto(club, hub, "Té", BigDecimal.valueOf(15), false);
-            return new Seed(membresia.getId(), club.getId(), producto.getId());
+            return new Seed(membresia.getId(), club.getId(), producto.getId(), socio.getEmail());
         });
     }
 
@@ -456,7 +475,7 @@ class PedidoClientOrderIdPersistenceTest {
                     .filter(p -> club.getId().equals(p.getClubCreador().getId()))
                     .findFirst()
                     .orElseThrow();
-            return new Seed(membresia.getId(), clubId, producto.getId());
+            return new Seed(membresia.getId(), clubId, producto.getId(), socio.getEmail());
         });
     }
 
@@ -523,7 +542,8 @@ class PedidoClientOrderIdPersistenceTest {
                     sabores.getId(),
                     frutilla.getId(),
                     consistenciaManaged.getId(),
-                    cremosoManaged.getId());
+                    cremosoManaged.getId(),
+                    socio.getEmail());
         });
     }
 
@@ -650,9 +670,10 @@ class PedidoClientOrderIdPersistenceTest {
     private interface SeedBase {
         Integer membresiaId();
         Integer clubId();
+        String socioEmail();
     }
 
-    private record Seed(Integer membresiaId, Integer clubId, Integer productoId) implements SeedBase {
+    private record Seed(Integer membresiaId, Integer clubId, Integer productoId, String socioEmail) implements SeedBase {
     }
 
     private record SeedCombo(
@@ -665,6 +686,7 @@ class PedidoClientOrderIdPersistenceTest {
             Integer grupoSaboresId,
             Integer opcionFrutillaId,
             Integer grupoConsistenciaId,
-            Integer opcionCremosoId) implements SeedBase {
+            Integer opcionCremosoId,
+            String socioEmail) implements SeedBase {
     }
 }

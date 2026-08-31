@@ -31,6 +31,7 @@ import com.example.herbalife_clubes.repositories.RolRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.PedidoServiceImpl;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
@@ -39,6 +40,8 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -52,6 +55,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -103,6 +107,11 @@ class PedidoEstadoActualizacionPersistenceTest {
     @Autowired private ClubProductoRepository clubProductoRepository;
     @Autowired private EntityManager entityManager;
     @Autowired private PlatformTransactionManager transactionManager;
+
+    @AfterEach
+    void clearSecurity() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -216,6 +225,7 @@ class PedidoEstadoActualizacionPersistenceTest {
     private Integer crearPedidoSencillo(Seed seed) {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         return tx.execute(status -> {
+            authenticateSocio(seed.membresiaId());
             PedidoConItemsDTO request = new PedidoConItemsDTO();
             request.setTipoConsumo("EN_LUGAR");
             PedidoItemDTO item = new PedidoItemDTO();
@@ -229,6 +239,7 @@ class PedidoEstadoActualizacionPersistenceTest {
     private Integer crearPedidoConOpciones(Seed seed) {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         return tx.execute(status -> {
+            authenticateSocio(seed.membresiaId());
             PedidoConItemsDTO request = new PedidoConItemsDTO();
             request.setTipoConsumo("EN_LUGAR");
             PedidoItemDTO item = new PedidoItemDTO();
@@ -243,6 +254,7 @@ class PedidoEstadoActualizacionPersistenceTest {
     private Integer crearPedidoComboModerno(SeedCombo seed) {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         return tx.execute(status -> {
+            authenticateSocio(seed.membresiaId());
             PedidoConItemsDTO request = new PedidoConItemsDTO();
             request.setTipoConsumo("EN_LUGAR");
             request.setItems(List.of());
@@ -504,6 +516,12 @@ class PedidoEstadoActualizacionPersistenceTest {
         o.setOrden(orden);
         o.setActivo(true);
         return o;
+    }
+
+    private void authenticateSocio(Integer membresiaId) {
+        Membresia membresia = membresiaRepository.findById(membresiaId).orElseThrow();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(membresia.getUsuario().getEmail(), "n/a", Collections.emptyList()));
     }
 
     private record Seed(

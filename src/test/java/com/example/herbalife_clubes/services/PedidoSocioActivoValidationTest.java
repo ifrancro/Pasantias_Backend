@@ -17,13 +17,17 @@ import com.example.herbalife_clubes.repositories.PedidoRepository;
 import com.example.herbalife_clubes.repositories.ProductoRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.PedidoServiceImpl;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,6 +60,11 @@ class PedidoSocioActivoValidationTest {
 
     @InjectMocks
     private PedidoServiceImpl pedidoService;
+
+    @AfterEach
+    void clearSecurity() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void pedidoSocioConActivoFalseSeRechaza() {
@@ -99,6 +108,10 @@ class PedidoSocioActivoValidationTest {
         membresia.setEstado("ACTIVA");
         membresia.setNumeroSocio("SC-1");
         membresia.setClub(club);
+        Usuario socio = new Usuario();
+        socio.setId(5);
+        socio.setEmail("socio@test.com");
+        membresia.setUsuario(socio);
 
         Producto producto = new Producto();
         producto.setId(10);
@@ -115,6 +128,9 @@ class PedidoSocioActivoValidationTest {
 
         when(membresiaRepository.findById(1)).thenReturn(Optional.of(membresia));
         when(clubRepository.findById(3)).thenReturn(Optional.of(club));
+        when(usuarioRepository.findByEmail("socio@test.com")).thenReturn(Optional.of(socio));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("socio@test.com", "n/a", Collections.emptyList()));
         when(productoRepository.findById(10)).thenReturn(Optional.of(producto));
         if (activo) {
             when(clubProductoRepository.findByClubIdAndProductoId(3, 10)).thenReturn(Optional.of(cp));

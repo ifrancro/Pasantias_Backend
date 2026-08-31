@@ -24,15 +24,19 @@ import com.example.herbalife_clubes.repositories.PedidoRepository;
 import com.example.herbalife_clubes.repositories.ProductoRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.PedidoServiceImpl;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -55,6 +59,11 @@ class PedidoItemOpcionesServiceTest {
 
     @InjectMocks
     private PedidoServiceImpl pedidoService;
+
+    @AfterEach
+    void clearSecurity() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void pedidoConItemsPersisteOpcionesSnapshot() {
@@ -164,10 +173,14 @@ class PedidoItemOpcionesServiceTest {
     }
 
     private void stubSocio() {
+        Usuario socio = new Usuario();
+        socio.setId(5);
+        socio.setEmail("socio@test.com");
         Membresia membresia = new Membresia();
         membresia.setId(1);
         membresia.setEstado("ACTIVA");
         membresia.setNumeroSocio("SC-1");
+        membresia.setUsuario(socio);
         Club club = new Club();
         club.setId(3);
         club.setEstado("ACTIVO");
@@ -175,8 +188,12 @@ class PedidoItemOpcionesServiceTest {
         Hub hub = new Hub();
         hub.setId(1);
         club.setHub(hub);
+        membresia.setClub(club);
         when(membresiaRepository.findById(1)).thenReturn(Optional.of(membresia));
         when(clubRepository.findById(3)).thenReturn(Optional.of(club));
+        when(usuarioRepository.findByEmail("socio@test.com")).thenReturn(Optional.of(socio));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("socio@test.com", "n/a", Collections.emptyList()));
         ClubProducto cp = new ClubProducto();
         cp.setDisponible(true);
         when(clubProductoRepository.findByClubIdAndProductoId(3, 7)).thenReturn(Optional.of(cp));

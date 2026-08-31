@@ -24,6 +24,7 @@ import com.example.herbalife_clubes.repositories.RolRepository;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.PedidoServiceImpl;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
@@ -32,6 +33,8 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -45,6 +48,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -88,6 +92,11 @@ class PedidoItemOpcionesPersistenceTest {
     @Autowired private EntityManager entityManager;
     @Autowired private PlatformTransactionManager transactionManager;
 
+    @AfterEach
+    void clearSecurity() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @Rollback(false)
@@ -103,6 +112,8 @@ class PedidoItemOpcionesPersistenceTest {
         item.setOpciones(List.of(sel(seeded.grupoId, seeded.opcionId, 1)));
         request.setItems(List.of(item));
 
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("socio-pio@test.com", "n/a", Collections.emptyList()));
         var dto = pedidoService.createPedidoConItems(request, seeded.membresiaId, seeded.clubId);
         Integer pedidoId = dto.getId();
         assertEquals("Frutilla", dto.getItems().get(0).getOpciones().get(0).getOpcionNombre());

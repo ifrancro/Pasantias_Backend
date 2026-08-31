@@ -35,6 +35,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -267,13 +268,17 @@ class PedidoPrecioServiceTest {
     private void stubSocioClub() {
         Usuario host = anfitrion(20);
         Club club = clubActivo(host);
+        Usuario socio = socio(5, "socio@test.com");
         Membresia membresia = new Membresia();
         membresia.setId(1);
         membresia.setEstado("ACTIVA");
         membresia.setNumeroSocio("SC-1");
         membresia.setClub(club);
+        membresia.setUsuario(socio);
         when(membresiaRepository.findById(1)).thenReturn(Optional.of(membresia));
         when(clubRepository.findById(3)).thenReturn(Optional.of(club));
+        when(usuarioRepository.findByEmail("socio@test.com")).thenReturn(Optional.of(socio));
+        authenticateAs("socio@test.com");
     }
 
     private static PedidoItemDTO item(int productoId, int cantidad, BigDecimal precioMentira) {
@@ -313,6 +318,16 @@ class PedidoPrecioServiceTest {
         return usuario;
     }
 
+    private static Usuario socio(int id, String email) {
+        Rol rol = new Rol();
+        rol.setNombre("SOCIO");
+        Usuario usuario = new Usuario();
+        usuario.setId(id);
+        usuario.setRol(rol);
+        usuario.setEmail(email);
+        return usuario;
+    }
+
     private static Club clubActivo(Usuario host) {
         Hub hub = new Hub();
         hub.setId(1);
@@ -327,7 +342,7 @@ class PedidoPrecioServiceTest {
 
     private static void authenticateAs(String email) {
         SecurityContextHolder.getContext().setAuthentication(
-                new UsernamePasswordAuthenticationToken(email, "n/a"));
+                new UsernamePasswordAuthenticationToken(email, "n/a", Collections.emptyList()));
     }
 
     private static BigDecimal bd(String value) {

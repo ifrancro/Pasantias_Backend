@@ -24,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,8 @@ import java.util.stream.Collectors;
 @Service
 @AllArgsConstructor
 public class PedidoServiceImpl implements PedidoService {
+    private static final String MSG_MEMBRESIA_FORBIDDEN = "No tienes permisos para usar esta membresía.";
+
     private static final Set<String> TIPOS_PAGO_VALIDOS = Set.of(
             "EFECTIVO", "TRANSFERENCIA", "QR", "TARJETA", "OTRO"
     );
@@ -80,8 +83,12 @@ public class PedidoServiceImpl implements PedidoService {
         System.out.println("[PEDIDO]   - cantidad: " + pedidoDTO.getCantidad());
         System.out.println("[PEDIDO]   - observaciones: " + pedidoDTO.getObservaciones());
         
+        Usuario usuarioAutenticado = requireAuthenticatedUsuario();
+
         Membresia membresia = membresiaRepository.findById(membresiaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
+        assertMembresiaOwnedByUsuario(membresia, usuarioAutenticado);
+
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
         Producto producto = productoRepository.findById(productoId)
@@ -212,15 +219,20 @@ public class PedidoServiceImpl implements PedidoService {
         }
 
         String clientOrderId = normalizeAndValidateClientOrderId(pedidoDTO.getClientOrderId());
+
+        Usuario usuarioAutenticado = requireAuthenticatedUsuario();
+
+        Membresia membresia = membresiaRepository.findById(membresiaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
+        assertMembresiaOwnedByUsuario(membresia, usuarioAutenticado);
+
         if (clientOrderId != null) {
             Optional<Pedido> existing = pedidoRepository.findByClientOrderId(clientOrderId);
             if (existing.isPresent()) {
                 return mapExistingPedidoForIdempotentRetry(existing.get(), membresiaId, clubId);
             }
         }
-        
-        Membresia membresia = membresiaRepository.findById(membresiaId)
-                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
+
         Club club = clubRepository.findById(clubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
 
@@ -812,6 +824,22 @@ public class PedidoServiceImpl implements PedidoService {
                     "clientOrderId ya está asociado a un pedido de otra membresía o club");
         }
         return PedidoMapper.mapPedidoToPedidoDTO(existing);
+    }
+
+    private Usuario requireAuthenticatedUsuario() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null || !authentication.isAuthenticated()) {
+            throw new AccessDeniedException("Usuario no autenticado");
+        }
+        return usuarioRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new AccessDeniedException("Usuario no autenticado"));
+    }
+
+    private void assertMembresiaOwnedByUsuario(Membresia membresia, Usuario usuario) {
+        if (membresia.getUsuario() == null || usuario.getId() == null
+                || !usuario.getId().equals(membresia.getUsuario().getId())) {
+            throw new AccessDeniedException(MSG_MEMBRESIA_FORBIDDEN);
+        }
     }
 }
 
