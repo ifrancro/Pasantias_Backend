@@ -29,7 +29,8 @@ public final class PedidoItemOpcionesSupport {
 
         if (grupos.isEmpty()) {
             if (!selecciones.isEmpty()) {
-                throw new IllegalArgumentException("El producto no tiene grupos de opciones configurados");
+                OrderCreationRejections.throwOptionInvalid(
+                        "El producto no tiene grupos de opciones configurados");
             }
             return List.of();
         }
@@ -92,45 +93,46 @@ public final class PedidoItemOpcionesSupport {
 
         for (PedidoItemOpcionResponseDTO sel : selecciones) {
             if (sel == null) {
-                throw new IllegalArgumentException("Una selección de opción no puede ser nula");
+                OrderCreationRejections.throwOptionInvalid("Una selección de opción no puede ser nula");
             }
             if (sel.getGrupoId() == null) {
-                throw new IllegalArgumentException("grupoId es obligatorio en cada selección de opción");
+                OrderCreationRejections.throwOptionInvalid("grupoId es obligatorio en cada selección de opción");
             }
             if (sel.getOpcionId() == null) {
-                throw new IllegalArgumentException("opcionId es obligatorio en cada selección de opción");
+                OrderCreationRejections.throwOptionInvalid("opcionId es obligatorio en cada selección de opción");
             }
             int cantidad = sel.getCantidad() == null ? 0 : sel.getCantidad();
             if (cantidad <= 0) {
-                throw new IllegalArgumentException("La cantidad de cada opción debe ser mayor a 0");
+                OrderCreationRejections.throwInvalidQuantity("La cantidad de cada opción debe ser mayor a 0");
             }
             if (!opcionesVistas.add(sel.getOpcionId())) {
-                throw new IllegalArgumentException("La opción con id " + sel.getOpcionId() + " está repetida en el pedido");
+                OrderCreationRejections.throwOptionInvalid(
+                        "La opción con id " + sel.getOpcionId() + " está repetida en el pedido");
             }
 
             ProductoGrupoOpcion grupo = gruposPorId.get(sel.getGrupoId());
             if (grupo == null) {
-                throw new IllegalArgumentException("La opción no pertenece al producto");
+                OrderCreationRejections.throwOptionInvalid("La opción no pertenece al producto");
             }
 
             ProductoOpcion opcion = opcionesPorId.get(sel.getOpcionId());
             if (opcion == null) {
-                throw new IllegalArgumentException("La opción no pertenece al producto");
+                OrderCreationRejections.throwOptionInvalid("La opción no pertenece al producto");
             }
 
             Integer grupoRealId = opcion.getGrupo() != null ? opcion.getGrupo().getId() : null;
             if (grupoRealId == null || !grupoRealId.equals(sel.getGrupoId())) {
-                throw new IllegalArgumentException("La opción no pertenece al grupo indicado");
+                OrderCreationRejections.throwOptionInvalid("La opción no pertenece al grupo indicado");
             }
 
             if (grupo.getProducto() != null && producto.getId() != null
                     && grupo.getProducto().getId() != null
                     && !producto.getId().equals(grupo.getProducto().getId())) {
-                throw new IllegalArgumentException("La opción no pertenece al producto");
+                OrderCreationRejections.throwOptionInvalid("La opción no pertenece al producto");
             }
 
             if (!Boolean.TRUE.equals(opcion.getActivo())) {
-                throw new IllegalArgumentException(
+                OrderCreationRejections.throwOptionInvalid(
                         "La opción " + opcion.getNombre() + " ya no está disponible");
             }
         }
@@ -155,16 +157,16 @@ public final class PedidoItemOpcionesSupport {
             long activas = grupo.getOpciones() == null ? 0
                     : grupo.getOpciones().stream().filter(o -> Boolean.TRUE.equals(o.getActivo())).count();
             if (min > 0 && activas < min) {
-                throw new IllegalArgumentException(
+                OrderCreationRejections.throwOptionInvalid(
                         "El producto ya no tiene opciones disponibles para completar " + grupo.getNombre());
             }
 
             if (total < min) {
-                throw new IllegalArgumentException(
+                OrderCreationRejections.throwOptionInvalid(
                         "Debes seleccionar al menos " + min + " opciones de " + grupo.getNombre());
             }
             if (max != null && total > max) {
-                throw new IllegalArgumentException(
+                OrderCreationRejections.throwOptionInvalid(
                         "Puedes seleccionar como máximo " + max + " opciones de " + grupo.getNombre());
             }
 
@@ -176,7 +178,7 @@ public final class PedidoItemOpcionesSupport {
                     if (sel.getCantidad() != null && sel.getCantidad() > 1) {
                         ProductoOpcion opcion = opcionesPorId.get(sel.getOpcionId());
                         String nombre = opcion != null ? opcion.getNombre() : String.valueOf(sel.getOpcionId());
-                        throw new IllegalArgumentException("La opción " + nombre + " no puede repetirse");
+                        OrderCreationRejections.throwOptionInvalid("La opción " + nombre + " no puede repetirse");
                     }
                 }
             }

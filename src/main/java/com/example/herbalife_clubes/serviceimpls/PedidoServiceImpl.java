@@ -9,9 +9,9 @@ import com.example.herbalife_clubes.dtos.pedido.PedidoItemDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoItemOpcionResponseDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoMostradorRequestDTO;
 import com.example.herbalife_clubes.entities.*;
-import com.example.herbalife_clubes.exceptions.ConflictException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.PedidoMapper;
+import com.example.herbalife_clubes.pedidos.OrderCreationRejections;
 import com.example.herbalife_clubes.pedidos.PedidoComboSupport;
 import com.example.herbalife_clubes.pedidos.PedidoItemOpcionesSupport;
 import com.example.herbalife_clubes.pricing.PrecioEfectivo;
@@ -217,7 +217,8 @@ public class PedidoServiceImpl implements PedidoService {
         boolean tieneItems = pedidoDTO.getItems() != null && !pedidoDTO.getItems().isEmpty();
         boolean tieneCombos = pedidoDTO.getCombos() != null && !pedidoDTO.getCombos().isEmpty();
         if (!tieneItems && !tieneCombos) {
-            throw new IllegalArgumentException("El pedido debe tener al menos un producto suelto o un combo");
+            OrderCreationRejections.throwInvalidRequest(
+                    "El pedido debe tener al menos un producto suelto o un combo");
         }
 
         String clientOrderId = normalizeAndValidateClientOrderId(pedidoDTO.getClientOrderId());
@@ -225,7 +226,8 @@ public class PedidoServiceImpl implements PedidoService {
         Usuario usuarioAutenticado = requireAuthenticatedUsuario();
 
         Membresia membresia = membresiaRepository.findById(membresiaId)
-                .orElseThrow(() -> new ResourceNotFoundException("Membresía no encontrada con id: " + membresiaId));
+                .orElseThrow(() -> OrderCreationRejections.membershipUnavailable(
+                        "Membresía no encontrada con id: " + membresiaId));
         assertMembresiaOwnedByUsuario(membresia, usuarioAutenticado);
 
         if (clientOrderId != null) {
@@ -236,7 +238,8 @@ public class PedidoServiceImpl implements PedidoService {
         }
 
         Club club = clubRepository.findById(clubId)
-                .orElseThrow(() -> new ResourceNotFoundException("Club no encontrado con id: " + clubId));
+                .orElseThrow(() -> OrderCreationRejections.clubUnavailable(
+                        "Club no encontrado con id: " + clubId));
 
         System.out.println("[PEDIDO] Entidades encontradas:");
         System.out.println("[PEDIDO]   - Membresía ID: " + membresia.getId() + ", Número Socio: " + membresia.getNumeroSocio());
@@ -244,12 +247,14 @@ public class PedidoServiceImpl implements PedidoService {
 
         // Validar que el club destino esté activo
         if (club.getEstado() == null || (!club.getEstado().equals("APROBADO") && !club.getEstado().equals("ACTIVO"))) {
-            throw new IllegalArgumentException("El club destino no está activo. Estado actual: " + club.getEstado());
+            OrderCreationRejections.throwClubInactive(
+                    "El club destino no está activo. Estado actual: " + club.getEstado());
         }
 
         // Validar que el socio esté activo
         if (membresia.getEstado() == null || !membresia.getEstado().equals("ACTIVA")) {
-            throw new IllegalArgumentException("La membresía no está activa. Estado actual: " + membresia.getEstado());
+            OrderCreationRejections.throwMembershipInactive(
+                    "La membresía no está activa. Estado actual: " + membresia.getEstado());
         }
         
         // Crear el pedido
@@ -268,11 +273,13 @@ public class PedidoServiceImpl implements PedidoService {
                 TipoConsumo tipoConsumo = TipoConsumo.valueOf(pedidoDTO.getTipoConsumo().toUpperCase());
                 // Validar que sea uno de los valores permitidos
                 if (tipoConsumo != TipoConsumo.PARA_RECOGER && tipoConsumo != TipoConsumo.EN_LUGAR) {
-                    throw new IllegalArgumentException("tipo_consumo debe ser 'PARA_RECOGER' o 'EN_LUGAR'");
+                    OrderCreationRejections.throwInvalidRequest(
+                            "tipo_consumo debe ser 'PARA_RECOGER' o 'EN_LUGAR'");
                 }
                 pedido.setTipoConsumo(tipoConsumo);
             } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("tipo_consumo debe ser 'PARA_RECOGER' o 'EN_LUGAR'. Valor recibido: " + pedidoDTO.getTipoConsumo());
+                OrderCreationRejections.throwInvalidRequest(
+                        "tipo_consumo debe ser 'PARA_RECOGER' o 'EN_LUGAR'. Valor recibido: " + pedidoDTO.getTipoConsumo());
             }
         } else {
             // Valor por defecto si no se proporciona
@@ -300,15 +307,23 @@ public class PedidoServiceImpl implements PedidoService {
         if (tieneItems) {
             for (PedidoItemDTO itemDTO : pedidoDTO.getItems()) {
                 Producto producto = productoRepository.findById(itemDTO.getProductoId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Producto no encontrado con id: " + itemDTO.getProductoId()));
+                        .orElseThrow(() -> OrderCreationRejections.productUnavailable(
+                                "Producto no encontrado con id: " + itemDTO.getProductoId(),
+                                org.springframework.http.HttpStatus.NOT_FOUND));
 
                 assertProductoPedidoSocio(producto, clubId);
+
+                int cantidadItem = itemDTO.getCantidad() != null ? itemDTO.getCantidad() : 1;
+                if (cantidadItem <= 0) {
+                    OrderCreationRejections.throwInvalidQuantity(
+                            "La cantidad del item debe ser mayor a 0");
+                }
 
                 PedidoItem item = crearItemPedido(
                         pedido,
                         producto,
                         clubId,
-                        itemDTO.getCantidad() != null ? itemDTO.getCantidad() : 1,
+                        cantidadItem,
                         itemDTO.getNota(),
                         itemDTO.getComboId(),
                         itemDTO.getOpciones(),
@@ -318,7 +333,7 @@ public class PedidoServiceImpl implements PedidoService {
                 if (primerProducto == null) {
                     primerProducto = producto;
                 }
-                cantidadTotal += (itemDTO.getCantidad() != null ? itemDTO.getCantidad() : 1);
+                cantidadTotal += cantidadItem;
             }
         }
         
@@ -556,16 +571,16 @@ public class PedidoServiceImpl implements PedidoService {
      */
     private void assertProductoPedidoSocio(Producto producto, Integer clubId) {
         if (!"APROBADO".equalsIgnoreCase(producto.getEstadoAprobacion())) {
-            throw new IllegalArgumentException("El producto no está aprobado para el menú");
+            OrderCreationRejections.throwProductUnavailable("El producto no está aprobado para el menú");
         }
         if (!Boolean.TRUE.equals(producto.getActivo())) {
-            throw new IllegalArgumentException("El producto no está activo");
+            OrderCreationRejections.throwProductUnavailable("El producto no está activo");
         }
         ClubProducto cp = clubProductoRepository.findByClubIdAndProductoId(clubId, producto.getId())
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> OrderCreationRejections.productUnavailable(
                         "El producto " + producto.getNombre() + " no está configurado para este club"));
         if (cp.getDisponible() == null || !cp.getDisponible()) {
-            throw new IllegalArgumentException(
+            OrderCreationRejections.throwProductUnavailable(
                     "El producto " + producto.getNombre() + " no está disponible en este club");
         }
     }
@@ -577,7 +592,9 @@ public class PedidoServiceImpl implements PedidoService {
         ClubProducto cp = clubProductoRepository.findByClubIdAndProductoId(clubId, producto.getId())
                 .orElse(null);
         BigDecimal efectivo = PrecioEfectivo.resolverPrecioEfectivo(producto, cp);
-        PrecioEfectivo.assertConfigurado(efectivo);
+        if (!PrecioEfectivo.estaConfigurado(efectivo)) {
+            OrderCreationRejections.throwProductUnavailable(PrecioEfectivo.MENSAJE_PRECIO_NO_CONFIGURADO);
+        }
         item.setPrecioUnitario(efectivo);
         int cantidad = item.getCantidad() != null ? item.getCantidad() : 1;
         item.setSubtotal(efectivo.multiply(BigDecimal.valueOf(cantidad)));
@@ -810,21 +827,19 @@ public class PedidoServiceImpl implements PedidoService {
         }
         String trimmed = raw.trim();
         if (trimmed.length() > 36) {
-            throw new IllegalArgumentException("clientOrderId inválido: longitud máxima 36 caracteres");
+            OrderCreationRejections.throwInvalidRequest(
+                    "clientOrderId inválido: longitud máxima 36 caracteres");
         }
         try {
             UUID parsed = UUID.fromString(trimmed);
             String canonical = parsed.toString();
             if (!canonical.equalsIgnoreCase(trimmed)) {
-                throw new IllegalArgumentException("clientOrderId debe ser un UUID válido");
+                OrderCreationRejections.throwInvalidRequest("clientOrderId debe ser un UUID válido");
             }
             return canonical;
         } catch (IllegalArgumentException e) {
-            if ("clientOrderId debe ser un UUID válido".equals(e.getMessage())
-                    || e.getMessage().startsWith("clientOrderId inválido")) {
-                throw e;
-            }
-            throw new IllegalArgumentException("clientOrderId debe ser un UUID válido");
+            OrderCreationRejections.throwInvalidRequest("clientOrderId debe ser un UUID válido");
+            return null; // unreachable
         }
     }
 
@@ -836,7 +851,7 @@ public class PedidoServiceImpl implements PedidoService {
         Integer existingMembresiaId = existing.getMembresia() != null ? existing.getMembresia().getId() : null;
         Integer existingClubId = existing.getClub() != null ? existing.getClub().getId() : null;
         if (!membresiaId.equals(existingMembresiaId) || !clubId.equals(existingClubId)) {
-            throw new ConflictException(
+            OrderCreationRejections.throwClientOrderIdConflict(
                     "clientOrderId ya está asociado a un pedido de otra membresía o club");
         }
         return PedidoMapper.mapPedidoToPedidoDTO(existing);

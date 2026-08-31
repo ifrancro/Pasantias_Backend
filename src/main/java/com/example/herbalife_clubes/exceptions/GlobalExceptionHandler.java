@@ -69,6 +69,15 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail(ex.getMessage()));
     }
 
+    @ExceptionHandler(OrderCreationRejectedException.class)
+    public ResponseEntity<Map<String, Object>> handleOrderCreationRejected(OrderCreationRejectedException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("success", false);
+        body.put("error", ex.getErrorCode());
+        body.put("message", ex.getMessage());
+        return ResponseEntity.status(ex.getHttpStatus()).body(body);
+    }
+
     @ExceptionHandler(EmailAlreadyExistsException.class)
     public ResponseEntity<Map<String, Object>> handleEmailAlreadyExists(EmailAlreadyExistsException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(emailAlreadyExistsBody(ex.getMessage()));

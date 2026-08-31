@@ -4,10 +4,10 @@ import com.example.herbalife_clubes.dtos.pedido.PedidoComboComponenteRequestDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoComboRequestDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoItemOpcionResponseDTO;
 import com.example.herbalife_clubes.entities.*;
-import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.repositories.ClubProductoRepository;
 import com.example.herbalife_clubes.repositories.ComboRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -36,8 +36,9 @@ public class PedidoComboSupport {
         validarRequestBasico(request);
 
         Combo combo = comboRepository.findByIdWithItems(request.getComboId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Combo no encontrado con id: " + request.getComboId()));
+                .orElseThrow(() -> OrderCreationRejections.comboUnavailable(
+                        "Combo no encontrado con id: " + request.getComboId(),
+                        HttpStatus.NOT_FOUND));
 
         validarComboParaPedido(combo, clubId);
         validarComposicion(combo, request.getComponentes());
@@ -72,7 +73,7 @@ public class PedidoComboSupport {
         }
 
         if (!pendientes.isEmpty()) {
-            throw new IllegalArgumentException("Faltan componentes del combo en la solicitud");
+            OrderCreationRejections.throwInvalidRequest("Faltan componentes del combo en la solicitud");
         }
 
         return pedidoCombo;
@@ -80,28 +81,28 @@ public class PedidoComboSupport {
 
     private static void validarRequestBasico(PedidoComboRequestDTO request) {
         if (request.getComboId() == null) {
-            throw new IllegalArgumentException("comboId es requerido");
+            OrderCreationRejections.throwInvalidRequest("comboId es requerido");
         }
         if (request.getCantidad() == null || request.getCantidad() <= 0) {
-            throw new IllegalArgumentException("La cantidad del combo debe ser mayor a 0");
+            OrderCreationRejections.throwInvalidQuantity("La cantidad del combo debe ser mayor a 0");
         }
         if (request.getComponentes() == null || request.getComponentes().isEmpty()) {
-            throw new IllegalArgumentException("El combo debe incluir sus componentes configurados");
+            OrderCreationRejections.throwInvalidRequest("El combo debe incluir sus componentes configurados");
         }
     }
 
     public void validarComboParaPedido(Combo combo, Integer clubId) {
         if (combo.getClub() == null || !Objects.equals(combo.getClub().getId(), clubId)) {
-            throw new IllegalArgumentException("El combo no pertenece al club del pedido");
+            OrderCreationRejections.throwComboUnavailable("El combo no pertenece al club del pedido");
         }
         if (!Boolean.TRUE.equals(combo.getActivo())) {
-            throw new IllegalArgumentException("El combo no está activo");
+            OrderCreationRejections.throwComboUnavailable("El combo no está activo");
         }
         if (combo.getPrecio() == null || combo.getPrecio().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException(MENSAJE_PRECIO_COMBO_INVALIDO);
+            OrderCreationRejections.throwComboUnavailable(MENSAJE_PRECIO_COMBO_INVALIDO);
         }
         if (combo.getItems() == null || combo.getItems().isEmpty()) {
-            throw new IllegalArgumentException("El combo no tiene productos configurados");
+            OrderCreationRejections.throwComboUnavailable("El combo no tiene productos configurados");
         }
         for (ComboItem comboItem : combo.getItems()) {
             assertProductoPedible(comboItem.getProducto(), clubId);
@@ -110,7 +111,7 @@ public class PedidoComboSupport {
 
     static void validarComposicion(Combo combo, List<PedidoComboComponenteRequestDTO> componentes) {
         if (componentes.size() != combo.getItems().size()) {
-            throw new IllegalArgumentException(
+            OrderCreationRejections.throwInvalidRequest(
                     "La composición del combo no coincide: se esperaban "
                             + combo.getItems().size() + " componentes, se recibieron " + componentes.size());
         }
@@ -123,12 +124,12 @@ public class PedidoComboSupport {
         Map<Integer, Long> recibidos = new HashMap<>();
         for (PedidoComboComponenteRequestDTO componente : componentes) {
             if (componente.getProductoId() == null) {
-                throw new IllegalArgumentException("Cada componente del combo debe incluir productoId");
+                OrderCreationRejections.throwInvalidRequest("Cada componente del combo debe incluir productoId");
             }
             recibidos.merge(componente.getProductoId(), 1L, Long::sum);
         }
         if (!esperados.equals(recibidos)) {
-            throw new IllegalArgumentException(
+            OrderCreationRejections.throwInvalidRequest(
                     "Los productos del combo no coinciden con la composición definida por el club");
         }
     }
@@ -142,25 +143,28 @@ public class PedidoComboSupport {
                 return candidate;
             }
         }
-        throw new IllegalArgumentException(
+        OrderCreationRejections.throwInvalidRequest(
                 "El producto " + productoId + " no pertenece a la composición del combo");
+        return null; // unreachable
     }
 
     private void assertProductoPedible(Producto producto, Integer clubId) {
         if (producto == null) {
-            throw new IllegalArgumentException("Producto del combo no encontrado");
+            OrderCreationRejections.throwProductUnavailable("Producto del combo no encontrado");
         }
         if (!"APROBADO".equalsIgnoreCase(producto.getEstadoAprobacion())) {
-            throw new IllegalArgumentException("El producto " + producto.getNombre() + " no está aprobado");
+            OrderCreationRejections.throwProductUnavailable(
+                    "El producto " + producto.getNombre() + " no está aprobado");
         }
         if (!Boolean.TRUE.equals(producto.getActivo())) {
-            throw new IllegalArgumentException("El producto " + producto.getNombre() + " no está activo");
+            OrderCreationRejections.throwProductUnavailable(
+                    "El producto " + producto.getNombre() + " no está activo");
         }
         var cp = clubProductoRepository.findByClubIdAndProductoId(clubId, producto.getId())
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> OrderCreationRejections.productUnavailable(
                         "El producto " + producto.getNombre() + " no está configurado para este club"));
         if (cp.getDisponible() == null || !cp.getDisponible()) {
-            throw new IllegalArgumentException(
+            OrderCreationRejections.throwProductUnavailable(
                     "El producto " + producto.getNombre() + " no está disponible en este club");
         }
     }
