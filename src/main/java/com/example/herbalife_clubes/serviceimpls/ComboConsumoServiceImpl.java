@@ -5,6 +5,7 @@ import com.example.herbalife_clubes.exceptions.ComboRequiredException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.entities.EstadoPedido;
 import com.example.herbalife_clubes.repositories.MembresiaRepository;
+import com.example.herbalife_clubes.repositories.PedidoComboRepository;
 import com.example.herbalife_clubes.repositories.PedidoItemRepository;
 import com.example.herbalife_clubes.services.ComboConsumoService;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class ComboConsumoServiceImpl implements ComboConsumoService {
             "El socio no ha consumido ningún Combo antes de registrar asistencia.";
 
     private final PedidoItemRepository pedidoItemRepository;
+    private final PedidoComboRepository pedidoComboRepository;
     private final MembresiaRepository membresiaRepository;
 
     @Override
@@ -33,8 +35,7 @@ public class ComboConsumoServiceImpl implements ComboConsumoService {
         }
         LocalDateTime inicioDia = LocalDate.now().atStartOfDay();
         LocalDateTime finDia = inicioDia.plusDays(1);
-        long total = pedidoItemRepository.countCombosConsumidosEntregadosHoy(
-                membresiaId, EstadoPedido.ENTREGADO, inicioDia, finDia);
+        long total = totalCombosConsumidosEntregadosHoy(membresiaId, inicioDia, finDia);
         return EstadoComboDTO.builder()
                 .haConsumidoCombo(total > 0)
                 .totalCombosConsumidos(total)
@@ -46,9 +47,24 @@ public class ComboConsumoServiceImpl implements ComboConsumoService {
     public void validarComboConsumidoAntesDeAsistencia(Integer membresiaId) {
         LocalDateTime inicioDia = LocalDate.now().atStartOfDay();
         LocalDateTime finDia = inicioDia.plusDays(1);
-        if (!pedidoItemRepository.hasConsumedComboEntregadoHoy(
-                membresiaId, EstadoPedido.ENTREGADO, inicioDia, finDia)) {
+        if (!tieneComboEntregadoHoy(membresiaId, inicioDia, finDia)) {
             throw new ComboRequiredException(MENSAJE_COMBO_REQUERIDO);
         }
+    }
+
+    private boolean tieneComboEntregadoHoy(Integer membresiaId, LocalDateTime inicioDia, LocalDateTime finDia) {
+        return pedidoComboRepository.hasComboEntregadoHoy(
+                        membresiaId, EstadoPedido.ENTREGADO, inicioDia, finDia)
+                || pedidoItemRepository.hasConsumedComboEntregadoHoy(
+                        membresiaId, EstadoPedido.ENTREGADO, inicioDia, finDia);
+    }
+
+    private long totalCombosConsumidosEntregadosHoy(
+            Integer membresiaId, LocalDateTime inicioDia, LocalDateTime finDia) {
+        long modernos = pedidoComboRepository.sumCombosEntregadosHoy(
+                membresiaId, EstadoPedido.ENTREGADO, inicioDia, finDia);
+        long legacy = pedidoItemRepository.countCombosConsumidosEntregadosHoy(
+                membresiaId, EstadoPedido.ENTREGADO, inicioDia, finDia);
+        return modernos + legacy;
     }
 }

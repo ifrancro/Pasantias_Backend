@@ -21,6 +21,7 @@ public interface PedidoItemRepository extends JpaRepository<PedidoItem, Integer>
             + "JOIN pi.producto pr "
             + "WHERE p.membresia.id = :membresiaId "
             + "AND p.estado = :estadoEntregado "
+            + "AND pi.pedidoCombo IS NULL "
             + "AND (pr.esCombo = true OR UPPER(pr.tipo) = 'COMBO')")
     long countCombosConsumidosEntregados(
             @Param("membresiaId") Integer membresiaId,
@@ -31,6 +32,7 @@ public interface PedidoItemRepository extends JpaRepository<PedidoItem, Integer>
             + "JOIN pi.producto pr "
             + "WHERE p.membresia.id = :membresiaId "
             + "AND p.estado = :estadoEntregado "
+            + "AND pi.pedidoCombo IS NULL "
             + "AND (pr.esCombo = true OR UPPER(pr.tipo) = 'COMBO')")
     boolean hasConsumedComboEntregado(
             @Param("membresiaId") Integer membresiaId,
@@ -41,6 +43,7 @@ public interface PedidoItemRepository extends JpaRepository<PedidoItem, Integer>
             + "JOIN pi.producto pr "
             + "WHERE p.membresia.id = :membresiaId "
             + "AND p.estado = :estadoEntregado "
+            + "AND pi.pedidoCombo IS NULL "
             + "AND (pr.esCombo = true OR UPPER(pr.tipo) = 'COMBO') "
             + "AND p.fechaPedido >= :inicioDia "
             + "AND p.fechaPedido < :finDia")
@@ -55,6 +58,7 @@ public interface PedidoItemRepository extends JpaRepository<PedidoItem, Integer>
             + "JOIN pi.producto pr "
             + "WHERE p.membresia.id = :membresiaId "
             + "AND p.estado = :estadoEntregado "
+            + "AND pi.pedidoCombo IS NULL "
             + "AND (pr.esCombo = true OR UPPER(pr.tipo) = 'COMBO') "
             + "AND p.fechaPedido >= :inicioDia "
             + "AND p.fechaPedido < :finDia")
