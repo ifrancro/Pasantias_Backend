@@ -44,6 +44,7 @@ class VerificationServiceResendDeliveryTest {
         ReflectionTestUtils.setField(verificationService, "codeLength", 6);
         ReflectionTestUtils.setField(verificationService, "expirationMinutes", 15);
         ReflectionTestUtils.setField(verificationService, "maxResends", 5);
+        ReflectionTestUtils.setField(verificationService, "resendCooldownSeconds", 60);
     }
 
     @Test
@@ -53,7 +54,10 @@ class VerificationServiceResendDeliveryTest {
         usuario.setEmail("pending@test.com");
         usuario.setNombre("Ana");
 
-        when(usuarioRepository.findByEmail("pending@test.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailForUpdate("pending@test.com")).thenReturn(Optional.of(usuario));
+        when(verificationCodeRepository.findTopByUsuarioAndPurposeOrderByCreatedAtDesc(
+                usuario, VerificationCodePurpose.EMAIL_VERIFICATION))
+                .thenReturn(Optional.empty());
         when(verificationCodeRepository.countRecentCodes(
                 eq(usuario), eq(VerificationCodePurpose.EMAIL_VERIFICATION), any(LocalDateTime.class)))
                 .thenReturn(1L);
@@ -76,7 +80,10 @@ class VerificationServiceResendDeliveryTest {
         usuario.setId(4);
         usuario.setEmail("limit@test.com");
 
-        when(usuarioRepository.findByEmail("limit@test.com")).thenReturn(Optional.of(usuario));
+        when(usuarioRepository.findByEmailForUpdate("limit@test.com")).thenReturn(Optional.of(usuario));
+        when(verificationCodeRepository.findTopByUsuarioAndPurposeOrderByCreatedAtDesc(
+                usuario, VerificationCodePurpose.EMAIL_VERIFICATION))
+                .thenReturn(Optional.empty());
         when(verificationCodeRepository.countRecentCodes(
                 eq(usuario), eq(VerificationCodePurpose.EMAIL_VERIFICATION), any(LocalDateTime.class)))
                 .thenReturn(5L);

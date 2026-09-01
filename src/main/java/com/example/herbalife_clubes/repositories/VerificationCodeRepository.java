@@ -66,6 +66,9 @@ public interface VerificationCodeRepository extends JpaRepository<VerificationCo
             @Param("purpose") VerificationCodePurpose purpose,
             @Param("since") LocalDateTime since);
 
+    Optional<VerificationCode> findTopByUsuarioAndPurposeOrderByCreatedAtDesc(
+            Usuario usuario, VerificationCodePurpose purpose);
+
     /**
      * Borra los códigos de un conjunto de usuarios. La FK de verification_codes
      * no es ON DELETE CASCADE, así que hay que limpiarlos antes de borrar usuarios.

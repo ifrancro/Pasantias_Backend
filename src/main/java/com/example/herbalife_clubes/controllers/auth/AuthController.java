@@ -13,6 +13,7 @@ import com.example.herbalife_clubes.security.JwtService;
 import com.example.herbalife_clubes.dtos.auth.ResendCodeRequest;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.exceptions.EmailDeliveryException;
+import com.example.herbalife_clubes.exceptions.OtpResendCooldownException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.serviceimpls.AuthServiceImpl;
@@ -25,6 +26,7 @@ import com.example.herbalife_clubes.dtos.auth.ResetPasswordRequest;
 import com.example.herbalife_clubes.dtos.auth.VerifyResetCodeRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -132,6 +134,13 @@ public class AuthController {
             ));
         } catch (EmailDeliveryException e) {
             throw e;
+        } catch (OtpResendCooldownException e) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of(
+                    "success", false,
+                    "error", OtpResendCooldownException.ERROR_CODE,
+                    "message", e.getMessage(),
+                    "retryAfterSeconds", e.getRetryAfterSeconds()
+            ));
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.badRequest().body(Map.of(
                 "success", false,

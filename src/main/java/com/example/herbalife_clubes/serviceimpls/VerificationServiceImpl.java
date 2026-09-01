@@ -3,6 +3,7 @@ package com.example.herbalife_clubes.serviceimpls;
 import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.entities.VerificationCode;
 import com.example.herbalife_clubes.entities.VerificationCodePurpose;
+import com.example.herbalife_clubes.exceptions.OtpResendCooldownException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.repositories.VerificationCodeRepository;
@@ -15,6 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -35,6 +37,9 @@ public class VerificationServiceImpl implements VerificationService {
 
     @Value("${app.verification.max-resends:5}")
     private int maxResends;
+
+    @Value("${app.verification.resend-cooldown-seconds:60}")
+    private int resendCooldownSeconds;
 
     @Override
     @Transactional
@@ -74,14 +79,17 @@ public class VerificationServiceImpl implements VerificationService {
     @Transactional
     public void resendCode(String email) {
         String normalizedEmail = AuthServiceImpl.normalizeEmail(email);
-        Usuario usuario = usuarioRepository.findByEmail(normalizedEmail)
+        Usuario usuario = usuarioRepository.findByEmailForUpdate(normalizedEmail)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Usuario no encontrado con email: " + normalizedEmail));
+
+        LocalDateTime now = LocalDateTime.now();
+        enforceResendCooldown(usuario, now);
 
         long recentCount = verificationCodeRepository.countRecentCodes(
                 usuario,
                 VerificationCodePurpose.EMAIL_VERIFICATION,
-                LocalDateTime.now().minusHours(24));
+                now.minusHours(24));
 
         if (recentCount >= maxResends) {
             throw new RuntimeException(
@@ -97,6 +105,34 @@ public class VerificationServiceImpl implements VerificationService {
         verificationCodeRepository.invalidateAllByUsuarioAndPurpose(
                 usuario, VerificationCodePurpose.EMAIL_VERIFICATION);
         log.info("Códigos OTP EMAIL_VERIFICATION invalidados para usuario: {}", usuario.getEmail());
+    }
+
+    static int computeRetryAfterSeconds(long elapsedSeconds, int cooldownSeconds) {
+        if (elapsedSeconds >= cooldownSeconds) {
+            return 0;
+        }
+        long remaining = cooldownSeconds - elapsedSeconds;
+        return (int) Math.max(1, Math.min(cooldownSeconds, remaining));
+    }
+
+    private void enforceResendCooldown(Usuario usuario, LocalDateTime now) {
+        Optional<VerificationCode> lastCode = verificationCodeRepository
+                .findTopByUsuarioAndPurposeOrderByCreatedAtDesc(
+                        usuario, VerificationCodePurpose.EMAIL_VERIFICATION);
+        if (lastCode.isEmpty()) {
+            return;
+        }
+
+        LocalDateTime createdAt = lastCode.get().getCreatedAt();
+        if (createdAt == null) {
+            return;
+        }
+
+        long elapsedSeconds = Duration.between(createdAt, now).getSeconds();
+        if (elapsedSeconds < resendCooldownSeconds) {
+            int retryAfterSeconds = computeRetryAfterSeconds(elapsedSeconds, resendCooldownSeconds);
+            throw new OtpResendCooldownException(retryAfterSeconds);
+        }
     }
 
     private void generateAndSendCode(Usuario usuario, VerificationCodePurpose purpose) {

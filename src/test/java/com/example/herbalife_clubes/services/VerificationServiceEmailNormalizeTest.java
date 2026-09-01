@@ -41,6 +41,7 @@ class VerificationServiceEmailNormalizeTest {
         ReflectionTestUtils.setField(verificationService, "codeLength", 6);
         ReflectionTestUtils.setField(verificationService, "expirationMinutes", 15);
         ReflectionTestUtils.setField(verificationService, "maxResends", 5);
+        ReflectionTestUtils.setField(verificationService, "resendCooldownSeconds", 60);
     }
 
     @Test
@@ -94,8 +95,11 @@ class VerificationServiceEmailNormalizeTest {
         usuario.setEmail("socio1@demo.com");
         usuario.setNombre("Socio");
 
-        when(usuarioRepository.findByEmail("socio1@demo.com"))
+        when(usuarioRepository.findByEmailForUpdate("socio1@demo.com"))
                 .thenReturn(Optional.of(usuario));
+        when(verificationCodeRepository.findTopByUsuarioAndPurposeOrderByCreatedAtDesc(
+                usuario, VerificationCodePurpose.EMAIL_VERIFICATION))
+                .thenReturn(Optional.empty());
         when(verificationCodeRepository.countRecentCodes(
                 eq(usuario), eq(VerificationCodePurpose.EMAIL_VERIFICATION), any(LocalDateTime.class)))
                 .thenReturn(0L);
@@ -106,7 +110,7 @@ class VerificationServiceEmailNormalizeTest {
 
         verificationService.resendCode("  SOCIO1@DEMO.COM  ");
 
-        verify(usuarioRepository).findByEmail("socio1@demo.com");
+        verify(usuarioRepository).findByEmailForUpdate("socio1@demo.com");
         ArgumentCaptor<VerificationCode> captor = ArgumentCaptor.forClass(VerificationCode.class);
         verify(verificationCodeRepository).save(captor.capture());
         assertEquals(usuario, captor.getValue().getUsuario());

@@ -2,6 +2,7 @@ package com.example.herbalife_clubes.controllers.auth;
 
 import com.example.herbalife_clubes.dtos.auth.ResendCodeRequest;
 import com.example.herbalife_clubes.exceptions.EmailDeliveryException;
+import com.example.herbalife_clubes.exceptions.OtpResendCooldownException;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.security.JwtService;
@@ -67,6 +68,24 @@ class AuthControllerResendCodeTest {
         assertNotNull(body);
         assertEquals(false, body.get("success"));
         assertEquals("Usuario no encontrado con email: missing@test.com", body.get("message"));
+    }
+
+    @Test
+    void resendCodeCooldownDevuelve429ConRetryAfterSeconds() {
+        doThrow(new OtpResendCooldownException(37))
+                .when(verificationService).resendCode("cool@test.com");
+
+        ResponseEntity<?> response =
+                authController.resendCode(new ResendCodeRequest("cool@test.com"));
+
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, response.getStatusCode());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertNotNull(body);
+        assertEquals(false, body.get("success"));
+        assertEquals(OtpResendCooldownException.ERROR_CODE, body.get("error"));
+        assertEquals(OtpResendCooldownException.MESSAGE, body.get("message"));
+        assertEquals(37, body.get("retryAfterSeconds"));
     }
 
     @Test
