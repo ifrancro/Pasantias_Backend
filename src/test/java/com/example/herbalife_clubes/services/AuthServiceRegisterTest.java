@@ -49,7 +49,7 @@ class AuthServiceRegisterTest {
 
     @Test
     void emailNuevoRegistraNormalizandoYEnviandoOtp() {
-        when(usuarioRepository.existsByEmail("nuevo@test.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("nuevo@test.com")).thenReturn(false);
         when(passwordEncoder.encode("secret1")).thenReturn("hash");
         Rol rol = new Rol();
         rol.setNombre("USUARIO_BASICO");
@@ -82,7 +82,7 @@ class AuthServiceRegisterTest {
 
     @Test
     void emailExistenteLanzaEmailAlreadyExistsYNoLlamaSave() {
-        when(usuarioRepository.existsByEmail("ya@test.com")).thenReturn(true);
+        when(usuarioRepository.existsByEmailIgnoreCase("ya@test.com")).thenReturn(true);
 
         EmailAlreadyExistsException ex = assertThrows(
                 EmailAlreadyExistsException.class,
@@ -103,7 +103,7 @@ class AuthServiceRegisterTest {
 
     @Test
     void raceConditionEnSaveMapeaAEmailAlreadyExists() {
-        when(usuarioRepository.existsByEmail("race@test.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("race@test.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("hash");
         Rol rol = new Rol();
         rol.setNombre("USUARIO_BASICO");
@@ -132,7 +132,7 @@ class AuthServiceRegisterTest {
 
     @Test
     void registerBasicoEmailExistenteDevuelve409YNoLlamaSave() {
-        when(usuarioRepository.existsByEmail("basico@test.com")).thenReturn(true);
+        when(usuarioRepository.existsByEmailIgnoreCase("basico@test.com")).thenReturn(true);
 
         EmailAlreadyExistsException ex = assertThrows(
                 EmailAlreadyExistsException.class,
@@ -152,7 +152,7 @@ class AuthServiceRegisterTest {
 
     @Test
     void registerBasicoUsuarioNuevoPendienteVerificacionSinJwt() {
-        when(usuarioRepository.existsByEmail("basico-ok@test.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("basico-ok@test.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("hash");
         Rol rol = new Rol();
         rol.setNombre("USUARIO_BASICO");
@@ -191,7 +191,7 @@ class AuthServiceRegisterTest {
 
     @Test
     void registerBasicoRaceConditionEnSaveMapeaAEmailAlreadyExists() {
-        when(usuarioRepository.existsByEmail("race-basico@test.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("race-basico@test.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("hash");
         Rol rol = new Rol();
         rol.setNombre("USUARIO_BASICO");
@@ -215,7 +215,7 @@ class AuthServiceRegisterTest {
 
     @Test
     void registerFalloEntregaOtpEliminaUsuarioYPropagaEmailDeliveryException() {
-        when(usuarioRepository.existsByEmail("fail@test.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("fail@test.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("hash");
         Rol rol = new Rol();
         rol.setNombre("USUARIO_BASICO");
@@ -245,7 +245,7 @@ class AuthServiceRegisterTest {
 
     @Test
     void registerFalloEntregaYFallaCompensacionMantieneEmailDeliveryException() {
-        when(usuarioRepository.existsByEmail("comp-fail@test.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("comp-fail@test.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("hash");
         Rol rol = new Rol();
         rol.setNombre("USUARIO_BASICO");
@@ -280,7 +280,7 @@ class AuthServiceRegisterTest {
 
     @Test
     void registerOtraExcepcionNoCompensaNiEtiquetaComoEmailDelivery() {
-        when(usuarioRepository.existsByEmail("other@test.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("other@test.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("hash");
         Rol rol = new Rol();
         rol.setNombre("USUARIO_BASICO");
@@ -310,7 +310,7 @@ class AuthServiceRegisterTest {
 
     @Test
     void registerBasicoFalloEntregaOtpEliminaUsuarioYPropagaEmailDeliveryException() {
-        when(usuarioRepository.existsByEmail("basico-fail@test.com")).thenReturn(false);
+        when(usuarioRepository.existsByEmailIgnoreCase("basico-fail@test.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("hash");
         Rol rol = new Rol();
         rol.setNombre("USUARIO_BASICO");
@@ -336,6 +336,45 @@ class AuthServiceRegisterTest {
         assertEquals(EmailDeliveryException.DEFAULT_MESSAGE, ex.getMessage());
         verify(usuarioRepository).deleteById(88);
         verify(jwtService, never()).generateToken(any());
+    }
+
+    @Test
+    void registerLegacyCasingBloqueadoPorExistsIgnoreCase() {
+        when(usuarioRepository.existsByEmailIgnoreCase("evis96568@gmail.com")).thenReturn(true);
+
+        EmailAlreadyExistsException ex = assertThrows(
+                EmailAlreadyExistsException.class,
+                () -> authService.register(RegisterRequest.builder()
+                        .nombre("Ana")
+                        .apellido("Pérez")
+                        .email("EVIS96568@GMAIL.COM")
+                        .password("secret1")
+                        .rolId(1)
+                        .telefono("+59170000000")
+                        .build()));
+
+        assertEquals(EmailAlreadyExistsException.DEFAULT_MESSAGE, ex.getMessage());
+        verify(usuarioRepository).existsByEmailIgnoreCase("evis96568@gmail.com");
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void registerBasicoLegacyCasingBloqueadoPorExistsIgnoreCase() {
+        when(usuarioRepository.existsByEmailIgnoreCase("evis96568@gmail.com")).thenReturn(true);
+
+        EmailAlreadyExistsException ex = assertThrows(
+                EmailAlreadyExistsException.class,
+                () -> authService.registerBasico(RegisterBasicoRequest.builder()
+                        .nombre("Ana")
+                        .apellido("Pérez")
+                        .email("EVIS96568@GMAIL.COM")
+                        .password("secret1")
+                        .telefono("+59170000000")
+                        .build()));
+
+        assertEquals(EmailAlreadyExistsException.DEFAULT_MESSAGE, ex.getMessage());
+        verify(usuarioRepository).existsByEmailIgnoreCase("evis96568@gmail.com");
+        verify(usuarioRepository, never()).save(any());
     }
 
     @Test

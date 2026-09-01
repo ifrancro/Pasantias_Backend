@@ -49,8 +49,72 @@ class AuthServiceGoogleAuthTest {
     private AuthServiceImpl authService;
 
     @Test
+    void googleLegacyCasingUsuarioExistenteReutilizaSinDuplicar() {
+        Usuario legacy = Usuario.builder()
+                .id(26)
+                .email("Evis96568@gmail.com")
+                .nombre("Eva")
+                .apellido("Tradicional")
+                .passwordHash("hash-original")
+                .telefono("70000001")
+                .estado("ACTIVO")
+                .rol(rolBasico())
+                .build();
+        when(usuarioRepository.findByEmailIgnoreCase("evis96568@gmail.com"))
+                .thenReturn(Optional.of(legacy));
+        when(jwtService.generateToken(legacy)).thenReturn("jwt-legacy");
+
+        AuthenticationResponse response = authService.completeGoogleAuthentication(
+                "EVIS96568@GMAIL.COM", "Otro", "Nombre", true);
+
+        assertEquals("jwt-legacy", response.getToken());
+        assertEquals(26, response.getUserId());
+        assertEquals("Evis96568@gmail.com", response.getEmail());
+        verify(usuarioRepository).findByEmailIgnoreCase("evis96568@gmail.com");
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void googleEmailMixedCaseUsuarioExistenteAutenticaSinDuplicar() {
+        Usuario existente = usuarioExistente(26, "ACTIVO", "hash-original", "70000001");
+        when(usuarioRepository.findByEmailIgnoreCase("evis96568@gmail.com"))
+                .thenReturn(Optional.of(existente));
+        when(jwtService.generateToken(existente)).thenReturn("jwt-mixed");
+
+        AuthenticationResponse response = authService.completeGoogleAuthentication(
+                "Evis96568@Gmail.com", "Otro", "Nombre", true);
+
+        assertEquals("jwt-mixed", response.getToken());
+        assertEquals(26, response.getUserId());
+        verify(usuarioRepository).findByEmailIgnoreCase("evis96568@gmail.com");
+        verify(usuarioRepository, never()).save(any());
+    }
+
+    @Test
+    void googleEmailMixedCaseUsuarioNuevoPersisteNormalizado() {
+        when(usuarioRepository.findByEmailIgnoreCase("nuevo.google@gmail.com")).thenReturn(Optional.empty());
+        Rol rol = rolBasico();
+        when(rolRepository.findByNombre("USUARIO_BASICO")).thenReturn(Optional.of(rol));
+        when(passwordEncoder.encode(any())).thenReturn("random-hash");
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> {
+            Usuario u = inv.getArgument(0);
+            u.setId(101);
+            return u;
+        });
+        when(jwtService.generateToken(any(Usuario.class))).thenReturn("jwt-nuevo-mixed");
+
+        authService.completeGoogleAuthentication(
+                "Nuevo.Google@Gmail.com", "Nuevo", "Google", true);
+
+        ArgumentCaptor<Usuario> captor = ArgumentCaptor.forClass(Usuario.class);
+        verify(usuarioRepository).save(captor.capture());
+        assertEquals("nuevo.google@gmail.com", captor.getValue().getEmail());
+        verify(usuarioRepository).findByEmailIgnoreCase("nuevo.google@gmail.com");
+    }
+
+    @Test
     void googleUsuarioInexistenteCreaActivoYEmiteJwt() {
-        when(usuarioRepository.findByEmail("nuevo@gmail.com")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByEmailIgnoreCase("nuevo@gmail.com")).thenReturn(Optional.empty());
         Rol rol = rolBasico();
         when(rolRepository.findByNombre("USUARIO_BASICO")).thenReturn(Optional.of(rol));
         when(passwordEncoder.encode(any())).thenReturn("random-hash");
@@ -78,7 +142,7 @@ class AuthServiceGoogleAuthTest {
     @Test
     void googleUsuarioActivoLoginConservaDatos() {
         Usuario existente = usuarioExistente(26, "ACTIVO", "hash-original", "70000001");
-        when(usuarioRepository.findByEmail("evis96568@gmail.com"))
+        when(usuarioRepository.findByEmailIgnoreCase("evis96568@gmail.com"))
                 .thenReturn(Optional.of(existente));
         when(jwtService.generateToken(existente)).thenReturn("jwt-activo");
 
@@ -99,7 +163,7 @@ class AuthServiceGoogleAuthTest {
     @Test
     void googleUsuarioPendienteActivaMismoIdConservaDatosEInvalidaOtp() {
         Usuario pendiente = usuarioExistente(26, "PENDIENTE_VERIFICACION", "hash-reg", "+59170000000");
-        when(usuarioRepository.findByEmail("evis96568@gmail.com"))
+        when(usuarioRepository.findByEmailIgnoreCase("evis96568@gmail.com"))
                 .thenReturn(Optional.of(pendiente));
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(inv -> inv.getArgument(0));
         when(jwtService.generateToken(any(Usuario.class))).thenReturn("jwt-activado");
@@ -128,7 +192,7 @@ class AuthServiceGoogleAuthTest {
     @Test
     void googleUsuarioInactivoNoReactiva() {
         Usuario inactivo = usuarioExistente(30, "INACTIVO", "hash", null);
-        when(usuarioRepository.findByEmail("off@gmail.com")).thenReturn(Optional.of(inactivo));
+        when(usuarioRepository.findByEmailIgnoreCase("off@gmail.com")).thenReturn(Optional.of(inactivo));
 
         assertThrows(DisabledException.class, () ->
                 authService.completeGoogleAuthentication("off@gmail.com", "A", "B", true));
@@ -142,7 +206,7 @@ class AuthServiceGoogleAuthTest {
     @Test
     void googleUsuarioBloqueadoNoReactiva() {
         Usuario bloqueado = usuarioExistente(31, "BLOQUEADO", "hash", null);
-        when(usuarioRepository.findByEmail("blocked@gmail.com")).thenReturn(Optional.of(bloqueado));
+        when(usuarioRepository.findByEmailIgnoreCase("blocked@gmail.com")).thenReturn(Optional.of(bloqueado));
 
         assertThrows(DisabledException.class, () ->
                 authService.completeGoogleAuthentication("blocked@gmail.com", "A", "B", true));
@@ -156,7 +220,7 @@ class AuthServiceGoogleAuthTest {
                 authService.completeGoogleAuthentication("x@gmail.com", "A", "B", false));
 
         assertEquals(GoogleEmailNotVerifiedException.DEFAULT_MESSAGE, ex.getMessage());
-        verify(usuarioRepository, never()).findByEmail(any());
+        verify(usuarioRepository, never()).findByEmailIgnoreCase(any());
         verify(jwtService, never()).generateToken(any());
     }
 
@@ -164,7 +228,7 @@ class AuthServiceGoogleAuthTest {
     void googleEmailVerifiedNullRechazado() {
         assertThrows(GoogleEmailNotVerifiedException.class, () ->
                 authService.completeGoogleAuthentication("x@gmail.com", "A", "B", null));
-        verify(usuarioRepository, never()).findByEmail(any());
+        verify(usuarioRepository, never()).findByEmailIgnoreCase(any());
     }
 
     @Test
@@ -251,7 +315,7 @@ class AuthServiceGoogleAuthTest {
     void googleEmailAusenteEnPayloadEsTokenInvalid() {
         assertThrows(GoogleTokenInvalidException.class, () ->
                 authService.completeGoogleAuthentication("  ", "A", "B", true));
-        verify(usuarioRepository, never()).findByEmail(any());
+        verify(usuarioRepository, never()).findByEmailIgnoreCase(any());
     }
 
     private static Rol rolBasico() {

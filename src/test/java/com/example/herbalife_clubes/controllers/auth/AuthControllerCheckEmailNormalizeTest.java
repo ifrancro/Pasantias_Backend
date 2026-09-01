@@ -38,7 +38,7 @@ class AuthControllerCheckEmailNormalizeTest {
 
     @Test
     void checkEmailNormalizaAntesDeConsultar() {
-        when(usuarioRepository.existsByEmail("socio1@demo.com")).thenReturn(true);
+        when(usuarioRepository.existsByEmailIgnoreCase("socio1@demo.com")).thenReturn(true);
 
         ResponseEntity<?> response = authController.checkEmail("  SOCIO1@DEMO.COM  ");
 
@@ -47,6 +47,19 @@ class AuthControllerCheckEmailNormalizeTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> body = (Map<String, Object>) response.getBody();
         assertEquals(true, body.get("exists"));
-        verify(usuarioRepository).existsByEmail("socio1@demo.com");
+        verify(usuarioRepository).existsByEmailIgnoreCase("socio1@demo.com");
+    }
+
+    @Test
+    void checkEmailMixedCaseUsaExistsIgnoreCase() {
+        when(usuarioRepository.existsByEmailIgnoreCase("evis96568@gmail.com")).thenReturn(true);
+
+        ResponseEntity<?> response = authController.checkEmail("Evis96568@Gmail.com");
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        @SuppressWarnings("unchecked")
+        Map<String, Object> body = (Map<String, Object>) response.getBody();
+        assertEquals(true, body.get("exists"));
+        verify(usuarioRepository).existsByEmailIgnoreCase("evis96568@gmail.com");
     }
 }

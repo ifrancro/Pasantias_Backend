@@ -230,10 +230,15 @@ public class AuthServiceImpl implements AuthService {
             throw new GoogleTokenInvalidException();
         }
 
+        email = normalizeEmail(email);
+        if (email == null || email.isBlank()) {
+            throw new GoogleTokenInvalidException();
+        }
+
         if (nombre == null || nombre.isBlank()) nombre = "Usuario";
         if (apellido == null || apellido.isBlank()) apellido = "Google";
 
-        Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
+        Usuario usuario = usuarioRepository.findByEmailIgnoreCase(email).orElse(null);
 
         if (usuario == null) {
             log.info("[GOOGLE AUTH] Nuevo usuario via Google: {}", email);
@@ -365,7 +370,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private void ensureEmailAvailable(String email) {
-        if (email != null && usuarioRepository.existsByEmail(email)) {
+        if (email != null && usuarioRepository.existsByEmailIgnoreCase(email)) {
             throw new EmailAlreadyExistsException();
         }
     }

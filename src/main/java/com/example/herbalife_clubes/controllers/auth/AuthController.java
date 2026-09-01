@@ -56,7 +56,7 @@ public class AuthController {
     @GetMapping("/check-email")
     public ResponseEntity<?> checkEmail(@RequestParam String email) {
         String normalized = AuthServiceImpl.normalizeEmail(email);
-        boolean exists = normalized != null && usuarioRepository.existsByEmail(normalized);
+        boolean exists = normalized != null && usuarioRepository.existsByEmailIgnoreCase(normalized);
         return ResponseEntity.ok(java.util.Map.of("exists", exists));
     }
 
