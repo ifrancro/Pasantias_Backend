@@ -447,6 +447,25 @@ class PedidoPuntosServiceTest {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @Rollback(false)
+    void hostCancelaAntesDeEntregarNoCambiaPuntos() {
+        Seed seed = seedConProducto(10);
+        Integer pedidoId = crearPedidoSuelto(seed, seed.productoId(), 1);
+        authenticateHost(seed.clubId());
+
+        pedidoService.actualizarEstado(pedidoId, "CANCELADO", null);
+
+        assertEquals(0, puntosMembresia(seed.membresiaId()));
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        tx.executeWithoutResult(status -> {
+            entityManager.clear();
+            Pedido pedido = pedidoRepository.findById(pedidoId).orElseThrow();
+            assertFalse(Boolean.TRUE.equals(pedido.getPuntosAcreditados()));
+        });
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
     void cancelarEntregadoSigueRechazado() {
         Seed seed = seedConProducto(10);
         Integer pedidoId = crearPedidoSuelto(seed, seed.productoId(), 1);

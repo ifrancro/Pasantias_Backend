@@ -228,6 +228,137 @@ class PedidoEstadoActualizacionPersistenceTest {
         assertEstadoPersistido(pedidoId, EstadoPedido.PREPARANDO, 12);
     }
 
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
+    void hostCancelaRecibido() {
+        Seed seed = seedBase();
+        Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
+
+        PedidoDTO dto = pedidoService.actualizarEstado(pedidoId, "CANCELADO", null);
+
+        assertEquals("CANCELADO", dto.getEstado());
+        assertEstadoPersistido(pedidoId, EstadoPedido.CANCELADO, null);
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
+    void hostCancelaPreparando() {
+        Seed seed = seedBase();
+        Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
+        pedidoService.actualizarEstado(pedidoId, "PREPARANDO", 10);
+
+        PedidoDTO dto = pedidoService.actualizarEstado(pedidoId, "CANCELADO", null);
+
+        assertEquals("CANCELADO", dto.getEstado());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
+    void hostCancelaListo() {
+        Seed seed = seedBase();
+        Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
+        pedidoService.actualizarEstado(pedidoId, "PREPARANDO", 10);
+        pedidoService.actualizarEstado(pedidoId, "LISTO", null);
+
+        PedidoDTO dto = pedidoService.actualizarEstado(pedidoId, "CANCELADO", null);
+
+        assertEquals("CANCELADO", dto.getEstado());
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
+    void entregadoNoPuedeCancelar() {
+        Seed seed = seedBase();
+        Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
+        pedidoService.actualizarEstado(pedidoId, "ENTREGADO", null);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> pedidoService.actualizarEstado(pedidoId, "CANCELADO", null));
+
+        assertTrue(ex.getMessage().contains("entregado"));
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
+    void entregadoNoPuedeVolverAPreparando() {
+        Seed seed = seedBase();
+        Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
+        pedidoService.actualizarEstado(pedidoId, "ENTREGADO", null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> pedidoService.actualizarEstado(pedidoId, "PREPARANDO", 5));
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
+    void canceladoNoPuedeVolverARecibido() {
+        Seed seed = seedBase();
+        Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
+        pedidoService.actualizarEstado(pedidoId, "CANCELADO", null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> pedidoService.actualizarEstado(pedidoId, "RECIBIDO", null));
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
+    void canceladoNoPuedeEntregar() {
+        Seed seed = seedBase();
+        Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
+        pedidoService.actualizarEstado(pedidoId, "CANCELADO", null);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> pedidoService.actualizarEstado(pedidoId, "ENTREGADO", null));
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
+    void entregadoIdempotenteNoDuplicaPuntos() {
+        Seed seed = seedBase();
+        Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
+        pedidoService.actualizarEstado(pedidoId, "ENTREGADO", null);
+
+        PedidoDTO dto = pedidoService.actualizarEstado(pedidoId, "ENTREGADO", null);
+
+        assertEquals("ENTREGADO", dto.getEstado());
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        tx.executeWithoutResult(status -> {
+            entityManager.clear();
+            Pedido pedido = pedidoRepository.findById(pedidoId).orElseThrow();
+            assertTrue(Boolean.TRUE.equals(pedido.getPuntosAcreditados()));
+        });
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @Rollback(false)
+    void canceladoIdempotentePermitido() {
+        Seed seed = seedBase();
+        Integer pedidoId = crearPedidoSencillo(seed);
+        authenticateHost(seed.clubId());
+        pedidoService.actualizarEstado(pedidoId, "CANCELADO", null);
+
+        PedidoDTO dto = pedidoService.actualizarEstado(pedidoId, "CANCELADO", null);
+
+        assertEquals("CANCELADO", dto.getEstado());
+    }
+
     private Integer crearPedidoSencillo(Seed seed) {
         TransactionTemplate tx = new TransactionTemplate(transactionManager);
         return tx.execute(status -> {

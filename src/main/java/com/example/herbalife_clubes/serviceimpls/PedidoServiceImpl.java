@@ -787,6 +787,8 @@ public class PedidoServiceImpl implements PedidoService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Estado inválido: " + estado);
         }
+
+        validarTransicionEstado(estadoAnterior, nuevoEstado);
         
         // Si el estado es PREPARANDO, tiempo_estimado_minutos es obligatorio
         if (EstadoPedido.PREPARANDO.equals(nuevoEstado)) {
@@ -809,6 +811,23 @@ public class PedidoServiceImpl implements PedidoService {
 
         Pedido updatedPedido = pedidoRepository.save(pedido);
         return PedidoMapper.mapPedidoToPedidoDTO(updatedPedido);
+    }
+
+    private void validarTransicionEstado(EstadoPedido estadoAnterior, EstadoPedido nuevoEstado) {
+        if (EstadoPedido.ENTREGADO.equals(estadoAnterior) && !EstadoPedido.ENTREGADO.equals(nuevoEstado)) {
+            throw new IllegalArgumentException("Un pedido entregado no puede cambiar de estado.");
+        }
+        if (EstadoPedido.CANCELADO.equals(estadoAnterior) && !EstadoPedido.CANCELADO.equals(nuevoEstado)) {
+            throw new IllegalArgumentException("Un pedido cancelado no puede cambiar de estado.");
+        }
+        if (EstadoPedido.CANCELADO.equals(nuevoEstado)
+                && !EstadoPedido.CANCELADO.equals(estadoAnterior)
+                && !(EstadoPedido.RECIBIDO.equals(estadoAnterior)
+                || EstadoPedido.PREPARANDO.equals(estadoAnterior)
+                || EstadoPedido.LISTO.equals(estadoAnterior))) {
+            throw new IllegalArgumentException(
+                    "Solo se puede cancelar un pedido en estado RECIBIDO, PREPARANDO o LISTO.");
+        }
     }
 
     /**

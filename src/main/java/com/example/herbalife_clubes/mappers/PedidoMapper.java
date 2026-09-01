@@ -8,6 +8,8 @@ import com.example.herbalife_clubes.dtos.pedido.PedidoItemOpcionResponseDTO;
 import com.example.herbalife_clubes.entities.Pedido;
 import com.example.herbalife_clubes.entities.PedidoCombo;
 import com.example.herbalife_clubes.entities.PedidoItem;
+import com.example.herbalife_clubes.entities.Membresia;
+import com.example.herbalife_clubes.entities.Usuario;
 
 import com.example.herbalife_clubes.pedidos.PedidoDateTimeSupport;
 import java.math.BigDecimal;
@@ -24,6 +26,8 @@ public class PedidoMapper {
         dto.setId(pedido.getId());
         dto.setMembresiaId(pedido.getMembresia() != null ? pedido.getMembresia().getId() : null);
         dto.setMembresiaNumeroSocio(pedido.getMembresia() != null ? pedido.getMembresia().getNumeroSocio() : null);
+        dto.setSocioNombre(resolverSocioNombre(pedido.getMembresia()));
+        dto.setSocioTelefono(resolverSocioTelefono(pedido.getMembresia()));
         dto.setClubId(pedido.getClub() != null ? pedido.getClub().getId() : null);
         dto.setClubNombre(pedido.getClub() != null ? pedido.getClub().getNombreClub() : null);
 
@@ -207,6 +211,37 @@ public class PedidoMapper {
         if (pedido.getPedidoCombos() != null) {
             pedido.getPedidoCombos().size();
         }
+    }
+
+    static String resolverSocioNombre(Membresia membresia) {
+        if (membresia == null || membresia.getUsuario() == null) {
+            return null;
+        }
+        Usuario usuario = membresia.getUsuario();
+        String nombre = usuario.getNombre() != null ? usuario.getNombre().trim() : "";
+        String apellido = usuario.getApellido() != null ? usuario.getApellido().trim() : "";
+        if (nombre.isEmpty() && apellido.isEmpty()) {
+            return null;
+        }
+        if (nombre.isEmpty()) {
+            return apellido;
+        }
+        if (apellido.isEmpty()) {
+            return nombre;
+        }
+        return nombre + " " + apellido;
+    }
+
+    static String resolverSocioTelefono(Membresia membresia) {
+        if (membresia == null || membresia.getUsuario() == null) {
+            return null;
+        }
+        String telefono = membresia.getUsuario().getTelefono();
+        if (telefono == null) {
+            return null;
+        }
+        String trimmed = telefono.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     public static Pedido mapPedidoDTOToPedido(PedidoDTO dto) {

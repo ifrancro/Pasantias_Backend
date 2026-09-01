@@ -39,6 +39,7 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
            "LEFT JOIN FETCH p.club c " +
            "LEFT JOIN FETCH c.anfitrion " +
            "LEFT JOIN FETCH p.membresia m " +
+           "LEFT JOIN FETCH m.usuario " +
            "LEFT JOIN FETCH p.items i " +
            "LEFT JOIN FETCH i.producto " +
            "LEFT JOIN FETCH i.combo " +
@@ -56,6 +57,7 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
     @Query("SELECT DISTINCT p FROM Pedido p " +
            "LEFT JOIN FETCH p.club c " +
            "LEFT JOIN FETCH p.membresia m " +
+           "LEFT JOIN FETCH m.usuario " +
            "LEFT JOIN FETCH p.items i " +
            "LEFT JOIN FETCH i.producto " +
            "LEFT JOIN FETCH i.combo " +
@@ -252,6 +254,7 @@ public interface PedidoRepository extends JpaRepository<Pedido, Integer> {
             + "LEFT JOIN FETCH p.club c "
             + "LEFT JOIN FETCH c.anfitrion "
             + "LEFT JOIN FETCH p.membresia m "
+            + "LEFT JOIN FETCH m.usuario "
             + "LEFT JOIN FETCH p.items i "
             + "LEFT JOIN FETCH i.producto "
             + "LEFT JOIN FETCH i.combo "

@@ -17,6 +17,8 @@ public class PedidoDTO {
     private Integer id;
     private Integer membresiaId;
     private String membresiaNumeroSocio;
+    private String socioNombre;
+    private String socioTelefono;
     private Integer clubId;
     private String clubNombre;
     // Compatibilidad: antes existía productoId/cantidad (pedido de 1 item).
