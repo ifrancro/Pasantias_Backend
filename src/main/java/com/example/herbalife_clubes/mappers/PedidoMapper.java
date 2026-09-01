@@ -9,6 +9,7 @@ import com.example.herbalife_clubes.entities.Pedido;
 import com.example.herbalife_clubes.entities.PedidoCombo;
 import com.example.herbalife_clubes.entities.PedidoItem;
 
+import com.example.herbalife_clubes.pedidos.PedidoDateTimeSupport;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -52,7 +53,7 @@ public class PedidoMapper {
         dto.setTiempoEstimadoMinutos(pedido.getTiempoEstimadoMinutos());
         dto.setObservaciones(pedido.getObservaciones());
         dto.setEstado(pedido.getEstado() != null ? pedido.getEstado().name() : null);
-        dto.setFechaPedido(pedido.getFechaPedido());
+        dto.setFechaPedido(PedidoDateTimeSupport.toInstantUtc(pedido.getFechaPedido()));
         return dto;
     }
 

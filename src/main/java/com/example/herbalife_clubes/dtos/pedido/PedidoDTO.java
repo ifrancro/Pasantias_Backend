@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,7 +30,7 @@ public class PedidoDTO {
     private Integer tiempoEstimadoMinutos; // Tiempo estimado de preparación en minutos
     private String observaciones;
     private String estado; // RECIBIDO | PREPARANDO | LISTO | ENTREGADO | CANCELADO
-    private LocalDateTime fechaPedido;
+    private Instant fechaPedido;
     
     // Lista de items del pedido (pedido_items). Incluye componentes de combo para compatibilidad;
     // clientes modernos deben renderizar combos[] y omitir items con pedidoComboId/comboId duplicado.

@@ -1,5 +1,6 @@
 package com.example.herbalife_clubes.entities;
 
+import com.example.herbalife_clubes.pedidos.PedidoDateTimeSupport;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -81,7 +82,7 @@ public class Pedido {
     @PrePersist
     protected void onCreate() {
         if (fechaPedido == null) {
-            fechaPedido = LocalDateTime.now();
+            fechaPedido = PedidoDateTimeSupport.nowUtc();
         }
         if (estado == null) {
             estado = EstadoPedido.RECIBIDO;

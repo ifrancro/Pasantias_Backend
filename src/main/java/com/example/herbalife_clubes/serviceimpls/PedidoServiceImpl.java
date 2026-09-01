@@ -9,6 +9,7 @@ import com.example.herbalife_clubes.dtos.pedido.PedidoItemDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoItemOpcionResponseDTO;
 import com.example.herbalife_clubes.dtos.pedido.PedidoMostradorRequestDTO;
 import com.example.herbalife_clubes.entities.*;
+import com.example.herbalife_clubes.pedidos.PedidoDateTimeSupport;
 import com.example.herbalife_clubes.exceptions.ResourceNotFoundException;
 import com.example.herbalife_clubes.mappers.PedidoMapper;
 import com.example.herbalife_clubes.pedidos.OrderCreationRejections;
@@ -271,7 +272,7 @@ public class PedidoServiceImpl implements PedidoService {
         // horarioDeseado fue eliminado - ahora se usa tiempoEstimadoMinutos
         pedido.setObservaciones(pedidoDTO.getObservaciones());
         pedido.setEstado(EstadoPedido.RECIBIDO);
-        pedido.setFechaPedido(LocalDateTime.now());
+        pedido.setFechaPedido(PedidoDateTimeSupport.nowUtc());
         
         // Validar y establecer tipo_consumo (solo acepta PARA_RECOGER o EN_LUGAR)
         if (pedidoDTO.getTipoConsumo() != null) {
@@ -440,7 +441,7 @@ public class PedidoServiceImpl implements PedidoService {
         pedido.setMembresia(membresia); // null => venta externa
         pedido.setEstado(EstadoPedido.ENTREGADO);
         pedido.setObservaciones(request.getObservaciones());
-        pedido.setFechaPedido(LocalDateTime.now());
+        pedido.setFechaPedido(PedidoDateTimeSupport.nowUtc());
 
         if (request.getTipoConsumo() != null && !request.getTipoConsumo().isBlank()) {
             try {
