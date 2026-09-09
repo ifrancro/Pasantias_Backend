@@ -7,10 +7,13 @@ import com.example.herbalife_clubes.repositories.UsuarioRepository;
 import com.example.herbalife_clubes.services.SocioActivationService;
 import com.example.herbalife_clubes.services.UsuarioService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -36,9 +39,31 @@ public class UsuarioController {
         return ResponseEntity.ok(updatedUsuarioDTO);
     }
 
+    /**
+     * Baja administrativa de una cuenta (ACTIVO -> INACTIVO). Solo ADMIN.
+     *
+     * No confundir con la activación de socio (POST /api/clubes/{clubId}/socios/activar),
+     * que es un alta de ciclo de vida irrepetible: convierte USUARIO_BASICO en SOCIO.
+     * Esto es solo el interruptor de acceso de la cuenta.
+     */
     @PatchMapping("{id}/desactivar")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<UsuarioDTO> desactivarUsuario(@PathVariable Integer id) {
-        UsuarioDTO usuarioDTO = usuarioService.desactivarUsuario(id);
+        Usuario admin = getUsuarioAutenticado();
+        UsuarioDTO usuarioDTO = usuarioService.desactivarUsuario(id, admin.getId());
+        return ResponseEntity.ok(usuarioDTO);
+    }
+
+    /**
+     * Alta administrativa de una cuenta dada de baja (INACTIVO -> ACTIVO). Solo ADMIN.
+     *
+     * El socio conserva su membresía, número de socio y QR: al reactivarlo, el mismo
+     * QR que ya tiene guardado vuelve a validar. No hay que reemitirlo ni reescanearlo.
+     */
+    @PatchMapping("{id}/reactivar")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UsuarioDTO> reactivarUsuario(@PathVariable Integer id) {
+        UsuarioDTO usuarioDTO = usuarioService.reactivarUsuario(id);
         return ResponseEntity.ok(usuarioDTO);
     }
 
@@ -83,6 +108,15 @@ public class UsuarioController {
 
         QrResponse qrResponse = socioActivationService.obtenerQrUsuario(usuario.getId());
         return ResponseEntity.ok(qrResponse);
+    }
+
+    private Usuario getUsuarioAutenticado() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No autenticado");
+        }
+        return usuarioRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuario autenticado no encontrado"));
     }
 }
 
