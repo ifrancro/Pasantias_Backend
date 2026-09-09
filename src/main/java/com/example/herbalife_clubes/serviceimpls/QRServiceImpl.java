@@ -4,6 +4,7 @@ import com.example.herbalife_clubes.dtos.qr.QRValidacionRequest;
 import com.example.herbalife_clubes.dtos.qr.QRValidacionResponse;
 import com.example.herbalife_clubes.entities.Club;
 import com.example.herbalife_clubes.entities.Membresia;
+import com.example.herbalife_clubes.entities.Usuario;
 import com.example.herbalife_clubes.repositories.ClubRepository;
 import com.example.herbalife_clubes.repositories.MembresiaRepository;
 import com.example.herbalife_clubes.services.QRService;
@@ -67,6 +68,20 @@ public class QRServiceImpl implements QRService {
             return response;
         }
         
+        // Validar que la cuenta del socio no esté dada de baja.
+        // La baja administrativa vive en usuarios.estado y no toca la membresía:
+        // sin esta comprobación, un socio desactivado seguiría acumulando
+        // asistencias y beneficios presentando su QR en el club.
+        Usuario socio = membresia.getUsuario();
+        if (socio != null && socio.getEstado() != null
+                && !"ACTIVO".equalsIgnoreCase(socio.getEstado())) {
+            response.setValido(false);
+            response.setMensaje("La cuenta del socio no está activa. Contacte al administrador.");
+            response.setMembresiaId(membresia.getId());
+            response.setNumeroSocio(membresia.getNumeroSocio());
+            return response;
+        }
+
         // Validar club si se proporciona (opcional)
         if (request.getClubId() != null) {
             Club club = clubRepository.findById(request.getClubId())
